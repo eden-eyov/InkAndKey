@@ -71,6 +71,14 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route
+            path="/profile/:userId"
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            }
+          />
 
           {/* Catch-all route for unmatched URLs */}
           <Route path="*" element={<NotFound />} />
