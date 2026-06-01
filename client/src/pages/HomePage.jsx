@@ -20,18 +20,28 @@ function HomePage() {
             Join book clubs, track your progress chapter by chapter, and only see discussions about what you've already read.
           </p>
           
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link 
-              to="/register" 
-              className="px-8 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition shadow-sm w-full sm:w-auto"
+          <div className="flex flex-col items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full">
+              <Link
+                to="/register"
+                className="px-8 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition shadow-sm w-full sm:w-auto"
+              >
+                Start reading
+              </Link>
+
+              <Link
+                to="/login"
+                className="px-8 py-3 bg-transparent border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-stone-300 transition w-full sm:w-auto"
+              >
+                Sign in
+              </Link>
+            </div>
+
+            <Link
+              to="/clubs"
+              className="text-sm text-stone-500 hover:text-accent transition font-medium"
             >
-              Start reading
-            </Link>
-            <Link 
-              to="/login" 
-              className="px-8 py-3 bg-transparent border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-stone-300 transition w-full sm:w-auto"
-            >
-              Sign in
+              Explore as guest
             </Link>
           </div>
         </div>
