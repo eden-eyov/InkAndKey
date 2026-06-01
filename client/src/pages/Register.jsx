@@ -69,6 +69,9 @@ function Register() {
         email: formData.email.trim(),
         password: formData.password,
       });
+      // SERVER TODO:
+      // Backend POST /auth/register should create the user,
+      // hash the password, and return { user, token }.
 
       const registeredUser = data.user || data.data;
       const token = data.token;

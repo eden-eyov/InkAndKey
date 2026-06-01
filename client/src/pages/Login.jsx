@@ -55,6 +55,9 @@ function Login() {
     setLoading(true);
 
     try {
+      // SERVER TODO:
+      // Backend POST /auth/login should return:
+      // { user, token }
       const { data } = await api.post('/auth/login', formData);
 
       // Supports backend response: { user, token }

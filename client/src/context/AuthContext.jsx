@@ -21,6 +21,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
+        // SERVER TODO:
+        // Make sure the backend has GET /auth/me.
+        // This route should be protected with JWT and return the logged-in user.
         const res = await api.get('/auth/me');
 
         // Supports both possible backend response structures:

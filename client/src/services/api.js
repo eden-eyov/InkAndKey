@@ -1,6 +1,9 @@
 import axios from 'axios';
 
 // Create a custom Axios instance for all backend requests
+// SERVER TODO:
+// When deploying the backend, set VITE_API_URL in the client .env file
+// and in Vercel/Netlify environment variables.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
   timeout: 10000,
@@ -8,7 +11,9 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 });
-
+// SERVER TODO:
+// Backend protected routes must expect this header:
+// Authorization: Bearer <token>
 // Interceptor to automatically add the JWT token to every request header
 api.interceptors.request.use(
   (config) => {
