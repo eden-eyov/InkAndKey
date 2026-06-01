@@ -4,49 +4,85 @@ import api from '../services/api';
 
 function Onboarding() {
   const navigate = useNavigate();
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Form State
+
   const [selectedGenres, setSelectedGenres] = useState([]);
   const [bookInput, setBookInput] = useState('');
   const [favoriteBooks, setFavoriteBooks] = useState([]);
+
+  // SERVER TODO:
+  // This file is currently only used for frontend preview.
+  // When working on the server, we need to send it with FormData
+  // and handle it with Multer on the backend.
   const [profileImage, setProfileImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
 
-  // Available genres to choose from
   const availableGenres = [
-    'Fantasy', 'Science Fiction', 'Romance', 'Thriller', 
-    'Historical Fiction', 'Non-Fiction', 'Mystery', 'Classics', 'Horror'
+    'Fantasy',
+    'Science Fiction',
+    'Romance',
+    'Thriller',
+    'Historical Fiction',
+    'Non-Fiction',
+    'Mystery',
+    'Classics',
+    'Horror',
   ];
 
   const handleGenreToggle = (genre) => {
-    if (selectedGenres.includes(genre)) {
-      setSelectedGenres(selectedGenres.filter(g => g !== genre));
-    } else {
-      setSelectedGenres([...selectedGenres, genre]);
-    }
+    setSelectedGenres((prevGenres) => {
+      if (prevGenres.includes(genre)) {
+        return prevGenres.filter((g) => g !== genre);
+      }
+
+      return [...prevGenres, genre];
+    });
   };
 
   const handleAddBook = (e) => {
     e.preventDefault();
-    if (bookInput.trim() && !favoriteBooks.includes(bookInput.trim())) {
-      setFavoriteBooks([...favoriteBooks, bookInput.trim()]);
-      setBookInput('');
+    setError('');
+
+    const cleanBookName = bookInput.trim();
+
+    if (!cleanBookName) return;
+
+    if (favoriteBooks.includes(cleanBookName)) {
+      setError('This book is already in your list.');
+      return;
     }
+
+    if (favoriteBooks.length >= 3) {
+      setError('You can add up to 3 favorite books.');
+      return;
+    }
+
+    setFavoriteBooks((prevBooks) => [...prevBooks, cleanBookName]);
+    setBookInput('');
   };
 
   const handleRemoveBook = (bookToRemove) => {
-    setFavoriteBooks(favoriteBooks.filter(book => book !== bookToRemove));
+    setFavoriteBooks((prevBooks) =>
+      prevBooks.filter((book) => book !== bookToRemove)
+    );
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setProfileImage(file);
-      // Create a temporary URL to show the preview
-      setImagePreview(URL.createObjectURL(file));
-    }
+
+    if (!file) return;
+
+    // SERVER TODO:
+    // Later, validate file size/type also on the backend.
+    // Frontend accept="image/jpeg, image/png, image/webp" helps the user,
+    // but the real validation must happen in Multer/server middleware.
+    setProfileImage(file);
+
+    // This creates a temporary local preview only.
+    // It does not upload or save the image.
+    setImagePreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
@@ -55,23 +91,47 @@ function Onboarding() {
     setError('');
 
     try {
-      // In a real scenario with Multer, you would use FormData here
-      // const formData = new FormData();
-      // formData.append('genres', JSON.stringify(selectedGenres));
-      // formData.append('favoriteBooks', JSON.stringify(favoriteBooks));
-      // if (profileImage) formData.append('avatar', profileImage);
-      
-      // For now, sending a standard JSON request to update the user profile
+      // SERVER TODO:
+      // Right now we send only JSON because the backend is not ready.
+      // When working on the server and adding Multer,
+      // replace this JSON request with FormData:
+      //
+      // const onboardingData = new FormData();
+      // onboardingData.append('genres', JSON.stringify(selectedGenres));
+      // onboardingData.append('favoriteBooks', JSON.stringify(favoriteBooks));
+      //
+      // if (profileImage) {
+      //   onboardingData.append('avatar', profileImage);
+      // }
+      //
+      // await api.put('/users/profile', onboardingData, {
+      //   headers: {
+      //     'Content-Type': 'multipart/form-data',
+      //   },
+      // });
+
       await api.put('/users/profile', {
         genres: selectedGenres,
-        favoriteBooks: favoriteBooks
+        favoriteBooks,
       });
 
-      // Navigate to the dashboard after successful onboarding
+      // SERVER TODO:
+      // Make sure the backend route PUT /users/profile exists,
+      // is protected with JWT middleware,
+      // and updates the logged-in user's genres, favoriteBooks, and avatar.
       navigate('/dashboard');
-      
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save profile. Please try again.');
+      // TEMPORARY DESIGN TEST ONLY:
+      // If the backend is not running yet and you want to continue
+      // checking the frontend flow, uncomment these two lines:
+      //
+      // navigate('/dashboard');
+      // return;
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to save profile. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -80,10 +140,11 @@ function Onboarding() {
   return (
     <div className="min-h-screen bg-cream font-sans text-ink pt-20 pb-16 px-4">
       <div className="max-w-2xl mx-auto bg-white p-8 md:p-12 rounded-2xl border border-stone-200/60 shadow-sm">
-        
         <div className="text-center mb-10">
           <h1 className="font-serif text-4xl mb-3">Welcome to Ink & Key</h1>
-          <p className="text-stone-500 text-sm">Let's personalize your reading experience.</p>
+          <p className="text-stone-500 text-sm">
+            Let&apos;s personalize your reading experience.
+          </p>
         </div>
 
         {error && (
@@ -93,35 +154,51 @@ function Onboarding() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-10">
-          
-          {/* Section 1: Profile Picture */}
           <section className="flex flex-col items-center">
             <div className="relative group cursor-pointer mb-3">
               <div className="w-24 h-24 rounded-full bg-cream border-2 border-dashed border-stone-300 flex items-center justify-center overflow-hidden transition group-hover:border-accent">
                 {imagePreview ? (
-                  <img src={imagePreview} alt="Profile preview" className="w-full h-full object-cover" />
+                  <img
+                    src={imagePreview}
+                    alt="Profile preview"
+                    className="w-full h-full object-cover"
+                  />
                 ) : (
                   <span className="text-3xl text-stone-300">+</span>
                 )}
               </div>
-              <input 
-                type="file" 
+
+              <input
+                type="file"
                 accept="image/jpeg, image/png, image/webp"
                 onChange={handleImageChange}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 title="Upload profile picture"
               />
             </div>
-            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Upload Avatar</span>
+
+            <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">
+              Upload Avatar
+            </span>
+
+            {profileImage && (
+              <span className="text-xs text-stone-400 mt-2">
+                {profileImage.name}
+              </span>
+            )}
           </section>
 
-          {/* Section 2: Favorite Genres */}
           <section>
-            <h2 className="font-serif text-xl mb-1">What do you love to read?</h2>
-            <p className="text-xs text-stone-400 mb-4">Select all your favorite genres.</p>
-            
+            <h2 className="font-serif text-xl mb-1">
+              What do you love to read?
+            </h2>
+
+            <p className="text-xs text-stone-400 mb-4">
+              Select all your favorite genres.
+            </p>
+
             <div className="flex flex-wrap gap-2">
-              {availableGenres.map(genre => (
+              {availableGenres.map((genre) => (
                 <button
                   key={genre}
                   type="button"
@@ -138,39 +215,52 @@ function Onboarding() {
             </div>
           </section>
 
-          {/* Section 3: Favorite Books */}
           <section>
             <h2 className="font-serif text-xl mb-1">Top 3 Favorite Books</h2>
-            <p className="text-xs text-stone-400 mb-4">Add some books you absolutely loved.</p>
-            
+
+            <p className="text-xs text-stone-400 mb-4">
+              Add some books you absolutely loved.
+            </p>
+
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
                 placeholder="e.g., The Secret History"
                 value={bookInput}
                 onChange={(e) => setBookInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddBook(e)}
-                className="flex-grow p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleAddBook(e);
+                  }
+                }}
+                disabled={favoriteBooks.length >= 3}
+                className="flex-grow p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm disabled:opacity-50"
               />
-              <button 
+
+              <button
                 type="button"
                 onClick={handleAddBook}
-                className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-xl hover:opacity-90 transition"
+                disabled={favoriteBooks.length >= 3}
+                className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50"
               >
                 Add
               </button>
             </div>
 
-            {/* Display added books as tags */}
             {favoriteBooks.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
-                {favoriteBooks.map((book, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg text-sm text-stone-700">
+                {favoriteBooks.map((book) => (
+                  <div
+                    key={book}
+                    className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg text-sm text-stone-700"
+                  >
                     <span>{book}</span>
-                    <button 
-                      type="button" 
+
+                    <button
+                      type="button"
                       onClick={() => handleRemoveBook(book)}
                       className="text-stone-400 hover:text-red-500 font-bold"
+                      aria-label={`Remove ${book}`}
                     >
                       ×
                     </button>
@@ -180,16 +270,16 @@ function Onboarding() {
             )}
           </section>
 
-          {/* Submit Area */}
           <div className="pt-6 border-t border-stone-100 flex justify-end items-center gap-4">
-            <button 
+            <button
               type="button"
               onClick={() => navigate('/dashboard')}
               className="text-sm font-medium text-stone-500 hover:text-ink transition"
             >
               Skip for now
             </button>
-            <button 
+
+            <button
               type="submit"
               disabled={loading}
               className="px-8 py-3 bg-ink text-white font-medium rounded-full hover:opacity-90 transition disabled:opacity-50"
@@ -197,7 +287,6 @@ function Onboarding() {
               {loading ? 'Saving...' : 'Complete Profile'}
             </button>
           </div>
-
         </form>
       </div>
     </div>
