@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// Create a custom instance of Axios with the Backend base URL
+// Create a custom Axios instance for all backend requests
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', // Adjust the port if your backend runs on a different one
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -18,6 +19,27 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Handle global API errors
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const requestUrl = error.config?.url;
+
+    // If the token is invalid or expired, clear it.
+    // We avoid redirecting when the failed request is already login/register.
+    if (
+      status === 401 &&
+      !requestUrl?.includes('/auth/login') &&
+      !requestUrl?.includes('/auth/register')
+    ) {
+      localStorage.removeItem('token');
+    }
+
     return Promise.reject(error);
   }
 );
