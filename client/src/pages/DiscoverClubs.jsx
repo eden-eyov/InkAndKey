@@ -5,6 +5,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import { fetchAllClubs } from '../store/clubsSlice';
 
+import ClubCard from '../components/ClubCard';
+
 function DiscoverClubs() {
   const dispatch = useDispatch();
   const { user } = useAuth();
@@ -17,9 +19,9 @@ function DiscoverClubs() {
   // When the backend is ready, fetchAllClubs should call a public endpoint,
   // for example: GET /clubs.
   // This route should be available for both guests and logged-in users.
-  useEffect(() => {
-    dispatch(fetchAllClubs());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(fetchAllClubs());
+  // }, [dispatch]);
 
   // TEMPORARY DESIGN TEST ONLY:
   // If the backend is not ready and you want to see the page design,
@@ -36,6 +38,8 @@ function DiscoverClubs() {
       currentBookTitle: 'The Silent Patient',
       membersCount: 128,
       genre: 'Thriller',
+      imageUrl:
+        'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop',
     },
     {
       _id: 'demo-club-2',
@@ -45,6 +49,7 @@ function DiscoverClubs() {
       currentBookTitle: 'The Hobbit',
       membersCount: 94,
       genre: 'Fantasy',
+      imageUrl: '',
     },
     {
       _id: 'demo-club-3',
@@ -54,13 +59,15 @@ function DiscoverClubs() {
       currentBookTitle: 'Pride and Prejudice',
       membersCount: 76,
       genre: 'Classics',
+      imageUrl:
+        'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400&h=600&fit=crop',
     },
   ];
 
   // Use real Redux data by default.
   // For frontend design testing without backend, temporarily use:
   // const displayedClubs = clubs?.length ? clubs : demoClubs;
-  const displayedClubs = clubs;
+  const displayedClubs = clubs?.length ? clubs : demoClubs;
 
   const filteredClubs = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -183,57 +190,9 @@ function DiscoverClubs() {
             </p>
           </section>
         ) : (
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {filteredClubs.map((club) => (
-              <article
-                key={club._id}
-                className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm hover:border-accent transition group flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                      {club.genre || 'Book Club'}
-                    </span>
-
-                    <span className="text-xs text-stone-400">
-                      {club.membersCount || 0} members
-                    </span>
-                  </div>
-
-                  <h2 className="font-serif text-2xl mb-2 group-hover:text-accent transition">
-                    {club.name}
-                  </h2>
-
-                  <p className="text-stone-500 text-sm line-clamp-3 mb-5">
-                    {club.description}
-                  </p>
-
-                  <div className="bg-cream rounded-xl p-4 border border-stone-100">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
-                      Currently reading
-                    </span>
-
-                    <p className="font-serif text-lg">
-                      {club.currentBookTitle || 'No active book yet'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 flex items-center justify-between">
-                  <Link
-                    to={`/clubs/${club._id}`}
-                    className="text-sm font-medium text-accent hover:underline"
-                  >
-                    View club
-                  </Link>
-
-                  {!user && (
-                    <span className="text-[10px] uppercase tracking-widest text-stone-400 font-bold">
-                      Guest preview
-                    </span>
-                  )}
-                </div>
-              </article>
+              <ClubCard key={club._id} club={club} />
             ))}
           </section>
         )}

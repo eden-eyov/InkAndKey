@@ -65,6 +65,24 @@ function Login() {
 
       navigate(from, { replace: true });
     } catch (err) {
+      // TEMPORARY DESIGN TEST ONLY:
+      // This fake login is used only while the backend is not running.
+      // SERVER TODO:
+      // When the backend is ready, remove this block and use the real login response.
+
+      const fakeUser = {
+        _id: 'demo-user-id',
+        name: 'Demo Reader',
+        email: formData.email || 'demo@example.com',
+      };
+
+      const fakeToken = 'demo-token';
+
+      login(fakeUser, fakeToken);
+      navigate(from, { replace: true });
+      return;
+
+      
       setServerError(
         err.response?.data?.message ||
           'Login failed. Please check your credentials.'

@@ -125,8 +125,8 @@ function Onboarding() {
       // If the backend is not running yet and you want to continue
       // checking the frontend flow, uncomment these two lines:
       //
-      // navigate('/dashboard');
-      // return;
+      navigate('/dashboard');
+      return;
 
       setError(
         err.response?.data?.message ||

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+// import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -14,9 +14,9 @@ function Dashboard() {
   // When the backend is ready, fetchUserClubs should call a protected endpoint,
   // for example: GET /clubs/my-clubs or GET /users/me/clubs.
   // The backend should return only clubs that the logged-in user joined.
-  useEffect(() => {
-    dispatch(fetchUserClubs());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(fetchUserClubs());
+  // }, [dispatch]);
 
   // TEMPORARY DESIGN TEST ONLY:
   // If the backend is not ready and you want to see the dashboard design,
@@ -49,7 +49,7 @@ function Dashboard() {
   // Use real Redux data by default.
   // For design testing without backend, you can temporarily use:
   // const displayedClubs = clubs?.length ? clubs : demoClubs;
-  const displayedClubs = clubs;
+  const displayedClubs = clubs?.length ? clubs : demoClubs;
 
   // SERVER TODO:
   // Later this should come from Redux or from an API endpoint.

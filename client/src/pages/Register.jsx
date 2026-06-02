@@ -88,7 +88,7 @@ function Register() {
 
         If the backend is not running yet and you want to test the frontend flow,
         you can temporarily uncomment this block.
-
+*/
         const fakeUser = {
           _id: 'demo-user-id',
           name: formData.name || 'Demo Reader',
@@ -100,7 +100,6 @@ function Register() {
         login(fakeUser, fakeToken);
         navigate('/onboarding');
         return;
-      */
 
       setServerError(
         err.response?.data?.message ||
