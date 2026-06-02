@@ -1,11 +1,16 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import ThreadCard from '../components/ThreadCard';
+import AddThreadForm from '../components/AddThreadForm';
+import ProgressTracker from '../components/ProgressTracker';
 
 function Club() {
   const { clubId } = useParams();
   const { user } = useAuth();
 
   const isGuest = !user;
+  const [showAddThreadForm, setShowAddThreadForm] = useState(false);
 
   // TEMPORARY DESIGN TEST ONLY:
   // This demo club is used only while the backend is not ready.
@@ -47,25 +52,29 @@ function Club() {
       body: 'I love how the story creates suspense without revealing too much too early.',
       authorName: 'Maya',
       spoilerFree: true,
-      repliesCount: 8,
+      repliesCount: 2,
+      replies: [
+        {
+          _id: 'reply-1',
+          body: 'Yes, it builds tension in such a quiet way.',
+          authorName: 'Eden',
+        },
+        {
+          _id: 'reply-2',
+          body: 'I liked that it felt mysterious without giving anything away.',
+          authorName: 'Noa',
+        },
+      ],
     },
     {
       _id: 'thread-2',
-      chapterNumber: 5,
-      title: 'The narrator feels unreliable',
-      body: 'There are a few small details that made me question how much we should trust what we are being told.',
-      authorName: 'Noa',
-      spoilerFree: false,
-      repliesCount: 12,
-    },
-    {
-      _id: 'thread-3',
       chapterNumber: 12,
       title: 'That reveal changes everything',
       body: 'This discussion contains details from later chapters.',
       authorName: 'Daniel',
       spoilerFree: false,
-      repliesCount: 21,
+      repliesCount: 0,
+      replies: [],
     },
   ];
 
@@ -94,15 +103,6 @@ function Club() {
     };
   });
 
-  const progressPercent =
-    club.currentBook.totalChapters > 0
-      ? Math.min(
-          Math.round(
-            (club.userCurrentChapter / club.currentBook.totalChapters) * 100
-          ),
-          100
-        )
-      : 0;
 
   const handleUpdateProgress = () => {
     // SERVER TODO:
@@ -125,12 +125,36 @@ function Club() {
   };
 
   const handleStartDiscussion = () => {
+    if (isGuest) return;
+
+    // Opens the new discussion form on this page.
     // SERVER TODO:
-    // Later this should navigate to a create-thread page
-    // or open a modal for creating a new discussion.
-    //
+    // The actual thread creation happens in handleSubmitThread.
+    setShowAddThreadForm(true);
+  };
+
+  const handleSubmitThread = (threadData) => {
+    // SERVER TODO:
+    // Later this should send the new thread to the backend.
     // Possible endpoint:
     // POST /clubs/:clubId/threads
+    //
+    // Body:
+    // {
+    //   title: threadData.title,
+    //   body: threadData.body,
+    //   chapterNumber: threadData.chapterNumber,
+    //   spoilerFree: threadData.spoilerFree
+    // }
+    //
+    // After success, refetch the club threads or add the new thread to state.
+
+    console.log('New thread data:', {
+      clubId,
+      ...threadData,
+    });
+
+    setShowAddThreadForm(false);
   };
 
   return (
@@ -218,33 +242,11 @@ function Club() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <div className="bg-white border border-stone-200/70 rounded-2xl p-5">
-                    <div className="flex justify-between text-xs text-stone-500 mb-2 font-medium">
-                      <span>
-                        Your reading progress: chapter{' '}
-                        {club.userCurrentChapter} of{' '}
-                        {club.currentBook.totalChapters}
-                      </span>
-
-                      <span>{progressPercent}%</span>
-                    </div>
-
-                    <div className="w-full bg-stone-100 h-2 rounded-full overflow-hidden mb-4">
-                      <div
-                        className="bg-accent h-full rounded-full transition-all duration-500"
-                        style={{ width: `${progressPercent}%` }}
-                      />
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={handleUpdateProgress}
-                      className="text-sm font-medium text-accent hover:underline"
-                    >
-                      Update progress
-                    </button>
-                  </div>
-
+                  <ProgressTracker
+                    currentChapter={club.userCurrentChapter}
+                    totalChapters={club.currentBook.totalChapters}
+                    onUpdateProgress={handleUpdateProgress}
+                  />
                   <div className="flex flex-col sm:flex-row gap-3">
                     <button
                       type="button"
@@ -293,77 +295,20 @@ function Club() {
                 </button>
               )}
             </div>
-
+            {showAddThreadForm && !isGuest && (
+              <AddThreadForm
+                totalChapters={club.currentBook.totalChapters}
+                onCancel={() => setShowAddThreadForm(false)}
+                onSubmitThread={handleSubmitThread}
+              />
+            )}
             <div className="space-y-4">
               {visibleThreads.map((thread) => (
-                <article
+                <ThreadCard
                   key={thread._id}
-                  className={`bg-white p-6 rounded-2xl border shadow-sm transition ${
-                    thread.isLocked
-                      ? 'border-stone-200/60 opacity-80'
-                      : 'border-stone-200/60 hover:border-accent'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent bg-cream border border-stone-200 rounded-full px-3 py-1">
-                      Chapter {thread.chapterNumber}
-                    </span>
-
-                    {thread.spoilerFree && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500 bg-stone-100 rounded-full px-3 py-1">
-                        Spoiler-free
-                      </span>
-                    )}
-
-                    {thread.isLocked && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 bg-stone-100 rounded-full px-3 py-1">
-                        Locked
-                      </span>
-                    )}
-                  </div>
-
-                  {thread.isLocked ? (
-                    <>
-                      <h3 className="font-serif text-xl mb-2 blur-sm select-none">
-                        {thread.title}
-                      </h3>
-
-                      <p className="text-stone-500 text-sm blur-sm select-none mb-4">
-                        {thread.body}
-                      </p>
-
-                      <div className="bg-cream border border-stone-100 rounded-xl p-4">
-                        <p className="text-sm text-stone-500">
-                          {thread.lockedReason}
-                        </p>
-
-                        {isGuest && (
-                          <Link
-                            to="/register"
-                            className="inline-block mt-3 text-sm font-medium text-accent hover:underline"
-                          >
-                            Create an account to unlock more
-                          </Link>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <h3 className="font-serif text-xl mb-2">
-                        {thread.title}
-                      </h3>
-
-                      <p className="text-stone-500 text-sm mb-4">
-                        {thread.body}
-                      </p>
-
-                      <div className="flex items-center justify-between text-xs text-stone-400">
-                        <span>Posted by {thread.authorName}</span>
-                        <span>{thread.repliesCount} replies</span>
-                      </div>
-                    </>
-                  )}
-                </article>
+                  thread={thread}
+                  isGuest={isGuest}
+                />
               ))}
             </div>
           </div>
