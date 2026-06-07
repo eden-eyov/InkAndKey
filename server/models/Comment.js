@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
  * text
  * chapter number
  * is spoiler free
- * parent comment- null if its the first and different comment_ID if its not
+ * parent comment - null if its the first and different comment_ID if its not
  */
 
 const commentSchema = new mongoose.Schema(
