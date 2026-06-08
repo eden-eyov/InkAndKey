@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const GENRES = require('../utils/genres');
-// const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs');
 
 /**             user schema:
 * username
@@ -45,11 +45,9 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
-
-    favoriteGenres: {
-        type: [String],
-        enum: GENRES,
-        default: [],
+    favoriteBooks: {
+      type: [String],
+      default: [],
     },
   },
   {
@@ -57,17 +55,15 @@ const userSchema = new mongoose.Schema(
   }
 );
 // encryption:
-// userSchema.pre('save', async function (next) {
-//   if (!this.isModified('password')) return next();
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) return;
 
-//   const salt = await bcrypt.genSalt(12);
-//   this.password = await bcrypt.hash(this.password, salt);
+  const salt = await bcrypt.genSalt(12);
+  this.password = await bcrypt.hash(this.password, salt);
+});
 
-//   next();
-// });
-
-// userSchema.methods.matchPassword = async function (enteredPassword) {
-//   return bcrypt.compare(enteredPassword, this.password);
-// };
+userSchema.methods.matchPassword = async function (enteredPassword) {
+  return bcrypt.compare(enteredPassword, this.password);
+};
 
 module.exports = mongoose.model('User', userSchema);
