@@ -1,0 +1,123 @@
+### Health check
+GET http://localhost:5000/api/health
+
+##auth checks:
+
+### Register new user
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "maya",
+  "email": "maya@example.com",
+  "password": "123456",
+  "favoriteGenres": ["Fantasy", "Romance"],
+  "favoriteBooks": ["Fourth Wing"]
+}
+### Register second user
+### This request creates another user so we can test club creation
+### and later test joining/leaving clubs with different users.
+POST http://localhost:5000/api/auth/register
+Content-Type: application/json
+
+{
+  "username": "Noa Levi",
+  "email": "noa@example.com",
+  "password": "123456",
+  "favoriteGenres": ["Mystery", "Thriller"],
+  "favoriteBooks": ["The Silent Patient"]
+}
+
+### Login user
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "maya@example.com",
+  "password": "123456"
+}
+### Login second user
+### This request logs in the second user.
+### Copy the accessToken from the response and use it in the next request.
+POST http://localhost:5000/api/auth/login
+Content-Type: application/json
+
+{
+  "email": "noa@example.com",
+  "password": "123456"
+}
+
+### Refresh access token
+POST http://localhost:5000/api/auth/refresh-token
+
+
+### Logout
+POST http://localhost:5000/api/auth/logout
+
+### Get current user
+GET http://localhost:5000/api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODA5MTI5ODgsImV4cCI6MTc4MDkxMzg4OH0.PWmrbOqPSHz9ykgF4D4aUy3VZi2MgSrCFHp-54jm08w
+
+### Update current user
+PATCH http://localhost:5000/api/auth/me
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODA5MTI5ODgsImV4cCI6MTc4MDkxMzg4OH0.PWmrbOqPSHz9ykgF4D4aUy3VZi2MgSrCFHp-54jm08w
+Content-Type: application/json
+
+{
+  "favoriteBooks": ["Fourth Wing"],
+  "favoriteGenres": ["Fantasy", "Romance"]
+}
+
+
+##club checks:
+
+### Create a new club
+### This request creates a new book club in the database.
+### It requires a logged-in user, so we must send an access token.
+### The server will take the logged-in user from the token and save them as:
+### 1. creator - the user who created the club
+### 2. first member - the creator is automatically added to members
+
+POST http://localhost:5000/api/clubs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMDU0MTQsImV4cCI6MTc4MTAwNjMxNH0.GEr9SoA4ami3evjix9UhW8YjrurAgp9nzZ02ZPG62oE
+Content-Type: application/json
+
+{
+  "name": "Fantasy Readers",
+  "description": "A cozy club for fantasy book lovers",
+  "genres": ["Fantasy"]
+}
+### Create a new club as second user
+### This request creates a new book club using Noa's account.
+### Because the token belongs to Noa, the server will save Noa as:
+### 1. the creator of the club
+### 2. the first member of the club
+POST http://localhost:5000/api/clubs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwMDc0OTQsImV4cCI6MTc4MTAwODM5NH0.7Ub50Pct_1bqW319m4bg08gwYEF8RbtiiQ8kA8PGOt0
+Content-Type: application/json
+
+{
+  "name": "Mystery & Tea Club",
+  "description": "A relaxed club for readers who love mysteries, thrillers, and cozy discussions.",
+  "genres": ["Mystery", "Thriller"]
+}
+### Get all public clubs
+GET http://localhost:5000/api/clubs
+
+### Search clubs by club name
+### This request searches public clubs by club name.
+### It can return more than one club if several clubs match the same text.
+GET http://localhost:5000/api/clubs?search=fantasy
+
+### Filter clubs by genre
+### This request returns public clubs that include the selected genre.
+GET http://localhost:5000/api/clubs?genre=Fantasy
+
+### Search clubs by creator name
+### This request returns public clubs created by users whose name includes the search text.
+GET http://localhost:5000/api/clubs?creator=maya
+
+### Search clubs by name and genre together
+### This request returns public clubs whose name includes the search text
+### and whose genres include the selected genre.
+GET http://localhost:5000/api/clubs?search=fantasy&genre=Fantasy
