@@ -121,3 +121,58 @@ GET http://localhost:5000/api/clubs?creator=maya
 ### This request returns public clubs whose name includes the search text
 ### and whose genres include the selected genre.
 GET http://localhost:5000/api/clubs?search=fantasy&genre=Fantasy
+
+##books checks:
+### Create a new book for a club
+### This request creates a book and connects it to an existing club.
+### Only the creator of the club can add books to that club.
+### Replace CLUB_ID_HERE with the id of the club.
+### Replace ACCESS_TOKEN_HERE with the access token of the club creator.
+POST http://localhost:5000/api/books
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMTc3MjAsImV4cCI6MTc4MTAxODYyMH0.gsfXZ45u6R0Uyqsz6XOmSHWZwIT0zV9tDW4LVSsEB5M
+Content-Type: application/json
+
+{
+  "title": "The Hobbit",
+  "author": "J.R.R. Tolkien",
+  "coverImage": "",
+  "description": "A fantasy adventure about Bilbo Baggins and his unexpected journey.",
+  "genres": ["Fantasy"],
+  "totalChapters": 19,
+  "club": "6a27fc8c711fc4a5878cb4a6"
+}
+
+### Create another book for Fantasy Readers
+### This request creates one more book and connects it to the Fantasy Readers club.
+### Only the creator of Fantasy Readers can add books to this club.
+### Replace FANTASY_READERS_CLUB_ID with the id of Fantasy Readers.
+### Replace MAYA_ACCESS_TOKEN_HERE with Maya's access token.
+POST http://localhost:5000/api/books
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMTc3MjAsImV4cCI6MTc4MTAxODYyMH0.gsfXZ45u6R0Uyqsz6XOmSHWZwIT0zV9tDW4LVSsEB5M
+Content-Type: application/json
+
+{
+  "title": "Harry Potter and the Philosopher's Stone",
+  "author": "J.K. Rowling",
+  "coverImage": "",
+  "description": "A young boy discovers he is a wizard and begins his first year at Hogwarts School of Witchcraft and Wizardry.",
+  "genres": ["Fantasy"],
+  "totalChapters": 17,
+  "club": "6a27fc8c711fc4a5878cb4a6"
+}
+
+### Get all books
+### This request returns all books from all clubs.
+GET http://localhost:5000/api/books
+
+### Get books by club
+### This request returns only the books connected to a specific club.
+GET http://localhost:5000/api/books?club=6a27fc8c711fc4a5878cb4a6
+
+### Search books by title or author
+### This request searches books by title or author.
+GET http://localhost:5000/api/books?search=hobbit
+
+### Filter books by genre
+### This request returns books that include the selected genre.
+GET http://localhost:5000/api/books?genre=Fantasy

@@ -3,9 +3,10 @@
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-// routers imports
+// routes imports
 const authRoutes = require('./routes/authRoutes');
 const clubRoutes = require('./routes/clubRoutes');
+const bookRoutes = require('./routes/bookRoutes');
 
 // middleware imports
 const errorHandler = require('./middleware/errorHandler');
@@ -21,6 +22,7 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/clubs', clubRoutes);
+app.use('/api/books', bookRoutes);
 
 
 app.get('/api/health', (req, res) => {
