@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
  * club - FK
  * book - FK
  * current chapter
- * is compleated
+ * is completed
  * rating
  */
 const readingProgressSchema = new mongoose.Schema(

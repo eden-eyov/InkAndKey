@@ -7,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/authRoutes');
 const clubRoutes = require('./routes/clubRoutes');
 const bookRoutes = require('./routes/bookRoutes');
+const readingProgressRoutes = require('./routes/readingProgressRoutes');
 
 // middleware imports
 const errorHandler = require('./middleware/errorHandler');
@@ -23,6 +24,7 @@ app.use(cookieParser());
 app.use('/api/auth', authRoutes);
 app.use('/api/clubs', clubRoutes);
 app.use('/api/books', bookRoutes);
+app.use('/api/reading-progress', readingProgressRoutes);
 
 
 app.get('/api/health', (req, res) => {
