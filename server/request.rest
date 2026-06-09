@@ -123,6 +123,7 @@ GET http://localhost:5000/api/clubs?creator=maya
 GET http://localhost:5000/api/clubs?search=fantasy&genre=Fantasy
 
 ##books checks:
+
 ### Create a new book for a club
 ### This request creates a book and connects it to an existing club.
 ### Only the creator of the club can add books to that club.
@@ -160,6 +161,22 @@ Content-Type: application/json
   "totalChapters": 17,
   "club": "6a27fc8c711fc4a5878cb4a6"
 }
+#########################################################################################################################
+### Set current book for Fantasy Readers
+### This request sets a book as the current book of a club.
+### Only the club creator can do this.
+### If the club already has a current book, the old current book moves to previousBooks.
+### Replace FANTASY_READERS_CLUB_ID with the club id.
+### Replace BOOK_ID_HERE with the id of a book that belongs to this club.
+### Replace MAYA_ACCESS_TOKEN_HERE with Maya's access token.
+PATCH http://localhost:5000/api/clubs/6a27fc8c711fc4a5878cb4a6/current-book
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjU5NDAsImV4cCI6MTc4MTAyNjg0MH0.xVXSGVYVWWHgZ45JgroAkpXmNX5SUbBhum8s-TmfrLY
+Content-Type: application/json
+
+{
+  "book": "6a282d39271b5b5c1e2f53d8"
+}
+
 
 ### Get all books
 ### This request returns all books from all clubs.
@@ -176,3 +193,75 @@ GET http://localhost:5000/api/books?search=hobbit
 ### Filter books by genre
 ### This request returns books that include the selected genre.
 GET http://localhost:5000/api/books?genre=Fantasy
+
+##reading Progress checks:
+
+### Update my reading progress
+### This request creates or updates the logged-in user's reading progress.
+### If progress already exists for this user + club + book, it updates it.
+### If it does not exist yet, it creates a new progress document.
+### Replace ACCESS_TOKEN_HERE with the user's access token.
+### Replace CLUB_ID_HERE with the club id.
+### Replace BOOK_ID_HERE with the book id.
+POST http://localhost:5000/api/reading-progress
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+Content-Type: application/json
+
+{
+  "club": "6a27fc8c711fc4a5878cb4a6",
+  "book": "6a282d39271b5b5c1e2f53d8",
+  "currentChapter": 3
+}
+
+### Get my reading progress
+### This request returns all reading progress documents
+### that belong to the logged-in user.
+GET http://localhost:5000/api/reading-progress
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+
+### Get my reading progress by club
+### This request returns the logged-in user's reading progress
+### only for one specific club.
+GET http://localhost:5000/api/reading-progress?club=6a27fc8c711fc4a5878cb4a6
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+
+### Get my reading progress by book
+### This request returns the logged-in user's reading progress
+### only for one specific book.
+GET http://localhost:5000/api/reading-progress?book=6a282d39271b5b5c1e2f53d8
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+
+### Complete a book and add rating
+### This request updates the current chapter to the last chapter.
+### The server should automatically set isCompleted to true.
+### The rating is optional, but here we test saving a user rating too.
+POST http://localhost:5000/api/reading-progress
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+Content-Type: application/json
+
+{
+  "club": "6a27fc8c711fc4a5878cb4a6",
+  "book": "6a282d39271b5b5c1e2f53d8",
+  "currentChapter": 17,
+  "rating": 5
+}
+
+### Try to update progress with chapter greater than total chapters
+### This request should fail because the selected book has only 17 chapters.
+### Expected result: 400 error.
+POST http://localhost:5000/api/reading-progress
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+Content-Type: application/json
+
+{
+  "club": "6a27fc8c711fc4a5878cb4a6",
+  "book": "6a282d39271b5b5c1e2f53d8",
+  "currentChapter": 99
+}
+
+### Delete my reading progress
+### This request deletes one reading progress document.
+### The user can delete only their own progress document.
+### Replace PROGRESS_ID_HERE with the _id of the reading progress document.
+DELETE http://localhost:5000/api/reading-progress/6a2845ff2842c92fb3ba3402
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0

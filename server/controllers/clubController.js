@@ -1,4 +1,5 @@
 const Club = require('../models/club');
+const Book = require('../models/book');
 
 const createClub = async (req, res, next) => {
   try {
@@ -221,6 +222,79 @@ const leaveClub = async (req, res, next) => {
   }
 };
 
+const setCurrentBook = async (req, res, next) => {
+  try {
+    const { book: bookId } = req.body;
+
+    const club = await Club.findById(req.params.id);
+
+    if (!club) {
+      return res.status(404).json({
+        success: false,
+        message: 'Club not found',
+      });
+    }
+
+    if (club.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the club creator can set the current book',
+      });
+    }
+
+    const book = await Book.findById(bookId);
+
+    if (!book) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found',
+      });
+    }
+
+    if (book.club.toString() !== club._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'This book does not belong to this club',
+      });
+    }
+
+    const currentBookId = club.currentBook ? club.currentBook.toString() : null;
+    const newBookId = book._id.toString();
+
+    if (currentBookId && currentBookId !== newBookId) {
+      const alreadyInPreviousBooks = club.previousBooks.some(
+        (previousBookId) => previousBookId.toString() === currentBookId
+      );
+
+      if (!alreadyInPreviousBooks) {
+        club.previousBooks.push(club.currentBook);
+      }
+    }
+
+    club.previousBooks = club.previousBooks.filter(
+      (previousBookId) => previousBookId.toString() !== newBookId
+    );
+
+    club.currentBook = book._id;
+
+    await club.save();
+
+    const updatedClub = await Club.findById(club._id)
+      .populate('creator', 'username email profileImage')
+      .populate('members', 'username profileImage')
+      .populate('currentBook', 'title author coverImage totalChapters')
+      .populate('previousBooks', 'title author coverImage totalChapters');
+
+    res.status(200).json({
+      success: true,
+      message: 'Current book updated successfully',
+      data: updatedClub,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createClub,
   getAllClubs,
@@ -229,4 +303,5 @@ module.exports = {
   deleteClub,
   joinClub,
   leaveClub,
+  setCurrentBook,
 };

@@ -8,6 +8,7 @@ const {
   deleteClub,
   joinClub,
   leaveClub,
+  setCurrentBook,
 } = require('../controllers/clubController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -16,6 +17,7 @@ const validate = require('../middleware/validate');
 const {
   createClubSchema,
   updateClubSchema,
+  setCurrentBookSchema,
 } = require('../validation/clubValidation');
 
 const router = express.Router();
@@ -29,5 +31,12 @@ router.delete('/:id', protect, deleteClub);
 
 router.post('/:id/join', protect, joinClub);
 router.post('/:id/leave', protect, leaveClub);
+
+router.patch(
+  '/:id/current-book',
+  protect,
+  validate(setCurrentBookSchema),
+  setCurrentBook
+);
 
 module.exports = router;

@@ -1,6 +1,8 @@
 const Joi = require('joi');
 const GENRES = require('../utils/genres');
 
+const objectIdSchema = Joi.string().hex().length(24);
+
 const createClubSchema = Joi.object({
   name: Joi.string().trim().min(2).max(80).required().messages({
     'string.empty': 'Club name is required',
@@ -39,7 +41,16 @@ const updateClubSchema = Joi.object({
   'object.min': 'At least one field is required for update',
 });
 
+const setCurrentBookSchema = Joi.object({
+  book: objectIdSchema.required().messages({
+    'string.hex': 'Book id must be a valid MongoDB id',
+    'string.length': 'Book id must be a valid MongoDB id',
+    'any.required': 'Book id is required',
+  }),
+});
+
 module.exports = {
   createClubSchema,
   updateClubSchema,
+  setCurrentBookSchema,
 };
