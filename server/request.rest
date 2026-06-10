@@ -77,7 +77,6 @@ Content-Type: application/json
 ### The server will take the logged-in user from the token and save them as:
 ### 1. creator - the user who created the club
 ### 2. first member - the creator is automatically added to members
-
 POST http://localhost:5000/api/clubs
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMDU0MTQsImV4cCI6MTc4MTAwNjMxNH0.GEr9SoA4ami3evjix9UhW8YjrurAgp9nzZ02ZPG62oE
 Content-Type: application/json
@@ -265,3 +264,91 @@ Content-Type: application/json
 ### Replace PROGRESS_ID_HERE with the _id of the reading progress document.
 DELETE http://localhost:5000/api/reading-progress/6a2845ff2842c92fb3ba3402
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+
+##Comments check:
+### Create regular chapter comment
+### This creates a normal comment connected to a specific chapter.
+### It is NOT spoiler-free, so users who have not reached this chapter should see it locked.
+### Replace ACCESS_TOKEN_HERE with a club member access token.
+### Replace CLUB_ID_HERE with the club id.
+### Replace BOOK_ID_HERE with the book id.
+POST http://localhost:5000/api/comments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+Content-Type: application/json
+
+{
+  "club": "6a27fc8c711fc4a5878cb4a6",
+  "book": "6a282d39271b5b5c1e2f53d8",
+  "text": "I loved the way the story developed in this chapter.",
+  "chapterNumber": 3,
+  "isSpoilerFreeReview": false,
+  "parentComment": null
+}
+
+### Create locked future chapter comment
+### This creates a comment for a later chapter.
+### A user whose reading progress is lower than this chapter should receive it with text: null and isLocked: true.
+POST http://localhost:5000/api/comments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+Content-Type: application/json
+
+{
+  "club": "6a27fc8c711fc4a5878cb4a6",
+  "book": "6a282d39271b5b5c1e2f53d8",
+  "text": "This comment talks about something important that happens much later.",
+  "chapterNumber": 10,
+  "isSpoilerFreeReview": false,
+  "parentComment": null
+}
+
+### Create spoiler-free public review
+### This creates a comment/review that is safe for everyone, including guests.
+### It should appear in the public comments endpoint.
+POST http://localhost:5000/api/comments
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+Content-Type: application/json
+
+{
+"club": "6a27fc8c711fc4a5878cb4a6",
+  "book": "6a282d39271b5b5c1e2f53d8",
+  "text": "A beautifully written fantasy book with a cozy and adventurous atmosphere.",
+  "chapterNumber": 0,
+  "isSpoilerFreeReview": true,
+  "parentComment": null
+}
+
+### Get comments for logged-in user
+### This returns all comments for the selected club and book.
+### Comments from chapters the user has not reached should still appear,
+### but with text: null and isLocked: true.
+GET http://localhost:5000/api/comments?club=6a27fc8c711fc4a5878cb4a6&book=6a282d39271b5b5c1e2f53d8
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+
+### Get public spoiler-free comments
+### This returns only spoiler-free comments.
+### It does not require login and is safe for guests.
+GET http://localhost:5000/api/comments/public?club=6a27fc8c711fc4a5878cb4a6&book=6a282d39271b5b5c1e2f53d8
+
+### Toggle like comment
+### Run this request once to like the comment.
+### Run it again to unlike the same comment.
+POST http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7/like
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+
+### Update my comment
+### Only the comment author can update the comment.
+
+PATCH http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+Content-Type: application/json
+
+{
+  "text": "Edited comment text.",
+  "chapterNumber": 3,
+  "isSpoilerFreeReview": false
+}
+
+### Delete comment without replies
+### If this comment has no replies, it should be permanently deleted.
+DELETE http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac

@@ -5,8 +5,11 @@ const mongoose = require('mongoose');
  * user - FK
  * text
  * chapter number
- * is spoiler free
+ * is spoiler free review
  * parent comment - null if its the first and different comment_ID if its not
+ * likes
+ * is deleted - a deleted comment will act as deleted but will stay in the db for the nested comments
+ * deleted at
  */
 
 const commentSchema = new mongoose.Schema(
@@ -60,6 +63,16 @@ const commentSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
+
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

@@ -1,4 +1,4 @@
 node_modules/
 client/.env
 server/.env
-request.rest
+server/request.rest

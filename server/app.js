@@ -8,6 +8,7 @@ const authRoutes = require('./routes/authRoutes');
 const clubRoutes = require('./routes/clubRoutes');
 const bookRoutes = require('./routes/bookRoutes');
 const readingProgressRoutes = require('./routes/readingProgressRoutes');
+const commentRoutes = require('./routes/commentRoutes');
 
 // middleware imports
 const errorHandler = require('./middleware/errorHandler');
@@ -25,6 +26,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/clubs', clubRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/reading-progress', readingProgressRoutes);
+app.use('/api/comments', commentRoutes);
 
 
 app.get('/api/health', (req, res) => {
