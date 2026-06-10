@@ -1,5 +1,6 @@
 const Club = require('../models/club');
 const Book = require('../models/book');
+const ReadingProgress = require('../models/readingProgress');
 
 const createClub = async (req, res, next) => {
   try {
@@ -278,6 +279,39 @@ const setCurrentBook = async (req, res, next) => {
     club.currentBook = book._id;
 
     await club.save();
+
+    /**
+     * Create reading progress for every club member
+     * when a book becomes the current book.
+     *
+     * We use bulkWrite with upsert so:
+     * - members who do not have progress yet get chapter 0
+     * - members who already have progress keep their existing progress
+     */
+    if (club.members.length > 0) {
+      const progressOperations = club.members.map((memberId) => ({
+        updateOne: {
+          filter: {
+            user: memberId,
+            club: club._id,
+            book: book._id,
+          },
+          update: {
+            $setOnInsert: {
+              user: memberId,
+              club: club._id,
+              book: book._id,
+              currentChapter: 0,
+              isCompleted: false,
+              rating: null,
+            },
+          },
+          upsert: true,
+        },
+      }));
+
+      await ReadingProgress.bulkWrite(progressOperations);
+    }
 
     const updatedClub = await Club.findById(club._id)
       .populate('creator', 'username email profileImage')
