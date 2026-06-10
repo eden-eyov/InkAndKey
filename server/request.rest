@@ -352,3 +352,47 @@ Content-Type: application/json
 ### If this comment has no replies, it should be permanently deleted.
 DELETE http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+
+
+##user checks:
+
+### Search users by username
+### This request searches users by username.
+### It requires login.
+### It does NOT return email, because this is user-search data.
+GET http://localhost:5000/api/users/search?username=maya
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwOTY2MjcsImV4cCI6MTc4MTA5NzUyN30.qgUh-Ztx0G2rt8zkOr4Kz1zR1ZvRux73eC1lOeWpE0U
+
+### Get my own user profile
+### This request returns the logged-in user's own profile.
+### Because it is my own profile, the response should include email.
+GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwOTY2MjcsImV4cCI6MTc4MTA5NzUyN30.qgUh-Ztx0G2rt8zkOr4Kz1zR1ZvRux73eC1lOeWpE0U
+
+### Get another user's profile
+### This request returns another user's profile.
+### Because it is not my own profile, the response should NOT include email.
+GET http://localhost:5000/api/users/6a280486b3c09d005a1b6f17
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwOTY2MjcsImV4cCI6MTc4MTA5NzUyN30.qgUh-Ztx0G2rt8zkOr4Kz1zR1ZvRux73eC1lOeWpE0U
+
+
+### Get user's clubs
+### This request returns all clubs where the selected user is a member.
+GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261/clubs
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwOTY2NzUsImV4cCI6MTc4MTA5NzU3NX0.tX9SCwfTe2aONbWv62mwxQUxPYOCX5jRjkbeuA0rHSg
+
+### Get user's currently reading books
+### This request returns ReadingProgress documents where isCompleted is false.
+GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261/currently-reading
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwOTY2NzUsImV4cCI6MTc4MTA5NzU3NX0.tX9SCwfTe2aONbWv62mwxQUxPYOCX5jRjkbeuA0rHSg
+
+### Get user's completed books
+### This request returns ReadingProgress documents where isCompleted is true.
+### It can include rating if the user rated the book.
+GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261/completed-books
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwOTY2NzUsImV4cCI6MTc4MTA5NzU3NX0.tX9SCwfTe2aONbWv62mwxQUxPYOCX5jRjkbeuA0rHSg
+
+### Try to get user profile without login
+### This request should fail because user routes are protected.
+### Expected result: 401 Unauthorized.
+GET http://localhost:5000/api/users/6a280486b3c09d005a1b6f17
