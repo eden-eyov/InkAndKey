@@ -41,21 +41,31 @@ function Register() {
     setErrors({});
     setLoading(true);
     
-    try {
-      const { data } = await api.post('/auth/register', {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password
-      });
-      
-      login(data.data, data.token); 
-      navigate('/onboarding'); 
-      
-    } catch (err) {
-      setServerError(err.response?.data?.message || 'Registration failed. The email might already be in use.');
-    } finally {
-      setLoading(false);
+  try {
+    const { data } = await api.post('/auth/register', {
+      username: formData.name,
+      email: formData.email,
+      password: formData.password,
+    });
+
+    const user = data.data || data.user;
+    const token = data.accessToken || data.token;
+
+    if (!user || !token) {
+      throw new Error('Invalid register response from server');
     }
+
+    login(user, token);
+    navigate('/onboarding');
+  } catch (err) {
+    setServerError(
+      err.response?.data?.message ||
+        err.message ||
+        'Registration failed. The email might already be in use.'
+    );
+  } finally {
+    setLoading(false);
+  }
   };
 
   return (
@@ -72,7 +82,7 @@ function Register() {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-1">Full Name</label>
+            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-1">Username</label>
             <input 
               type="text"
               className={`w-full p-3 bg-cream border ${errors.name ? 'border-red-300' : 'border-stone-200'} rounded focus:outline-none focus:border-accent transition`}

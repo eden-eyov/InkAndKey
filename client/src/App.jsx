@@ -9,10 +9,7 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-// We will build these two components next:
-// const BookClubs = lazy(() => import('./pages/BookClubs')); 
-// const ClubDetail = lazy(() => import('./pages/ClubDetail')); 
-const BookClubs = lazy(() => import('./pages/Club')); 
+const BookClubs = lazy(() => import('./pages/DiscoverClubs')); 
 const ClubDetail = lazy(() => import('./pages/Club'));
 
 // Typography-based loading fallback (clean, no icons)
@@ -58,10 +55,10 @@ function App() {
           />
           <Route 
             path="/dashboard" 
-            element={<Dashboard />
-              // <PrivateRoute>
-              //   <Dashboard />
-              // </PrivateRoute>
+            element={
+              <PrivateRoute>
+                <Dashboard />
+              </PrivateRoute>
             } 
           />
           <Route 

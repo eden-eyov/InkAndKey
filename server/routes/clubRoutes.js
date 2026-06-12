@@ -3,6 +3,7 @@ const express = require('express');
 const {
   createClub,
   getAllClubs,
+  getMyClubs,
   getClubById,
   updateClub,
   deleteClub,
@@ -23,6 +24,7 @@ const {
 const router = express.Router();
 
 router.get('/', getAllClubs);
+router.get('/my-clubs', protect, getMyClubs);
 router.get('/:id', getClubById);
 
 router.post('/', protect, validate(createClubSchema), createClub);

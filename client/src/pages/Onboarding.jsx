@@ -30,10 +30,24 @@ function Onboarding() {
 
   const handleAddBook = (e) => {
     e.preventDefault();
-    if (bookInput.trim() && !favoriteBooks.includes(bookInput.trim())) {
-      setFavoriteBooks([...favoriteBooks, bookInput.trim()]);
-      setBookInput('');
+
+    const trimmedBook = bookInput.trim();
+
+    if (!trimmedBook) return;
+
+    if (favoriteBooks.length >= 3) {
+      setError('You can add up to 3 favorite books');
+      return;
     }
+
+    if (favoriteBooks.includes(trimmedBook)) {
+      setError('This book is already in your list');
+      return;
+    }
+
+    setFavoriteBooks([...favoriteBooks, trimmedBook]);
+    setBookInput('');
+    setError('');
   };
 
   const handleRemoveBook = (bookToRemove) => {
@@ -62,16 +76,20 @@ function Onboarding() {
       // if (profileImage) formData.append('avatar', profileImage);
       
       // For now, sending a standard JSON request to update the user profile
-      await api.put('/users/profile', {
-        genres: selectedGenres,
-        favoriteBooks: favoriteBooks
+      await api.patch('/auth/me', {
+        favoriteGenres: selectedGenres,
+        favoriteBooks,
       });
 
       // Navigate to the dashboard after successful onboarding
       navigate('/dashboard');
       
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save profile. Please try again.');
+      console.log('ONBOARDING ERROR:', err.response?.data || err);
+      setError(
+        err.response?.data?.message ||
+          'Failed to save profile. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -146,16 +164,22 @@ function Onboarding() {
             <div className="flex gap-2 mb-3">
               <input
                 type="text"
-                placeholder="e.g., The Secret History"
+                placeholder={
+                  favoriteBooks.length >= 3
+                    ? 'You can add up to 3 books'
+                    : 'e.g., The Secret History'
+                }
                 value={bookInput}
                 onChange={(e) => setBookInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddBook(e)}
-                className="flex-grow p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                onKeyDown={(e) => e.key === 'Enter' && handleAddBook(e)}
+                disabled={favoriteBooks.length >= 3}
+                className="flex-grow p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm disabled:opacity-50"
               />
               <button 
                 type="button"
                 onClick={handleAddBook}
-                className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-xl hover:opacity-90 transition"
+                disabled={favoriteBooks.length >= 3}
+                className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-xl hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Add
               </button>

@@ -56,11 +56,68 @@ const getAllClubs = async (req, res, next) => {
   }
 };
 
+const getMyClubs = async (req, res, next) => {
+  try {
+    const clubs = await Club.find({
+      members: req.user._id,
+    })
+      .populate('creator', 'username email profileImage')
+      .populate('members', 'username profileImage')
+      .populate('currentBook', 'title author coverImage totalChapters')
+      .sort({ updatedAt: -1 });
+
+    const dashboardClubs = await Promise.all(
+      clubs.map(async (club) => {
+        let userCurrentChapter = 0;
+        let totalChapters = 0;
+        let currentBookTitle = null;
+
+        if (club.currentBook) {
+          totalChapters = club.currentBook.totalChapters || 0;
+          currentBookTitle = club.currentBook.title;
+
+          const progress = await ReadingProgress.findOne({
+            user: req.user._id,
+            club: club._id,
+            book: club.currentBook._id,
+          });
+
+          userCurrentChapter = progress ? progress.currentChapter : 0;
+        }
+
+        return {
+          _id: club._id,
+          name: club.name,
+          description: club.description,
+          image: club.image,
+          genres: club.genres,
+          creator: club.creator,
+          members: club.members,
+          currentBook: club.currentBook,
+          currentBookTitle,
+          totalChapters,
+          userCurrentChapter,
+          createdAt: club.createdAt,
+          updatedAt: club.updatedAt,
+        };
+      })
+    );
+
+    res.status(200).json({
+      success: true,
+      count: dashboardClubs.length,
+      data: dashboardClubs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const getClubById = async (req, res, next) => {
   try {
     const club = await Club.findById(req.params.id)
-      .populate('creator', 'name email profileImage')
-      .populate('members', 'name profileImage');
+      .populate('creator', 'username email profileImage')
+      .populate('members', 'username profileImage');
 
     if (!club) {
       return res.status(404).json({
@@ -332,6 +389,7 @@ const setCurrentBook = async (req, res, next) => {
 module.exports = {
   createClub,
   getAllClubs,
+  getMyClubs,
   getClubById,
   updateClub,
   deleteClub,

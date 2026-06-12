@@ -38,15 +38,23 @@ function Login() {
     
     try {
       const { data } = await api.post('/auth/login', formData);
-      
-      // Update the global authentication state
-      login(data.user, data.token); 
-      
-      // Navigate to the intended page, or dashboard by default
+
+      const user = data.data || data.user;
+      const token = data.accessToken || data.token;
+
+      if (!user || !token) {
+        throw new Error('Invalid login response from server');
+      }
+
+      login(user, token);
+
       navigate(from, { replace: true });
-      
     } catch (err) {
-      setServerError(err.response?.data?.message || 'Login failed. Please check your credentials.');
+      setServerError(
+        err.response?.data?.message ||
+          err.message ||
+          'Login failed. Please check your credentials.'
+      );
     } finally {
       setLoading(false);
     }

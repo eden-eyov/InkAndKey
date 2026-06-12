@@ -47,7 +47,7 @@ if (error) {
           {/* Top Header */}
           <header className="border-b border-stone-200 pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="font-serif text-4xl mb-2">Hello, {user?.name}</h1>
+              <h1 className="font-serif text-4xl mb-2">Hello, {user?.username}</h1>
               <p className="text-stone-500">Here is a glimpse of your current reading progress.</p>
             </div>
             <Link 
@@ -70,9 +70,13 @@ if (error) {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {clubs?.map((club) => {
-                  const progressPercent = club.totalChapters > 0 
-                    ? Math.round((club.userCurrentChapter / club.totalChapters) * 100) 
-                    : 0;
+                  const totalChapters = club.totalChapters || 0;
+                  const userCurrentChapter = club.userCurrentChapter || 0;
+
+                  const progressPercent =
+                    totalChapters > 0
+                      ? Math.round((userCurrentChapter / totalChapters) * 100)
+                      : 0;
 
                   return (
                     <div key={club._id} className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm hover:border-accent transition group flex flex-col justify-between">
@@ -88,7 +92,7 @@ if (error) {
 
                       <div className="mt-4 pt-4 border-t border-stone-100">
                         <div className="flex justify-between text-xs text-stone-500 mb-2 font-medium">
-                          <span>Chapter {club.userCurrentChapter} of {club.totalChapters}</span>
+                          <span>Chapter {userCurrentChapter} of {totalChapters}</span>
                           <span>{progressPercent}%</span>
                         </div>
                         <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">
