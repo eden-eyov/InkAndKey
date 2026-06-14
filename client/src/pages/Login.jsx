@@ -14,13 +14,27 @@ function Login() {
   const { login } = useAuth();
 
   // Smart redirect: check if the user tried to visit a protected page before logging in
-  const from = location.state?.from?.pathname || '/dashboard';
+  const attemptedPath = location.state?.from?.pathname;
+
+  const from =
+    attemptedPath && attemptedPath !== '/onboarding'
+      ? attemptedPath
+      : '/dashboard';
 
   const validate = () => {
     const newErrors = {};
     if (!formData.email.includes('@')) newErrors.email = 'Please enter a valid email address';
     if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters long';
     return newErrors;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -74,23 +88,46 @@ function Login() {
         
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-1">Email</label>
-            <input 
+            <label
+              htmlFor="email"
+              className="block text-xs uppercase tracking-wider text-stone-500 mb-1"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
               type="email"
-              className={`w-full p-3 bg-cream border ${errors.email ? 'border-red-300' : 'border-stone-200'} rounded focus:outline-none focus:border-accent transition`}
+              required
+              autoComplete="email"
+              className={`w-full p-3 bg-cream border ${
+                errors.email ? 'border-red-300' : 'border-stone-200'
+              } rounded focus:outline-none focus:border-accent transition`}
               value={formData.email}
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
+              onChange={handleChange}
             />
             {errors.email && <span className="text-xs text-red-500 mt-1 block">{errors.email}</span>}
           </div>
           
           <div>
-            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-1">Password</label>
-            <input 
+            <label
+              htmlFor="password"
+              className="block text-xs uppercase tracking-wider text-stone-500 mb-1"
+            >
+              Password
+            </label>
+
+            <input
+              id="password"
+              name="password"
               type="password"
-              className={`w-full p-3 bg-cream border ${errors.password ? 'border-red-300' : 'border-stone-200'} rounded focus:outline-none focus:border-accent transition`}
+              required
+              autoComplete="current-password"
+              className={`w-full p-3 bg-cream border ${
+                errors.password ? 'border-red-300' : 'border-stone-200'
+              } rounded focus:outline-none focus:border-accent transition`}
               value={formData.password}
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
+              onChange={handleChange}
             />
             {errors.password && <span className="text-xs text-red-500 mt-1 block">{errors.password}</span>}
           </div>
