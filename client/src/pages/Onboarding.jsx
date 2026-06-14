@@ -21,37 +21,41 @@ function Onboarding() {
   ];
 
   const handleGenreToggle = (genre) => {
-    if (selectedGenres.includes(genre)) {
-      setSelectedGenres(selectedGenres.filter(g => g !== genre));
-    } else {
-      setSelectedGenres([...selectedGenres, genre]);
-    }
+    setSelectedGenres((prevGenres) => {
+      if (prevGenres.includes(genre)) {
+        return prevGenres.filter((g) => g !== genre);
+      }
+
+      return [...prevGenres, genre];
+    });
   };
 
   const handleAddBook = (e) => {
     e.preventDefault();
+    setError('');
 
     const trimmedBook = bookInput.trim();
 
     if (!trimmedBook) return;
-
-    if (favoriteBooks.length >= 3) {
-      setError('You can add up to 3 favorite books');
-      return;
-    }
 
     if (favoriteBooks.includes(trimmedBook)) {
       setError('This book is already in your list');
       return;
     }
 
-    setFavoriteBooks([...favoriteBooks, trimmedBook]);
+    if (favoriteBooks.length >= 3) {
+      setError('You can add up to 3 favorite books');
+      return;
+    }
+
+    setFavoriteBooks((prevBooks) => [...prevBooks, trimmedBook]);
     setBookInput('');
-    setError('');
   };
 
   const handleRemoveBook = (bookToRemove) => {
-    setFavoriteBooks(favoriteBooks.filter(book => book !== bookToRemove));
+    setFavoriteBooks((prevBooks) =>
+      prevBooks.filter((book) => book !== bookToRemove)
+    );
   };
 
   const handleImageChange = (e) => {
@@ -131,6 +135,11 @@ function Onboarding() {
               />
             </div>
             <span className="text-xs font-bold text-stone-500 uppercase tracking-wider">Upload Avatar</span>
+            {profileImage && (
+              <span className="text-xs text-stone-400 mt-2">
+                {profileImage.name}
+              </span>
+            )}
           </section>
 
           {/* Section 2: Favorite Genres */}
@@ -188,13 +197,14 @@ function Onboarding() {
             {/* Display added books as tags */}
             {favoriteBooks.length > 0 && (
               <div className="flex flex-wrap gap-2 mt-3">
-                {favoriteBooks.map((book, index) => (
-                  <div key={index} className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg text-sm text-stone-700">
+                {favoriteBooks.map((book) => (
+                  <div key={book} className="flex items-center gap-2 bg-stone-100 px-3 py-1.5 rounded-lg text-sm text-stone-700">
                     <span>{book}</span>
                     <button 
                       type="button" 
                       onClick={() => handleRemoveBook(book)}
                       className="text-stone-400 hover:text-red-500 font-bold"
+                      aria-label={`Remove ${book}`}
                     >
                       ×
                     </button>
