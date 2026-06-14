@@ -16,6 +16,8 @@ function Dashboard() {
     dispatch(fetchUserClubs());
   }, [dispatch]);
 
+  const activeSurveys = [];
+  
   // if (loading) return <LoadingSpinner message="Loading your book clubs..." />;
   if (loading) {
   return (
@@ -47,7 +49,7 @@ if (error) {
           {/* Top Header */}
           <header className="border-b border-stone-200 pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <h1 className="font-serif text-4xl mb-2">Hello, {user?.username}</h1>
+              <h1 className="font-serif text-4xl mb-2">Hello, {user?.username || 'reader'}</h1>
               <p className="text-stone-500">Here is a glimpse of your current reading progress.</p>
             </div>
             <Link 
@@ -75,7 +77,10 @@ if (error) {
 
                   const progressPercent =
                     totalChapters > 0
-                      ? Math.round((userCurrentChapter / totalChapters) * 100)
+                      ? Math.min(
+                          Math.round((userCurrentChapter / totalChapters) * 100),
+                          100
+                        )
                       : 0;
 
                   return (
@@ -118,7 +123,7 @@ if (error) {
             <div className="space-y-6">
               
               {/* Replace 'true' with 'activeSurveys.length === 0' when connected to real data */}
-              {true ? (
+              {activeSurveys.length === 0 ? (
                 
                 // --- EMPTY STATE: TYPOGRAPHY ONLY ---
                 <div className="text-center bg-cream p-8 rounded-xl border border-stone-100 flex flex-col items-center">
