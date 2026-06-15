@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
+
 import ThreadCard from '../components/ThreadCard';
 import AddThreadForm from '../components/AddThreadForm';
 import ProgressTracker from '../components/ProgressTracker';
@@ -12,26 +14,63 @@ function Club() {
   const isGuest = !user;
   const [showAddThreadForm, setShowAddThreadForm] = useState(false);
 
-  // TEMPORARY DESIGN TEST ONLY:
-  // This demo club is used only while the backend is not ready.
-  // SERVER TODO:
-  // When the backend is ready, replace this object with data from:
-  // GET /clubs/:clubId
-  const club = {
-    _id: clubId || 'demo-club-1',
-    name: 'Midnight Readers',
-    description:
-      'A cozy mystery and thriller club for readers who love late-night plot twists, careful theories, and spoiler-free chapter discussions.',
-    membersCount: 128,
-    currentBook: {
-      title: 'The Silent Patient',
-      author: 'Alex Michaelides',
-      coverUrl:
-        'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=600&fit=crop',
-      totalChapters: 20,
-    },
-    userCurrentChapter: 7,
-  };
+  const [club, setClub] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchClub = async () => {
+      try {
+        setLoading(true);
+        setError('');
+
+        const { data } = await api.get(`/clubs/${clubId}`);
+
+        let clubData = data.data;
+
+        if (user && clubData.currentBook?._id) {
+          try {
+            const progressResponse = await api.get('/reading-progress', {
+              params: {
+                club: clubId,
+                book: clubData.currentBook._id,
+              },
+            });
+
+            const progress = progressResponse.data.data?.[0];
+
+            clubData = {
+              ...clubData,
+              userCurrentChapter: progress?.currentChapter || 0,
+            };
+          } catch (progressError) {
+            console.log(
+              'FETCH PROGRESS ERROR:',
+              progressError.response?.data || progressError
+            );
+
+            clubData = {
+              ...clubData,
+              userCurrentChapter: 0,
+            };
+          }
+        }
+
+        setClub(clubData);
+      } catch (err) {
+        console.log('FETCH CLUB ERROR:', err.response?.data || err);
+
+        setError(
+          err.response?.data?.message ||
+            'Failed to load club. Please try again.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchClub();
+  }, [clubId, user]);
 
   // TEMPORARY DESIGN TEST ONLY:
   // These demo threads are used only while the backend is not ready.
@@ -84,44 +123,45 @@ function Club() {
   // Guests should not see surveys.
   const activeSurveys = [];
 
-  const visibleThreads = threads.map((thread) => {
-    if (isGuest) {
-      return {
-        ...thread,
-        isLocked: !thread.spoilerFree,
-        lockedReason: 'Members only — sign in to unlock chapter discussions',
-      };
+  const handleUpdateProgress = async (newChapter) => {
+    if (!currentBook || !isMember) return;
+
+    try {
+      const { data } = await api.post('/reading-progress', {
+        club: clubId,
+        book: currentBook._id,
+        currentChapter: newChapter,
+      });
+
+      setClub((prevClub) => ({
+        ...prevClub,
+        userCurrentChapter: data.data.currentChapter,
+      }));
+    } catch (err) {
+      console.log('UPDATE PROGRESS ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to update reading progress. Please try again.'
+      );
     }
-
-    const isAheadOfProgress =
-      thread.chapterNumber > club.userCurrentChapter && !thread.spoilerFree;
-
-    return {
-      ...thread,
-      isLocked: isAheadOfProgress,
-      lockedReason: `Locked — reach chapter ${thread.chapterNumber} to unlock`,
-    };
-  });
-
-
-  const handleUpdateProgress = () => {
-    // SERVER TODO:
-    // Later this should open a modal or form that lets the logged-in user
-    // update their personal reading progress in this specific club.
-    //
-    // Possible endpoint:
-    // PUT /clubs/:clubId/progress
-    //
-    // Body example:
-    // { currentChapter: newChapterNumber }
   };
 
-  const handleJoinClub = () => {
-    // SERVER TODO:
-    // Later this should join the logged-in user to the club.
-    //
-    // Possible endpoint:
-    // POST /clubs/:clubId/join
+  const handleJoinClub = async () => {
+    if (isGuest) return;
+
+    try {
+      const { data } = await api.post(`/clubs/${clubId}/join`);
+
+      setClub(data.data);
+    } catch (err) {
+      console.log('JOIN CLUB ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to join club. Please try again.'
+      );
+    }
   };
 
   const handleStartDiscussion = () => {
@@ -156,6 +196,73 @@ function Club() {
 
     setShowAddThreadForm(false);
   };
+    if (loading) {
+    return (
+      <div className="min-h-screen bg-cream flex justify-center items-center">
+        <p className="font-serif text-stone-500 italic text-lg animate-pulse">
+          Loading club...
+        </p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-cream flex justify-center items-center px-4">
+        <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center max-w-md">
+          <h1 className="font-serif text-2xl mb-2">Something went wrong</h1>
+          <p className="text-stone-500 text-sm mb-5">{error}</p>
+
+          <Link
+            to="/clubs"
+            className="px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+          >
+            Back to clubs
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!club) {
+    return null;
+  }
+  const currentBook = club.currentBook;
+
+  const currentBookTitle = currentBook?.title || 'No active book yet';
+  const currentBookAuthor = currentBook?.author || '';
+  const currentBookCover = currentBook?.coverImage || '';
+  const hasCurrentBookCover = Boolean(currentBookCover);
+
+  const totalChapters = currentBook?.totalChapters || 0;
+  const userCurrentChapter = club.userCurrentChapter || 0;
+
+  const membersCount = club.members?.length || club.membersCount || 0;
+
+  const isMember = club.members?.some((member) => {
+    const memberId = member._id || member;
+
+    return memberId.toString() === user?.id || memberId.toString() === user?._id;
+  });
+
+  const visibleThreads = threads.map((thread) => {
+    if (isGuest) {
+      return {
+        ...thread,
+        isLocked: !thread.spoilerFree,
+        lockedReason: 'Members only — sign in to unlock chapter discussions',
+      };
+    }
+
+    const isAheadOfProgress =
+      thread.chapterNumber > userCurrentChapter && !thread.spoilerFree;
+
+    return {
+      ...thread,
+      isLocked: isAheadOfProgress,
+      lockedReason: `Locked — reach chapter ${thread.chapterNumber} to unlock`,
+    };
+  });
 
   return (
     <main className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-16">
@@ -186,11 +293,19 @@ function Club() {
         <section className="bg-white rounded-2xl border border-stone-200/60 shadow-sm overflow-hidden mb-10">
           <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-0">
             <div className="bg-cream p-8 flex justify-center items-center border-b lg:border-b-0 lg:border-r border-stone-200/60">
-              <img
-                src={club.currentBook.coverUrl}
-                alt={`${club.currentBook.title} cover`}
-                className="w-44 h-64 object-cover rounded-xl shadow-sm"
-              />
+              {hasCurrentBookCover ? (
+                <img
+                  src={currentBookCover}
+                  alt={`${currentBookTitle} cover`}
+                  className="w-44 h-64 object-cover rounded-xl shadow-sm"
+                />
+              ) : (
+                <div className="w-44 h-64 bg-ink rounded-xl shadow-sm flex items-center justify-center p-5 text-center">
+                  <span className="font-serif text-xl italic text-cream leading-tight">
+                    {currentBook ? currentBookTitle : 'No active book'}
+                  </span>
+                </div>
+              )}
             </div>
 
             <div className="p-8 md:p-10">
@@ -200,7 +315,7 @@ function Club() {
                 </span>
 
                 <span className="text-xs text-stone-400">
-                  {club.membersCount} members
+                  {membersCount} members
                 </span>
               </div>
 
@@ -216,11 +331,11 @@ function Club() {
                 </span>
 
                 <h2 className="font-serif text-2xl mb-1">
-                  {club.currentBook.title}
+                  {currentBookTitle}
                 </h2>
 
                 <p className="text-sm text-stone-500">
-                  by {club.currentBook.author}
+                  {currentBookAuthor && `by ${currentBookAuthor}`}
                 </p>
               </div>
 
@@ -242,27 +357,39 @@ function Club() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  <ProgressTracker
-                    currentChapter={club.userCurrentChapter}
-                    totalChapters={club.currentBook.totalChapters}
-                    onUpdateProgress={handleUpdateProgress}
-                  />
+                  {isMember && currentBook ? (
+                    <ProgressTracker
+                      currentChapter={userCurrentChapter}
+                      totalChapters={totalChapters}
+                      onUpdateProgress={handleUpdateProgress}
+                    />
+                  ) : (
+                    <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
+                      {currentBook
+                        ? 'Join this club to track your reading progress.'
+                        : 'This club does not have an active book yet.'}
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row gap-3">
-                    <button
-                      type="button"
-                      onClick={handleJoinClub}
-                      className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
-                    >
-                      Join club
-                    </button>
+                    {!isMember && (
+                      <button
+                        type="button"
+                        onClick={handleJoinClub}
+                        className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+                      >
+                        Join club
+                      </button>
+                    )}
 
-                    <button
-                      type="button"
-                      onClick={handleStartDiscussion}
-                      className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
-                    >
-                      Start a discussion
-                    </button>
+                    {!isGuest && isMember && (
+                      <button
+                        type="button"
+                        onClick={handleStartDiscussion}
+                        className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+                      >
+                        Start a discussion
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -285,7 +412,7 @@ function Club() {
                 </p>
               </div>
 
-              {!isGuest && (
+              {!isGuest && isMember && (
                 <button
                   type="button"
                   onClick={handleStartDiscussion}
@@ -295,9 +422,9 @@ function Club() {
                 </button>
               )}
             </div>
-            {showAddThreadForm && !isGuest && (
+            {showAddThreadForm && !isGuest && currentBook && (
               <AddThreadForm
-                totalChapters={club.currentBook.totalChapters}
+                totalChapters={totalChapters}
                 onCancel={() => setShowAddThreadForm(false)}
                 onSubmitThread={handleSubmitThread}
               />

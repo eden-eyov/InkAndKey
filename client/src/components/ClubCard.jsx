@@ -1,7 +1,21 @@
 import { Link } from 'react-router-dom';
 
 function ClubCard({ club }) {
-  const hasImage = Boolean(club.imageUrl);
+  const image = club.image || club.imageUrl || '';
+  const hasImage = Boolean(image);
+
+  const genresText =
+    club.genres?.length > 0
+      ? club.genres.join(', ')
+      : club.genre || 'Book Club';
+
+  const membersCount =
+    club.membersCount ?? club.members?.length ?? 0;
+
+  const currentBookTitle =
+    club.currentBookTitle ||
+    club.currentBook?.title ||
+    'No active book yet';
 
   return (
     <article className="bg-white rounded-2xl border border-stone-200/70 shadow-md hover:shadow-lg hover:border-accent/70 transition overflow-hidden group">
@@ -9,7 +23,7 @@ function ClubCard({ club }) {
         <div className="p-6 flex flex-col justify-between">
           <div>
             <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-3">
-              {club.genre || 'Book Club'}
+              {genresText}
             </span>
 
             <h2 className="font-serif text-3xl text-ink mb-3 group-hover:text-accent transition leading-tight">
@@ -17,7 +31,7 @@ function ClubCard({ club }) {
             </h2>
 
             <p className="text-stone-500 text-sm line-clamp-3 mb-5 leading-relaxed">
-              {club.description}
+              {club.description || 'No description yet.'}
             </p>
 
             <div className="bg-cream rounded-xl p-4 border border-stone-100">
@@ -26,14 +40,14 @@ function ClubCard({ club }) {
               </span>
 
               <p className="font-serif text-lg text-ink leading-snug">
-                {club.currentBookTitle || 'No active book yet'}
+                {currentBookTitle}
               </p>
             </div>
           </div>
 
           <div className="mt-6 flex items-center justify-between gap-4">
             <span className="text-xs text-stone-400">
-              {club.membersCount || 0} members
+              {membersCount} members
             </span>
 
             <Link
@@ -48,7 +62,7 @@ function ClubCard({ club }) {
         <div className="p-5 bg-cream border-t sm:border-t-0 sm:border-l border-stone-200/60 flex items-center justify-center">
           {hasImage ? (
             <img
-              src={club.imageUrl}
+              src={image}
               alt={`${club.name} club cover`}
               className="w-full max-w-[120px] h-[190px] object-cover rounded-xl shadow-sm"
             />

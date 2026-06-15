@@ -15,59 +15,12 @@ function DiscoverClubs() {
 
   const [searchTerm, setSearchTerm] = useState('');
 
-  // SERVER TODO:
-  // When the backend is ready, fetchAllClubs should call a public endpoint,
-  // for example: GET /clubs.
   // This route should be available for both guests and logged-in users.
-  // useEffect(() => {
-  //   dispatch(fetchAllClubs());
-  // }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchAllClubs());
+  }, [dispatch]);
 
-  // TEMPORARY DESIGN TEST ONLY:
-  // If the backend is not ready and you want to see the page design,
-  // change:
-  // const displayedClubs = clubs;
-  // to:
-  // const displayedClubs = clubs?.length ? clubs : demoClubs;
-  const demoClubs = [
-    {
-      _id: 'demo-club-1',
-      name: 'Midnight Readers',
-      description:
-        'A cozy mystery and thriller club for readers who love late-night plot twists.',
-      currentBookTitle: 'The Silent Patient',
-      membersCount: 128,
-      genre: 'Thriller',
-      imageUrl:
-        'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop',
-    },
-    {
-      _id: 'demo-club-2',
-      name: 'The Fantasy Shelf',
-      description:
-        'A warm space for epic fantasy, magical worlds, and chapter-by-chapter discussions.',
-      currentBookTitle: 'The Hobbit',
-      membersCount: 94,
-      genre: 'Fantasy',
-      imageUrl: '',
-    },
-    {
-      _id: 'demo-club-3',
-      name: 'Classics & Coffee',
-      description:
-        'Slow reading, thoughtful notes, and spoiler-free discussions about classic literature.',
-      currentBookTitle: 'Pride and Prejudice',
-      membersCount: 76,
-      genre: 'Classics',
-      imageUrl:
-        'https://images.unsplash.com/photo-1495446815901-a7297e633e8d?w=400&h=600&fit=crop',
-    },
-  ];
-
-  // Use real Redux data by default.
-  // For frontend design testing without backend, temporarily use:
-  // const displayedClubs = clubs?.length ? clubs : demoClubs;
-  const displayedClubs = clubs?.length ? clubs : demoClubs;
+  const displayedClubs = clubs || [];
 
   const filteredClubs = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
@@ -78,13 +31,12 @@ function DiscoverClubs() {
       const name = club.name?.toLowerCase() || '';
       const description = club.description?.toLowerCase() || '';
       const currentBookTitle = club.currentBookTitle?.toLowerCase() || '';
-      const genre = club.genre?.toLowerCase() || '';
-
+      const genres = club.genres?.join(' ').toLowerCase() || '';
       return (
         name.includes(normalizedSearch) ||
         description.includes(normalizedSearch) ||
         currentBookTitle.includes(normalizedSearch) ||
-        genre.includes(normalizedSearch)
+        genres.includes(normalizedSearch)
       );
     });
   }, [displayedClubs, searchTerm]);

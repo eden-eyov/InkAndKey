@@ -117,7 +117,9 @@ const getClubById = async (req, res, next) => {
   try {
     const club = await Club.findById(req.params.id)
       .populate('creator', 'username email profileImage')
-      .populate('members', 'username profileImage');
+      .populate('members', 'username profileImage')
+      .populate('currentBook', 'title author coverImage totalChapters')
+      .populate('previousBooks', 'title author coverImage totalChapters');
 
     if (!club) {
       return res.status(404).json({

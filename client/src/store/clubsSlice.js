@@ -22,7 +22,7 @@ export const fetchAllClubs = createAsyncThunk(
     try {
       const { data } = await api.get('/clubs');
 
-      return data.data || data.clubs || data;
+      return data.data || data.clubs || [];
     } catch (err) {
       return rejectWithValue(
         err.response?.data?.message || 'Failed to load clubs'

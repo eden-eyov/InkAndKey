@@ -33,7 +33,7 @@ if (error) {
   return (
     <div className="min-h-screen bg-cream flex justify-center items-center px-4">
       <p className="font-serif text-stone-500 italic text-base">
-        Something went wrong. Please try again later.
+        {error || 'Something went wrong. Please try again later.'}
       </p>
     </div>
   );
