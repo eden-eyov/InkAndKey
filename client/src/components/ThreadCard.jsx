@@ -2,9 +2,16 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LockedContent from './LockedContent';
 
-function ThreadCard({ thread, isGuest = false }) {
+function ThreadCard({
+  thread,
+  isGuest = false,
+  canLike = false,
+  onSubmitReply,
+  onToggleLike,
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [likingId, setLikingId] = useState(null);
 
   const canOpenThread = !thread.isLocked;
 
@@ -13,22 +20,31 @@ function ThreadCard({ thread, isGuest = false }) {
     setIsOpen((prev) => !prev);
   };
 
-  const handleSubmitReply = (e) => {
+  const handleSubmitReply = async (e) => {
     e.preventDefault();
 
-    if (!replyText.trim()) return;
+    const trimmedReply = replyText.trim();
 
-    // SERVER TODO:
-    // Later this should create a reply for this thread.
-    // Possible endpoint:
-    // POST /threads/:threadId/replies
-    //
-    // Body example:
-    // { body: replyText }
-    //
-    // Only logged-in users should be allowed to reply.
+    if (!trimmedReply) return;
+    if (!onSubmitReply) return;
 
-    setReplyText('');
+    try {
+      await onSubmitReply(thread, trimmedReply);
+      setReplyText('');
+    } catch (error) {
+      console.log('SUBMIT REPLY ERROR:', error);
+    }
+  };
+
+  const handleLikeClick = async (commentId) => {
+    if (!canLike || !onToggleLike) return;
+
+    try {
+      setLikingId(commentId);
+      await onToggleLike(commentId);
+    } finally {
+      setLikingId(null);
+    }
   };
 
   return (
@@ -83,6 +99,26 @@ function ThreadCard({ thread, isGuest = false }) {
             </span>
           </div>
         </button>
+        {!thread.isLocked && canLike && (
+          <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-4">
+            <button
+              type="button"
+              onClick={() => handleLikeClick(thread._id)}
+              disabled={likingId === thread._id}
+              className={`text-sm font-medium transition ${
+                thread.isLikedByMe
+                  ? 'text-accent'
+                  : 'text-stone-400 hover:text-accent'
+              } disabled:opacity-50`}
+            >
+              {thread.isLikedByMe ? 'Liked' : 'Like'}
+            </button>
+
+            <span className="text-xs text-stone-400">
+              {thread.likesCount || 0} likes
+            </span>
+          </div>
+        )}
 
         {isOpen && !thread.isLocked && (
           <div className="mt-5 pt-5 border-t border-stone-100">
@@ -99,9 +135,26 @@ function ThreadCard({ thread, isGuest = false }) {
                       {reply.body}
                     </p>
 
-                    <span className="text-xs text-stone-400">
-                      Posted by {reply.authorName}
-                    </span>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs text-stone-400">
+                        Posted by {reply.authorName}
+                      </span>
+
+                      {canLike && (
+                        <button
+                          type="button"
+                          onClick={() => handleLikeClick(reply._id)}
+                          disabled={likingId === reply._id}
+                          className={`text-xs font-medium transition ${
+                            reply.isLikedByMe
+                              ? 'text-accent'
+                              : 'text-stone-400 hover:text-accent'
+                          } disabled:opacity-50`}
+                        >
+                          {reply.isLikedByMe ? 'Liked' : 'Like'} · {reply.likesCount || 0}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>

@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
  * club - FK
  * book - FK
  * user - FK
+ * title
  * text
  * chapter number
  * is spoiler free review
@@ -30,6 +31,13 @@ const commentSchema = new mongoose.Schema(
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
+    },
+
+    title: {
+      type: String,
+      trim: true,
+      maxlength: [120, 'Title cannot exceed 120 characters'],
+      default: '',
     },
 
     text: {

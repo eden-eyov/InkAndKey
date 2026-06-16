@@ -13,6 +13,8 @@ function Club() {
 
   const isGuest = !user;
   const [showAddThreadForm, setShowAddThreadForm] = useState(false);
+  const [threads, setThreads] = useState([]);
+  const [threadsLoading, setThreadsLoading] = useState(false);
 
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -55,6 +57,16 @@ function Club() {
             };
           }
         }
+        const currentUserId = user?.id || user?._id;
+
+        const userIsMember = clubData.members?.some((member) => {
+          const memberId = member._id || member;
+          return memberId.toString() === currentUserId;
+        });
+
+        if (clubData.currentBook?._id) {
+          await fetchThreads(clubData.currentBook._id, !user || !userIsMember);
+        }
 
         setClub(clubData);
       } catch (err) {
@@ -83,45 +95,75 @@ function Club() {
   //
   // For guests:
   // The backend should return only spoiler-free threads/reviews.
-  const threads = [
-    {
-      _id: 'thread-1',
-      chapterNumber: 2,
-      title: 'The opening chapters feel so tense',
-      body: 'I love how the story creates suspense without revealing too much too early.',
-      authorName: 'Maya',
-      spoilerFree: true,
-      repliesCount: 2,
-      replies: [
-        {
-          _id: 'reply-1',
-          body: 'Yes, it builds tension in such a quiet way.',
-          authorName: 'Eden',
-        },
-        {
-          _id: 'reply-2',
-          body: 'I liked that it felt mysterious without giving anything away.',
-          authorName: 'Noa',
-        },
-      ],
-    },
-    {
-      _id: 'thread-2',
-      chapterNumber: 12,
-      title: 'That reveal changes everything',
-      body: 'This discussion contains details from later chapters.',
-      authorName: 'Daniel',
-      spoilerFree: false,
-      repliesCount: 0,
-      replies: [],
-    },
-  ];
+
 
   // SERVER TODO:
   // Later this should come from:
   // GET /clubs/:clubId/surveys
   // Guests should not see surveys.
   const activeSurveys = [];
+
+  const mapCommentsToThreads = (comments) => {
+    const topLevelComments = comments.filter((comment) => !comment.parentComment);
+    const replies = comments.filter((comment) => comment.parentComment);
+
+    return topLevelComments.map((comment) => {
+      const commentReplies = replies.filter((reply) => {
+        const parentId = reply.parentComment?._id || reply.parentComment;
+        return parentId?.toString() === comment._id.toString();
+      });
+
+      return {
+        _id: comment._id,
+        title:
+          comment.title ||
+          (comment.isSpoilerFreeReview
+            ? 'Spoiler-free review'
+            : `Chapter ${comment.chapterNumber} discussion`),
+        body: comment.text || '',
+        chapterNumber: comment.chapterNumber,
+        spoilerFree: comment.isSpoilerFreeReview,
+        authorName: comment.user?.username || 'Reader',
+        isLocked: comment.isLocked,
+        lockedReason: comment.isLocked
+          ? `Locked — reach chapter ${comment.unlockChapter} to unlock`
+          : '',
+        likesCount: comment.likesCount || 0,
+        isLikedByMe: Boolean(comment.isLikedByMe),
+        repliesCount: commentReplies.length,
+        replies: commentReplies.map((reply) => ({
+          _id: reply._id,
+          body: reply.text || '',
+          authorName: reply.user?.username || 'Reader',
+          likesCount: reply.likesCount || 0,
+          isLikedByMe: Boolean(reply.isLikedByMe),
+        })),
+      };
+    });
+  };
+
+  const fetchThreads = async (bookId, shouldUsePublicRoute = false) => {
+    if (!bookId) return;
+
+    try {
+      setThreadsLoading(true);
+
+      const endpoint = shouldUsePublicRoute ? '/comments/public' : '/comments';
+
+      const { data } = await api.get(endpoint, {
+        params: {
+          club: clubId,
+          book: bookId,
+        },
+      });
+
+      setThreads(mapCommentsToThreads(data.data || []));
+    } catch (err) {
+      console.log('FETCH THREADS ERROR:', err.response?.data || err);
+    } finally {
+      setThreadsLoading(false);
+    }
+  };
 
   const handleUpdateProgress = async (newChapter) => {
     if (!currentBook || !isMember) return;
@@ -173,36 +215,81 @@ function Club() {
     setShowAddThreadForm(true);
   };
 
-  const handleSubmitThread = (threadData) => {
-    // SERVER TODO:
-    // Later this should send the new thread to the backend.
-    // Possible endpoint:
-    // POST /clubs/:clubId/threads
-    //
-    // Body:
-    // {
-    //   title: threadData.title,
-    //   body: threadData.body,
-    //   chapterNumber: threadData.chapterNumber,
-    //   spoilerFree: threadData.spoilerFree
-    // }
-    //
-    // After success, refetch the club threads or add the new thread to state.
+  const handleSubmitThread = async (threadData) => {
+    if (!currentBook || !isMember) return;
 
-    console.log('New thread data:', {
-      clubId,
-      ...threadData,
-    });
+    try {
+      await api.post('/comments', {
+        club: clubId,
+        book: currentBook._id,
+        title: threadData.title,
+        text: threadData.body,
+        chapterNumber: threadData.chapterNumber,
+        isSpoilerFreeReview: threadData.spoilerFree,
+        parentComment: null,
+      });
 
-    setShowAddThreadForm(false);
+      setShowAddThreadForm(false);
+
+      await fetchThreads(currentBook._id, false);
+    } catch (err) {
+      console.log('CREATE THREAD ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to publish discussion. Please try again.'
+      );
+    }
   };
-    if (loading) {
-    return (
-      <div className="min-h-screen bg-cream flex justify-center items-center">
-        <p className="font-serif text-stone-500 italic text-lg animate-pulse">
-          Loading club...
-        </p>
-      </div>
+
+  const handleSubmitReply = async (thread, replyText) => {
+    if (!currentBook || !isMember) return;
+
+    try {
+      await api.post('/comments', {
+        club: clubId,
+        book: currentBook._id,
+        text: replyText,
+        chapterNumber: thread.chapterNumber,
+        isSpoilerFreeReview: thread.spoilerFree,
+        parentComment: thread._id,
+      });
+
+      await fetchThreads(currentBook._id, false);
+    } catch (err) {
+      console.log('CREATE REPLY ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to publish reply. Please try again.'
+      );
+    }
+  };
+
+  const handleToggleLike = async (commentId) => {
+    if (!currentBook || !isMember) return;
+
+    try {
+      await api.post(`/comments/${commentId}/like`);
+
+      await fetchThreads(currentBook._id, false);
+    } catch (err) {
+      console.log('TOGGLE LIKE ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to update like. Please try again.'
+      );
+    }
+  };
+
+  if (loading) {
+  return (
+    <div className="min-h-screen bg-cream flex justify-center items-center">
+      <p className="font-serif text-stone-500 italic text-lg animate-pulse">
+        Loading club...
+      </p>
+    </div>
     );
   }
 
@@ -435,6 +522,9 @@ function Club() {
                   key={thread._id}
                   thread={thread}
                   isGuest={isGuest}
+                  canLike={isMember}
+                  onSubmitReply={handleSubmitReply}
+                  onToggleLike={handleToggleLike}
                 />
               ))}
             </div>

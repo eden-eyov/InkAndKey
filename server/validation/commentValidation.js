@@ -15,6 +15,10 @@ const createCommentSchema = Joi.object({
     'any.required': 'Book id is required',
   }),
 
+  title: Joi.string().trim().max(120).allow('').default('').messages({
+    'string.max': 'Title cannot exceed 120 characters',
+  }),
+
   text: Joi.string().trim().min(1).max(2000).required().messages({
     'string.empty': 'Comment text is required',
     'string.min': 'Comment cannot be empty',
@@ -38,6 +42,9 @@ const createCommentSchema = Joi.object({
 });
 
 const updateCommentSchema = Joi.object({
+  title: Joi.string().trim().max(120).allow('').messages({
+    'string.max': 'Title cannot exceed 120 characters',
+  }),
   text: Joi.string().trim().min(1).max(2000).messages({
     'string.empty': 'Comment text cannot be empty',
     'string.min': 'Comment cannot be empty',
