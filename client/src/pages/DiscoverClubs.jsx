@@ -77,23 +77,17 @@ function DiscoverClubs() {
     <main className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-16">
       <div className="max-w-7xl mx-auto">
         <header className="mb-10 border-b border-stone-200 pb-8">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+          <div className="w-full lg:w-80 space-y-4">
+            {user && (
+              <Link
+                to="/clubs/new"
+                className="block w-full text-center px-5 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+              >
+                Create new club
+              </Link>
+            )}
+
             <div>
-              <span className="text-xs font-bold uppercase tracking-widest text-accent">
-                Discover
-              </span>
-
-              <h1 className="font-serif text-5xl mt-2 mb-3">
-                Find your next book club
-              </h1>
-
-              <p className="text-stone-500 max-w-2xl">
-                Browse spoiler-free reading communities, preview public
-                discussions, and join the clubs that match your reading taste.
-              </p>
-            </div>
-
-            <div className="w-full lg:w-80">
               <label
                 htmlFor="club-search"
                 className="block text-xs uppercase tracking-wider text-stone-500 mb-2"

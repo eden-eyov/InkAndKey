@@ -1,5 +1,5 @@
-const Book = require('../models/book');
-const Club = require('../models/club');
+const Book = require('../models/Book');
+const Club = require('../models/Club');
 
 const createBook = async (req, res, next) => {
   try {

@@ -1,6 +1,6 @@
-const ReadingProgress = require('../models/readingProgress');
-const Club = require('../models/club');
-const Book = require('../models/book');
+const ReadingProgress = require('../models/ReadingProgress');
+const Club = require('../models/Club');
+const Book = require('../models/Book');
 
 const upsertMyProgress = async (req, res, next) => {
   try {

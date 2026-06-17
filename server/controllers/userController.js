@@ -1,6 +1,6 @@
-const User = require('../models/user');
-const Club = require('../models/club');
-const ReadingProgress = require('../models/readingProgress');
+const User = require('../models/User');
+const Club = require('../models/Club');
+const ReadingProgress = require('../models/ReadingProgress');
 
 /**
  * Get user profile by id.

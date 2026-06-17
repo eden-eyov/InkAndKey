@@ -1,7 +1,7 @@
-const Comment = require('../models/comment');
-const Club = require('../models/club');
-const Book = require('../models/book');
-const ReadingProgress = require('../models/readingProgress');
+const Comment = require('../models/Comment');
+const Club = require('../models/Club');
+const Book = require('../models/Book');
+const ReadingProgress = require('../models/ReadingProgress');
 
 const formatCommentForUser = (comment, currentChapter, userId) => {
   const isLocked =

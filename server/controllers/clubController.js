@@ -1,6 +1,13 @@
-const Club = require('../models/club');
-const Book = require('../models/book');
-const ReadingProgress = require('../models/readingProgress');
+const Club = require('../models/Club');
+const Book = require('../models/Book');
+const ReadingProgress = require('../models/ReadingProgress');
+
+const populateClub = (clubId) =>
+  Club.findById(clubId)
+    .populate('creator', 'username email profileImage')
+    .populate('members', 'username profileImage')
+    .populate('currentBook', 'title author coverImage totalChapters')
+    .populate('previousBooks', 'title author coverImage totalChapters');
 
 const createClub = async (req, res, next) => {
   try {
@@ -227,10 +234,12 @@ const joinClub = async (req, res, next) => {
     club.members.push(req.user._id);
     await club.save();
 
+    const updatedClub = await populateClub(club._id);
+
     res.status(200).json({
       success: true,
       message: 'Joined club successfully',
-      data: club,
+      data: updatedClub,
     });
   } catch (error) {
     next(error);
@@ -272,10 +281,12 @@ const leaveClub = async (req, res, next) => {
 
     await club.save();
 
+    const updatedClub = await populateClub(club._id);
+
     res.status(200).json({
       success: true,
       message: 'Left club successfully',
-      data: club,
+      data: updatedClub,
     });
   } catch (error) {
     next(error);

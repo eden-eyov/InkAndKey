@@ -10,6 +10,7 @@ const Register = lazy(() => import('./pages/Register'));
 
 const DiscoverClubs = lazy(() => import('./pages/DiscoverClubs')); 
 const Club = lazy(() => import('./pages/Club'));
+const ClubEditor = lazy(() => import('./pages/ClubEditor'));
 
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
@@ -34,9 +35,28 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
 
-          {/* Guest-friendly Routes */}
+          {/* Club Routes */}
           <Route path="/clubs" element={<DiscoverClubs />} />
+
+          <Route
+            path="/clubs/new"
+            element={
+              <PrivateRoute>
+                <ClubEditor />
+              </PrivateRoute>
+            }
+          />
+
           <Route path="/clubs/:id" element={<Club />} />
+
+          <Route
+            path="/clubs/:id/edit"
+            element={
+              <PrivateRoute>
+                <ClubEditor />
+              </PrivateRoute>
+            }
+          />
 
           {/* Protected Routes */}
           <Route

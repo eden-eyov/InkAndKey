@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
@@ -9,6 +9,7 @@ import ProgressTracker from '../components/ProgressTracker';
 
 function Club() {
   const { id: clubId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const isGuest = !user;
@@ -193,15 +194,77 @@ function Club() {
     if (isGuest) return;
 
     try {
-      const { data } = await api.post(`/clubs/${clubId}/join`);
+      setError('');
 
-      setClub(data.data);
+      const { data } = await api.post(`/clubs/${clubId}/join`);
+      const updatedClub = data.data;
+
+      setClub((prevClub) => ({
+        ...updatedClub,
+        userCurrentChapter: prevClub?.userCurrentChapter || 0,
+      }));
+
+      if (updatedClub.currentBook?._id) {
+        await fetchThreads(updatedClub.currentBook._id, false);
+      }
     } catch (err) {
       console.log('JOIN CLUB ERROR:', err.response?.data || err);
 
       setError(
         err.response?.data?.message ||
           'Failed to join club. Please try again.'
+      );
+    }
+  };
+
+  const handleLeaveClub = async () => {
+    if (isGuest || !club) return;
+
+    try {
+      setError('');
+
+      const { data } = await api.post(`/clubs/${clubId}/leave`);
+      const updatedClub = data.data;
+
+      setClub((prevClub) => ({
+        ...updatedClub,
+        userCurrentChapter: prevClub?.userCurrentChapter || 0,
+      }));
+
+      if (updatedClub.currentBook?._id) {
+        await fetchThreads(updatedClub.currentBook._id, true);
+      }
+    } catch (err) {
+      console.log('LEAVE CLUB ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to leave club. Please try again.'
+      );
+    }
+  };
+
+  const handleDeleteClub = async () => {
+    if (isGuest || !club) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this club? This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setError('');
+
+      await api.delete(`/clubs/${clubId}`);
+
+      navigate('/clubs');
+    } catch (err) {
+      console.log('DELETE CLUB ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to delete club. Please try again.'
       );
     }
   };
@@ -326,11 +389,21 @@ function Club() {
 
   const membersCount = club.members?.length || club.membersCount || 0;
 
+  const currentUserId = user?.id || user?._id;
+
   const isMember = club.members?.some((member) => {
     const memberId = member._id || member;
 
-    return memberId.toString() === user?.id || memberId.toString() === user?._id;
+    return memberId?.toString() === currentUserId?.toString();
   });
+
+
+  const creatorId = club.creator?._id || club.creator;
+
+  const isCreator =
+    Boolean(currentUserId) &&
+    Boolean(creatorId) &&
+    creatorId.toString() === currentUserId.toString();
 
   const visibleThreads = threads.map((thread) => {
     if (isGuest) {
@@ -457,8 +530,8 @@ function Club() {
                         : 'This club does not have an active book yet.'}
                     </div>
                   )}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    {!isMember && (
+                  <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                    {!isMember && !isCreator && (
                       <button
                         type="button"
                         onClick={handleJoinClub}
@@ -466,6 +539,35 @@ function Club() {
                       >
                         Join club
                       </button>
+                    )}
+
+                    {isMember && !isCreator && (
+                      <button
+                        type="button"
+                        onClick={handleLeaveClub}
+                        className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+                      >
+                        Leave club
+                      </button>
+                    )}
+
+                    {isCreator && (
+                      <>
+                        <Link
+                          to={`/clubs/${club._id}/edit`}
+                          className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition text-center"
+                        >
+                          Edit club
+                        </Link>
+
+                        <button
+                          type="button"
+                          onClick={handleDeleteClub}
+                          className="px-6 py-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-full hover:bg-red-100 transition"
+                        >
+                          Delete club
+                        </button>
+                      </>
                     )}
 
                     {!isGuest && isMember && (
