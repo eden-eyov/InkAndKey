@@ -7,6 +7,8 @@ import ThreadCard from '../components/ThreadCard';
 import AddThreadForm from '../components/AddThreadForm';
 import ProgressTracker from '../components/ProgressTracker';
 
+import GENRES from '../utils/genres';
+
 function Club() {
   const { id: clubId } = useParams();
   const navigate = useNavigate();
@@ -14,12 +16,24 @@ function Club() {
 
   const isGuest = !user;
   const [showAddThreadForm, setShowAddThreadForm] = useState(false);
+  const [showSetBookForm, setShowSetBookForm] = useState(false);
   const [threads, setThreads] = useState([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
 
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const [settingCurrentBook, setSettingCurrentBook] = useState(false);
+  const [newBookData, setNewBookData] = useState({
+    title: '',
+    author: '',
+    totalChapters: '',
+    description: '',
+    coverImage: '',
+    genres: [],
+  });
+
 
   useEffect(() => {
     const fetchClub = async () => {
@@ -64,6 +78,13 @@ function Club() {
           const memberId = member._id || member;
           return memberId.toString() === currentUserId;
         });
+
+        const clubCreatorId = clubData.creator?._id || clubData.creator;
+
+        const userIsCreator =
+          Boolean(currentUserId) &&
+          Boolean(clubCreatorId) &&
+          clubCreatorId.toString() === currentUserId?.toString();
 
         if (clubData.currentBook?._id) {
           await fetchThreads(clubData.currentBook._id, !user || !userIsMember);
@@ -266,6 +287,100 @@ function Club() {
         err.response?.data?.message ||
           'Failed to delete club. Please try again.'
       );
+    }
+  };
+
+  const handleNewBookChange = (e) => {
+    const { name, value } = e.target;
+
+    setNewBookData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleNewBookGenreToggle = (genre) => {
+    setNewBookData((prev) => {
+      const alreadySelected = prev.genres.includes(genre);
+
+      return {
+        ...prev,
+        genres: alreadySelected
+          ? prev.genres.filter((item) => item !== genre)
+          : [...prev.genres, genre],
+      };
+    });
+  };
+
+  const handleSetCurrentBook = async (e) => {
+    e.preventDefault();
+
+    if (!isCreator) return;
+
+    const title = newBookData.title.trim();
+    const author = newBookData.author.trim();
+    const totalChapters = Number(newBookData.totalChapters);
+
+    if (!title || !author || !totalChapters || totalChapters < 1) {
+      setError('Please enter book title, author, and a valid number of chapters.');
+      return;
+    }
+
+    try {
+      setSettingCurrentBook(true);
+      setError('');
+
+      const createBookResponse = await api.post('/books', {
+        title,
+        author,
+        totalChapters,
+        description: newBookData.description.trim(),
+        coverImage: newBookData.coverImage.trim(),
+        genres: newBookData.genres,
+        club: clubId,
+      });
+
+      const createdBook = createBookResponse.data.data;
+
+      const setCurrentBookResponse = await api.patch(
+        `/clubs/${clubId}/current-book`,
+        {
+          book: createdBook._id,
+        }
+      );
+
+      const updatedClub = setCurrentBookResponse.data.data;
+
+      setClub({
+        ...updatedClub,
+        userCurrentChapter: 0,
+      });
+
+      setThreads([]);
+
+      if (updatedClub.currentBook?._id) {
+        await fetchThreads(updatedClub.currentBook._id, false);
+      }
+
+      setNewBookData({
+        title: '',
+        author: '',
+        totalChapters: '',
+        description: '',
+        coverImage: '',
+        genres: [],
+      });
+
+      setShowSetBookForm(false);
+    } catch (err) {
+      console.log('SET NEW CURRENT BOOK ERROR:', err.response?.data || err);
+
+      setError(
+        err.response?.data?.message ||
+          'Failed to create and set current book. Please try again.'
+      );
+    } finally {
+      setSettingCurrentBook(false);
     }
   };
 
@@ -562,6 +677,14 @@ function Club() {
 
                         <button
                           type="button"
+                          onClick={() => setShowSetBookForm((prev) => !prev)}
+                          className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+                        >
+                          {showSetBookForm ? 'Close book form' : 'Set new current book'}
+                        </button>
+
+                        <button
+                          type="button"
                           onClick={handleDeleteClub}
                           className="px-6 py-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-full hover:bg-red-100 transition"
                         >
@@ -578,6 +701,136 @@ function Club() {
                       >
                         Start a discussion
                       </button>
+                    )}
+                    {isCreator && showSetBookForm && (
+                      <form
+                        onSubmit={handleSetCurrentBook}
+                        className="w-full bg-cream border border-stone-100 rounded-2xl p-5 space-y-5"
+                      >
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
+                            Creator tools
+                          </span>
+
+                          <h3 className="font-serif text-xl text-ink">
+                            Set new current book
+                          </h3>
+
+                          <p className="text-sm text-stone-500 mt-1">
+                            Add the next book your club is reading. The previous current book will move to the club history automatically.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                              Book title
+                            </label>
+                            <input
+                              type="text"
+                              name="title"
+                              value={newBookData.title}
+                              onChange={handleNewBookChange}
+                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                              Author
+                            </label>
+                            <input
+                              type="text"
+                              name="author"
+                              value={newBookData.author}
+                              onChange={handleNewBookChange}
+                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                              Total chapters
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              name="totalChapters"
+                              value={newBookData.totalChapters}
+                              onChange={handleNewBookChange}
+                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                              Cover image URL
+                            </label>
+                            <input
+                              type="text"
+                              name="coverImage"
+                              value={newBookData.coverImage}
+                              onChange={handleNewBookChange}
+                              placeholder="Optional"
+                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                            Description
+                          </label>
+                          <textarea
+                            name="description"
+                            value={newBookData.description}
+                            onChange={handleNewBookChange}
+                            rows="3"
+                            className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
+                          />
+                        </div>
+
+                        <div>
+                          <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
+                            Genres
+                          </p>
+
+                          <div className="flex flex-wrap gap-2">
+                            {GENRES.map((genre) => (
+                              <button
+                                key={genre}
+                                type="button"
+                                onClick={() => handleNewBookGenreToggle(genre)}
+                                className={`px-3 py-1.5 rounded-full text-xs border transition ${
+                                  newBookData.genres.includes(genre)
+                                    ? 'bg-accent border-accent text-white'
+                                    : 'bg-white border-stone-200 text-stone-600 hover:border-accent hover:text-accent'
+                                }`}
+                              >
+                                {genre}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowSetBookForm(false)}
+                            className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+                          >
+                            Cancel
+                          </button>
+
+                          <button
+                            type="submit"
+                            disabled={settingCurrentBook}
+                            className="px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {settingCurrentBook ? 'Saving...' : 'Create and set current book'}
+                          </button>
+                        </div>
+                      </form>
                     )}
                   </div>
                 </div>
