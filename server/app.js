@@ -6,10 +6,12 @@ const cookieParser = require('cookie-parser');
 // routes imports
 const authRoutes = require('./routes/authRoutes');
 const clubRoutes = require('./routes/clubRoutes');
+const pollRoutes = require('./routes/pollRoutes');
 const bookRoutes = require('./routes/bookRoutes');
 const readingProgressRoutes = require('./routes/readingProgressRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const userRoutes = require('./routes/userRoutes');
+
 
 // middleware imports
 const errorHandler = require('./middleware/errorHandler');
@@ -25,6 +27,7 @@ app.use(cookieParser());
 
 app.use('/api/auth', authRoutes);
 app.use('/api/clubs', clubRoutes);
+app.use('/api/clubs/:clubId/polls', pollRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/reading-progress', readingProgressRoutes);
 app.use('/api/comments', commentRoutes);

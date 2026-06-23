@@ -20,6 +20,49 @@ function Club() {
   const [threads, setThreads] = useState([]);
   const [threadsLoading, setThreadsLoading] = useState(false);
 
+  const [showCreatePollForm, setShowCreatePollForm] = useState(false);
+  const [creatingPoll, setCreatingPoll] = useState(false);
+
+  const [newPollData, setNewPollData] = useState({
+    question: 'What should we read next?',
+    closesAt: '',
+    options: [
+      {
+        title: '',
+        author: '',
+        coverImage: '',
+        description: '',
+      },
+      {
+        title: '',
+        author: '',
+        coverImage: '',
+        description: '',
+      },
+    ],
+  });
+
+  const [poll, setPoll] = useState(null);
+  const [pollLoading, setPollLoading] = useState(false);
+  const [pollError, setPollError] = useState('');
+  const [pollMessage, setPollMessage] = useState('');
+  const [selectedPollOptionId, setSelectedPollOptionId] = useState('');
+  const [pollActionLoading, setPollActionLoading] = useState(false);
+  const [now, setNow] = useState(Date.now());
+
+  const [showAnnounceWinnerForm, setShowAnnounceWinnerForm] = useState(false);
+  const [announcingWinner, setAnnouncingWinner] = useState(false);
+  const [winnerData, setWinnerData] = useState({
+    optionId: '',
+    totalChapters: '',
+    title: '',
+    author: '',
+    coverImage: '',
+    description: '',
+    genres: [],
+  });
+
+
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -90,13 +133,17 @@ function Club() {
           await fetchThreads(clubData.currentBook._id, !user || !userIsMember);
         }
 
+        if (user) {
+          await fetchClubPolls(false);
+        }
+
         setClub(clubData);
       } catch (err) {
         console.log('FETCH CLUB ERROR:', err.response?.data || err);
 
         setError(
           err.response?.data?.message ||
-            'Failed to load club. Please try again.'
+          'Failed to load club. Please try again.'
         );
       } finally {
         setLoading(false);
@@ -106,6 +153,13 @@ function Club() {
     fetchClub();
   }, [clubId, user]);
 
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, []);
   // TEMPORARY DESIGN TEST ONLY:
   // These demo threads are used only while the backend is not ready.
   // SERVER TODO:
@@ -118,12 +172,6 @@ function Club() {
   // For guests:
   // The backend should return only spoiler-free threads/reviews.
 
-
-  // SERVER TODO:
-  // Later this should come from:
-  // GET /clubs/:clubId/surveys
-  // Guests should not see surveys.
-  const activeSurveys = [];
 
   const mapCommentsToThreads = (comments) => {
     const topLevelComments = comments.filter((comment) => !comment.parentComment);
@@ -187,6 +235,373 @@ function Club() {
     }
   };
 
+  const fetchClubPolls = async (showLoading = true) => {
+    if (!user) return;
+
+    try {
+      if (showLoading) {
+        setPollLoading(true);
+      }
+
+      setPollError('');
+
+      const { data } = await api.get(`/clubs/${clubId}/polls`);
+
+      const polls = data.data || [];
+
+      const visiblePoll =
+        polls.find((item) => item.status === 'open') ||
+        polls.find((item) => item.winnerBook && !item.appliedAt) ||
+        null;
+
+      setPoll(visiblePoll);
+
+      if (visiblePoll?.userVoteOptionId) {
+        setSelectedPollOptionId(visiblePoll.userVoteOptionId);
+      } else {
+        setSelectedPollOptionId('');
+      }
+    } catch (err) {
+      console.log('FETCH POLLS ERROR:', err.response?.data || err);
+
+      setPoll(null);
+
+      if (err.response?.status !== 404 && err.response?.status !== 403) {
+        setPollError(
+          err.response?.data?.message ||
+          'Failed to load poll. Please try again.'
+        );
+      }
+    } finally {
+      if (showLoading) {
+        setPollLoading(false);
+      }
+    }
+  };
+
+  const handleVoteInPoll = async () => {
+    if (!poll || !selectedPollOptionId || !canVoteInPoll) return;
+
+    try {
+      setPollActionLoading(true);
+      setPollError('');
+      setPollMessage('');
+
+      const { data } = await api.post(
+        `/clubs/${clubId}/polls/${poll._id}/vote`,
+        {
+          optionId: selectedPollOptionId,
+        }
+      );
+
+      setPoll(data.data);
+      setPollMessage('Your vote was submitted.');
+    } catch (err) {
+      console.log('VOTE IN POLL ERROR:', err.response?.data || err);
+
+      setPollError(
+        err.response?.data?.message ||
+        'Failed to submit your vote. Please try again.'
+      );
+    } finally {
+      setPollActionLoading(false);
+    }
+  };
+
+  const handleRefreshPollResults = async () => {
+    setPollMessage('');
+    await fetchClubPolls(true);
+  };
+
+  const handleOpenAnnounceWinnerForm = () => {
+    if (!poll || !isCreator) return;
+
+    const leadingOption = [...poll.options].sort(
+      (firstOption, secondOption) =>
+        secondOption.votesCount - firstOption.votesCount
+    )[0];
+
+    setWinnerData({
+      optionId: leadingOption?.optionId || '',
+      totalChapters: '',
+      title: leadingOption?.title || '',
+      author: leadingOption?.author || '',
+      coverImage: leadingOption?.coverImage || '',
+      description: leadingOption?.description || '',
+      genres: [],
+    });
+
+    setShowAnnounceWinnerForm((prev) => !prev);
+  };
+
+  const handleWinnerDataChange = (e) => {
+    const { name, value } = e.target;
+
+    setWinnerData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleAnnounceWinner = async (e) => {
+    e.preventDefault();
+
+    if (!poll || !isCreator) return;
+
+    const totalChapters = Number(winnerData.totalChapters);
+
+    if (!winnerData.optionId) {
+      setPollError('Please choose a winning option.');
+      return;
+    }
+
+    if (!totalChapters || totalChapters < 1) {
+      setPollError('Please enter a valid number of chapters.');
+      return;
+    }
+
+    try {
+      setAnnouncingWinner(true);
+      setPollError('');
+      setPollMessage('');
+
+      const payload = {
+        optionId: winnerData.optionId,
+        totalChapters,
+      };
+
+      if (winnerData.title.trim()) {
+        payload.title = winnerData.title.trim();
+      }
+
+      if (winnerData.author.trim()) {
+        payload.author = winnerData.author.trim();
+      }
+
+      if (winnerData.coverImage.trim()) {
+        payload.coverImage = winnerData.coverImage.trim();
+      }
+
+      if (winnerData.description.trim()) {
+        payload.description = winnerData.description.trim();
+      }
+
+      const { data } = await api.post(
+        `/clubs/${clubId}/polls/${poll._id}/announce-winner`,
+        payload
+      );
+
+      setPoll({
+        ...data.data.poll,
+        winnerBook: data.data.winnerBook,
+      });
+      setPollMessage('The next book has been chosen.');
+      setShowAnnounceWinnerForm(false);
+
+      setWinnerData({
+        optionId: '',
+        totalChapters: '',
+        title: '',
+        author: '',
+        coverImage: '',
+        description: '',
+        genres: [],
+      });
+    } catch (err) {
+      console.log('ANNOUNCE WINNER ERROR:', err.response?.data || err);
+
+      setPollError(
+        err.response?.data?.message ||
+        'Failed to announce winner. Please try again.'
+      );
+    } finally {
+      setAnnouncingWinner(false);
+    }
+  };
+
+  const handleCreatePoll = async (e) => {
+    e.preventDefault();
+
+    if (!club || !user) return;
+
+    const currentUserId = user?.id || user?._id;
+    const creatorId = club.creator?._id || club.creator;
+
+    const userIsCreator =
+      Boolean(currentUserId) &&
+      Boolean(creatorId) &&
+      creatorId.toString() === currentUserId.toString();
+
+    if (!userIsCreator) return;
+
+    const validOptions = newPollData.options
+      .map((option) => ({
+        title: option.title.trim(),
+        author: option.author.trim(),
+        coverImage: option.coverImage.trim(),
+        description: option.description.trim(),
+      }))
+      .filter((option) => option.title);
+
+    if (validOptions.length < 2) {
+      setPollError('Please add at least two book options.');
+      return;
+    }
+
+    if (!newPollData.closesAt) {
+      setPollError('Please choose a closing date for the poll.');
+      return;
+    }
+
+    try {
+      setCreatingPoll(true);
+      setPollError('');
+      setPollMessage('');
+
+      const { data } = await api.post(`/clubs/${clubId}/polls`, {
+        question: newPollData.question.trim() || 'What should we read next?',
+        closesAt: newPollData.closesAt,
+        options: validOptions,
+      });
+
+      setPoll(data.data);
+      setPollMessage('Poll created successfully.');
+      setShowCreatePollForm(false);
+
+      setNewPollData({
+        question: 'What should we read next?',
+        closesAt: '',
+        options: [
+          {
+            title: '',
+            author: '',
+            coverImage: '',
+            description: '',
+          },
+          {
+            title: '',
+            author: '',
+            coverImage: '',
+            description: '',
+          },
+        ],
+      });
+    } catch (err) {
+      console.log('CREATE POLL ERROR:', err.response?.data || err);
+
+      setPollError(
+        err.response?.data?.message ||
+        'Failed to create poll. Please try again.'
+      );
+    } finally {
+      setCreatingPoll(false);
+    }
+  };
+
+  const handleNewPollChange = (e) => {
+    const { name, value } = e.target;
+
+    setNewPollData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handlePollOptionChange = (index, field, value) => {
+    setNewPollData((prev) => ({
+      ...prev,
+      options: prev.options.map((option, optionIndex) =>
+        optionIndex === index
+          ? {
+            ...option,
+            [field]: value,
+          }
+          : option
+      ),
+    }));
+  };
+
+  const handleAddPollOption = () => {
+    setNewPollData((prev) => ({
+      ...prev,
+      options: [
+        ...prev.options,
+        {
+          title: '',
+          author: '',
+          coverImage: '',
+          description: '',
+        },
+      ],
+    }));
+  };
+
+  const handleRemovePollOption = (index) => {
+    setNewPollData((prev) => {
+      if (prev.options.length <= 2) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        options: prev.options.filter((_, optionIndex) => optionIndex !== index),
+      };
+    });
+  };
+
+  const handleSetWinnerBookAsCurrent = async () => {
+    if (!poll || !club || !user) return;
+
+    const currentUserId = user?.id || user?._id;
+    const creatorId = club.creator?._id || club.creator;
+
+    const userIsCreator =
+      Boolean(currentUserId) &&
+      Boolean(creatorId) &&
+      creatorId.toString() === currentUserId.toString();
+
+    if (!userIsCreator) return;
+
+    try {
+      setPollActionLoading(true);
+      setPollError('');
+      setPollMessage('');
+
+      const { data } = await api.patch(
+        `/clubs/${clubId}/polls/${poll._id}/set-winner-current`
+      );
+
+      const updatedClub = data.data.club;
+      const updatedPoll = data.data.poll;
+
+      setClub({
+        ...updatedClub,
+        userCurrentChapter: 0,
+      });
+
+      setPoll(updatedPoll);
+      setPollMessage('The winning book is now the current book.');
+
+      setThreads([]);
+
+      if (updatedClub.currentBook?._id) {
+        await fetchThreads(updatedClub.currentBook._id, false);
+      }
+    } catch (err) {
+      console.log(
+        'SET WINNER BOOK AS CURRENT ERROR:',
+        err.response?.data || err
+      );
+
+      setPollError(
+        err.response?.data?.message ||
+        'Failed to set winner book as current book. Please try again.'
+      );
+    } finally {
+      setPollActionLoading(false);
+    }
+  };
+
   const handleUpdateProgress = async (newChapter) => {
     if (!currentBook || !isMember) return;
 
@@ -206,7 +621,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to update reading progress. Please try again.'
+        'Failed to update reading progress. Please try again.'
       );
     }
   };
@@ -233,7 +648,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to join club. Please try again.'
+        'Failed to join club. Please try again.'
       );
     }
   };
@@ -260,7 +675,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to leave club. Please try again.'
+        'Failed to leave club. Please try again.'
       );
     }
   };
@@ -285,7 +700,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to delete club. Please try again.'
+        'Failed to delete club. Please try again.'
       );
     }
   };
@@ -377,7 +792,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to create and set current book. Please try again.'
+        'Failed to create and set current book. Please try again.'
       );
     } finally {
       setSettingCurrentBook(false);
@@ -415,7 +830,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to publish discussion. Please try again.'
+        'Failed to publish discussion. Please try again.'
       );
     }
   };
@@ -439,7 +854,7 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to publish reply. Please try again.'
+        'Failed to publish reply. Please try again.'
       );
     }
   };
@@ -456,18 +871,18 @@ function Club() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to update like. Please try again.'
+        'Failed to update like. Please try again.'
       );
     }
   };
 
   if (loading) {
-  return (
-    <div className="min-h-screen bg-cream flex justify-center items-center">
-      <p className="font-serif text-stone-500 italic text-lg animate-pulse">
-        Loading club...
-      </p>
-    </div>
+    return (
+      <div className="min-h-screen bg-cream flex justify-center items-center">
+        <p className="font-serif text-stone-500 italic text-lg animate-pulse">
+          Loading club...
+        </p>
+      </div>
     );
   }
 
@@ -519,6 +934,58 @@ function Club() {
     Boolean(currentUserId) &&
     Boolean(creatorId) &&
     creatorId.toString() === currentUserId.toString();
+
+  const canVoteInPoll = isMember || isCreator;
+
+  const getPollTimeLeft = () => {
+    if (!poll?.closesAt) {
+      return null;
+    }
+
+    const closingTime = new Date(poll.closesAt).getTime();
+    const difference = closingTime - now;
+
+    if (difference <= 0) {
+      return {
+        isExpired: true,
+        days: 0,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        label: 'Poll closed',
+      };
+    }
+
+    const totalSeconds = Math.floor(difference / 1000);
+
+    const days = Math.floor(totalSeconds / (60 * 60 * 24));
+    const hours = Math.floor((totalSeconds % (60 * 60 * 24)) / (60 * 60));
+    const minutes = Math.floor((totalSeconds % (60 * 60)) / 60);
+    const seconds = totalSeconds % 60;
+
+    const parts = [];
+
+    if (days > 0) {
+      parts.push(`${days}d`);
+    }
+
+    if (hours > 0 || days > 0) {
+      parts.push(`${hours}h`);
+    }
+
+    parts.push(`${minutes}m`);
+    parts.push(`${seconds}s`);
+
+    return {
+      isExpired: false,
+      days,
+      hours,
+      minutes,
+      seconds,
+      label: parts.join(' '),
+    };
+  };
+  const pollTimeLeft = getPollTimeLeft();
 
   const visibleThreads = threads.map((thread) => {
     if (isGuest) {
@@ -801,11 +1268,10 @@ function Club() {
                                 key={genre}
                                 type="button"
                                 onClick={() => handleNewBookGenreToggle(genre)}
-                                className={`px-3 py-1.5 rounded-full text-xs border transition ${
-                                  newBookData.genres.includes(genre)
-                                    ? 'bg-accent border-accent text-white'
-                                    : 'bg-white border-stone-200 text-stone-600 hover:border-accent hover:text-accent'
-                                }`}
+                                className={`px-3 py-1.5 rounded-full text-xs border transition ${newBookData.genres.includes(genre)
+                                  ? 'bg-accent border-accent text-white'
+                                  : 'bg-white border-stone-200 text-stone-600 hover:border-accent hover:text-accent'
+                                  }`}
                               >
                                 {genre}
                               </button>
@@ -840,9 +1306,8 @@ function Club() {
         </section>
 
         <section
-          className={`grid grid-cols-1 gap-10 ${
-            isGuest ? 'lg:grid-cols-[1fr_320px]' : 'lg:grid-cols-[1fr_340px]'
-          }`}
+          className={`grid grid-cols-1 gap-10 ${isGuest ? 'lg:grid-cols-[1fr_320px]' : 'lg:grid-cols-[1fr_340px]'
+            }`}
         >
           <div>
             <div className="flex items-end justify-between gap-4 border-b border-stone-200 pb-5 mb-6">
@@ -916,38 +1381,504 @@ function Club() {
           ) : (
             <aside>
               <div className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm sticky top-24">
-                <h2 className="font-serif text-xl mb-4">Active Surveys</h2>
+                <h2 className="font-serif text-xl mb-4">Next Read Poll</h2>
 
-                {/* SERVER TODO:
-                    Later this section should render real surveys for this club.
-                    Guests should not see this section.
-                    Possible endpoint:
-                    GET /clubs/:clubId/surveys
-                */}
-
-                {activeSurveys.length === 0 ? (
+                {pollLoading ? (
                   <div className="text-center bg-cream p-6 rounded-xl border border-stone-100">
-                    <h4 className="font-serif text-lg text-ink mb-2 italic">
-                      No active surveys
-                    </h4>
+                    <p className="text-xs text-stone-500 italic">Loading poll...</p>
+                  </div>
+                ) : poll ? (
+                  <div className="space-y-5">
+                    <div>
+                      <h3 className="font-serif text-lg text-ink mb-1">
+                        {poll.question || 'What should we read next?'}
+                      </h3>
 
-                    <p className="text-xs text-stone-500 leading-relaxed">
-                      There are currently no open votes in this club.
-                    </p>
+                      <p className="text-xs text-stone-500">
+                        {poll.status === 'open'
+                          ? 'Vote for the next club book.'
+                          : 'The next book has been chosen.'}
+                      </p>
+
+                      {poll.status === 'open' && pollTimeLeft && (
+                        <div className="mt-3 bg-cream border border-stone-100 rounded-xl p-3">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
+                            Voting closes in
+                          </span>
+
+                          <p className="font-serif text-xl text-ink">
+                            {pollTimeLeft.label}
+                          </p>
+                        </div>
+                      )}
+                      {poll.status === 'open' && pollTimeLeft?.isExpired && (
+                        <div className="mt-3 bg-stone-50 border border-stone-200 rounded-xl p-4">
+                          <p className="text-xs text-stone-500 leading-relaxed">
+                            Voting has closed. The creator can now announce the winning book.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+
+                    {pollError && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl p-3">
+                        {pollError}
+                      </div>
+                    )}
+
+                    {pollMessage && (
+                      <div className="bg-green-50 border border-green-200 text-green-700 text-xs rounded-xl p-3">
+                        {pollMessage}
+                      </div>
+                    )}
+
+                    {poll.winnerBook ? (
+                      <div className="bg-cream border border-stone-100 rounded-xl p-4">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-accent block mb-2">
+                          Next book chosen
+                        </span>
+
+                        <h4 className="font-serif text-xl text-ink mb-1">
+                          {poll.winnerBook.title}
+                        </h4>
+
+                        <p className="text-sm text-stone-500 mb-3">
+                          {poll.winnerBook.author && `by ${poll.winnerBook.author}`}
+                        </p>
+
+                        <p className="text-xs text-stone-500 leading-relaxed">
+                          This book has been chosen as the club’s next read. The creator will
+                          start it when the club is ready.
+                        </p>
+
+                        {isCreator && !poll.appliedAt && (
+                          <button
+                            type="button"
+                            onClick={handleSetWinnerBookAsCurrent}
+                            disabled={pollActionLoading}
+                            className="mt-4 w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {pollActionLoading ? 'Updating...' : 'Set as current book'}
+                          </button>
+                        )}
+
+                        {poll.appliedAt && (
+                          <p className="mt-4 text-xs text-stone-400 italic">
+                            This book is already set as the current book.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-3">
+                          {poll.options.map((option) => {
+                            const showResults = poll.userHasVoted || poll.status === 'closed';
+                            return (
+                              <div
+                                key={option.optionId}
+                                className="bg-cream border border-stone-100 rounded-xl p-4"
+                              >
+                                {poll.status === 'open' &&
+                                  !pollTimeLeft?.isExpired &&
+                                  !poll.userHasVoted &&
+                                  canVoteInPoll && (
+                                    <label className="flex items-start gap-3 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name="pollOption"
+                                        value={option.optionId}
+                                        checked={selectedPollOptionId === option.optionId}
+                                        onChange={() => setSelectedPollOptionId(option.optionId)}
+                                        className="mt-1"
+                                      />
+
+                                      <span>
+                                        <span className="block text-sm font-medium text-ink">
+                                          {option.title}
+                                        </span>
+
+                                        {option.author && (
+                                          <span className="block text-xs text-stone-500 mt-0.5">
+                                            by {option.author}
+                                          </span>
+                                        )}
+                                      </span>
+                                    </label>
+                                  )}
+                                {poll.status === 'open' && !poll.userHasVoted && !canVoteInPoll && (
+                                  <div>
+                                    <h4 className="text-sm font-medium text-ink">
+                                      {option.title}
+                                    </h4>
+
+                                    {option.author && (
+                                      <p className="text-xs text-stone-500">
+                                        by {option.author}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                {showResults && (
+                                  <div>
+                                    <div className="flex items-start justify-between gap-3 mb-2">
+                                      <div>
+                                        <h4 className="text-sm font-medium text-ink">
+                                          {option.title}
+                                        </h4>
+
+                                        {option.author && (
+                                          <p className="text-xs text-stone-500">
+                                            by {option.author}
+                                          </p>
+                                        )}
+                                      </div>
+
+                                      <span className="text-xs font-semibold text-accent">
+                                        {option.percentage}%
+                                      </span>
+                                    </div>
+
+                                    <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-stone-100">
+                                      <div
+                                        className="h-full bg-accent rounded-full"
+                                        style={{ width: `${option.percentage}%` }}
+                                      />
+                                    </div>
+
+                                    <p className="text-[11px] text-stone-400 mt-2">
+                                      {option.votesCount} vote
+                                      {option.votesCount === 1 ? '' : 's'}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {poll.status === 'open' &&
+                          !pollTimeLeft?.isExpired &&
+                          !poll.userHasVoted &&
+                          canVoteInPoll && (
+                            <button
+                              type="button"
+                              onClick={handleVoteInPoll}
+                              disabled={!selectedPollOptionId || pollActionLoading}
+                              className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {pollActionLoading ? 'Submitting...' : 'Submit vote'}
+                            </button>
+                          )}
+                        {poll.status === 'open' &&
+                          !pollTimeLeft?.isExpired &&
+                          !poll.userHasVoted &&
+                          !canVoteInPoll && (
+                            <div className="bg-white border border-stone-200 rounded-xl p-4">
+                              <p className="text-xs text-stone-500 leading-relaxed">
+                                Join this club to vote in the next read poll.
+                              </p>
+                            </div>
+                          )}
+
+                        {(poll.userHasVoted || poll.status === 'closed') && (
+                          <div className="space-y-3">
+                            <p className="text-xs text-stone-500">
+                              Total votes: {poll.totalVotes}
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={handleRefreshPollResults}
+                              disabled={pollLoading}
+                              className="w-full px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition disabled:opacity-50"
+                            >
+                              Refresh results
+                            </button>
+                            {isCreator && !poll.winnerBook && poll.totalVotes > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleOpenAnnounceWinnerForm}
+                                className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+                              >
+                                {showAnnounceWinnerForm ? 'Close winner form' : 'Announce winner'}
+                              </button>
+                            )}
+                            {isCreator && showAnnounceWinnerForm && !poll.winnerBook && (
+                              <form
+                                onSubmit={handleAnnounceWinner}
+                                className="bg-cream border border-stone-100 rounded-xl p-4 space-y-4"
+                              >
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Winning option
+                                  </label>
+
+                                  <select
+                                    name="optionId"
+                                    value={winnerData.optionId}
+                                    onChange={handleWinnerDataChange}
+                                    className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  >
+                                    <option value="">Choose winner</option>
+
+                                    {poll.options.map((option) => (
+                                      <option key={option.optionId} value={option.optionId}>
+                                        {option.title} — {option.votesCount} votes
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Total chapters
+                                  </label>
+
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    name="totalChapters"
+                                    value={winnerData.totalChapters}
+                                    onChange={handleWinnerDataChange}
+                                    className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Title
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    name="title"
+                                    value={winnerData.title}
+                                    onChange={handleWinnerDataChange}
+                                    className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Author
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    name="author"
+                                    value={winnerData.author}
+                                    onChange={handleWinnerDataChange}
+                                    className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Cover image URL
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    name="coverImage"
+                                    value={winnerData.coverImage}
+                                    onChange={handleWinnerDataChange}
+                                    placeholder="Optional"
+                                    className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Description
+                                  </label>
+
+                                  <textarea
+                                    name="description"
+                                    value={winnerData.description}
+                                    onChange={handleWinnerDataChange}
+                                    rows="3"
+                                    placeholder="Optional"
+                                    className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
+                                  />
+                                </div>
+
+                                <button
+                                  type="submit"
+                                  disabled={announcingWinner}
+                                  className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {announcingWinner ? 'Announcing...' : 'Confirm winner'}
+                                </button>
+                              </form>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {activeSurveys.map((survey) => (
-                      <div key={survey._id}>
-                        <h3 className="text-sm font-medium text-ink mb-3">
-                          {survey.title}
-                        </h3>
+                  <div className="bg-cream p-6 rounded-xl border border-stone-100">
+                    <div className="text-center">
+                      <h4 className="font-serif text-lg text-ink mb-2 italic">
+                        No active poll
+                      </h4>
 
-                        {/* SERVER TODO:
-                            Later render real survey options here.
-                        */}
+                      <p className="text-xs text-stone-500 leading-relaxed">
+                        There is currently no open vote in this club.
+                      </p>
+                    </div>
+
+                    {isCreator && (
+                      <div className="mt-5">
+                        <button
+                          type="button"
+                          onClick={() => setShowCreatePollForm((prev) => !prev)}
+                          className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+                        >
+                          {showCreatePollForm ? 'Close poll form' : 'Create next read poll'}
+                        </button>
                       </div>
-                    ))}
+                    )}
+
+                    {isCreator && showCreatePollForm && (
+                      <form onSubmit={handleCreatePoll} className="mt-5 space-y-4 text-left">
+                        <div>
+                          <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                            Question
+                          </label>
+
+                          <input
+                            type="text"
+                            name="question"
+                            value={newPollData.question}
+                            onChange={handleNewPollChange}
+                            className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                            Closing date
+                          </label>
+
+                          <input
+                            type="datetime-local"
+                            name="closesAt"
+                            value={newPollData.closesAt}
+                            onChange={handleNewPollChange}
+                            className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-4">
+                          <p className="text-xs uppercase tracking-wider text-stone-500">
+                            Book options
+                          </p>
+
+                          {newPollData.options.map((option, index) => (
+                            <div
+                              key={index}
+                              className="bg-white border border-stone-200 rounded-xl p-4 space-y-3"
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <h5 className="font-serif text-base text-ink">
+                                  Option {index + 1}
+                                </h5>
+
+                                {newPollData.options.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemovePollOption(index)}
+                                    className="text-xs text-red-600 hover:underline"
+                                  >
+                                    Remove
+                                  </button>
+                                )}
+                              </div>
+
+                              <div>
+                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                  Book title
+                                </label>
+
+                                <input
+                                  type="text"
+                                  value={option.title}
+                                  onChange={(e) =>
+                                    handlePollOptionChange(index, 'title', e.target.value)
+                                  }
+                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                  Author
+                                </label>
+
+                                <input
+                                  type="text"
+                                  value={option.author}
+                                  onChange={(e) =>
+                                    handlePollOptionChange(index, 'author', e.target.value)
+                                  }
+                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                  Cover image URL
+                                </label>
+
+                                <input
+                                  type="text"
+                                  value={option.coverImage}
+                                  onChange={(e) =>
+                                    handlePollOptionChange(index, 'coverImage', e.target.value)
+                                  }
+                                  placeholder="Optional"
+                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                  Description
+                                </label>
+
+                                <textarea
+                                  value={option.description}
+                                  onChange={(e) =>
+                                    handlePollOptionChange(index, 'description', e.target.value)
+                                  }
+                                  rows="2"
+                                  placeholder="Optional"
+                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
+                                />
+                              </div>
+                            </div>
+                          ))}
+
+                          <button
+                            type="button"
+                            onClick={handleAddPollOption}
+                            className="w-full px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+                          >
+                            Add another option
+                          </button>
+                        </div>
+
+                        <button
+                          type="submit"
+                          disabled={creatingPoll}
+                          className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {creatingPoll ? 'Creating...' : 'Create poll'}
+                        </button>
+                      </form>
+                    )}
                   </div>
                 )}
 

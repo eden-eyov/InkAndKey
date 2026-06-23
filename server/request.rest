@@ -33,7 +33,7 @@ POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "maya@example.com",
+  "email": "linoy@example.com",
   "password": "123456"
 }
 ### Login second user
@@ -396,3 +396,57 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4M
 ### This request should fail because user routes are protected.
 ### Expected result: 401 Unauthorized.
 GET http://localhost:5000/api/users/6a280486b3c09d005a1b6f17
+
+
+
+
+### Create next-read poll
+POST http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMTM4MjAsImV4cCI6MTc4MjExNDcyMH0.V9qOZ96xH9BGvX7uHLTQgXo8__Pd2avvFeJYVne0TF8
+Content-Type: application/json
+
+{
+  "question": "What should we read next?",
+  "closesAt": "2026-07-01T20:00:00.000Z",
+  "options": [
+    {
+      "title": "Babel",
+      "author": "R.F. Kuang",
+      "coverImage": "",
+      "description": "A historical fantasy novel about language, power, and resistance."
+    },
+    {
+      "title": "The Night Circus",
+      "author": "Erin Morgenstern",
+      "coverImage": "",
+      "description": "A magical competition between two young illusionists."
+    }
+  ]
+}
+
+### Get current poll
+GET http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/current
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMTM4MjAsImV4cCI6MTc4MjExNDcyMH0.V9qOZ96xH9BGvX7uHLTQgXo8__Pd2avvFeJYVne0TF8
+
+### Vote in poll
+POST http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/vote
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMTM4MjAsImV4cCI6MTc4MjExNDcyMH0.V9qOZ96xH9BGvX7uHLTQgXo8__Pd2avvFeJYVne0TF8
+Content-Type: application/json
+
+{
+  "optionId": "6a38e63f911289957a923f82"
+}
+
+### Announce poll winner
+POST http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/announce-winner
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMjU5OTEsImV4cCI6MTc4MjEyNjg5MX0.DFggZMds_C1tWKEEoCZkq7XSvfrBAGD5frxt6JtX7fA
+Content-Type: application/json
+
+{
+  "optionId": "6a38e63f911289957a923f82",
+  "totalChapters": 36
+}
+
+### Set winner book as current book
+PATCH http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/set-winner-current
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMjU5OTEsImV4cCI6MTc4MjEyNjg5MX0.DFggZMds_C1tWKEEoCZkq7XSvfrBAGD5frxt6JtX7fA
