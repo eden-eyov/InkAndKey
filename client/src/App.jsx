@@ -8,7 +8,7 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 
-const DiscoverClubs = lazy(() => import('./pages/DiscoverClubs')); 
+const DiscoverClubs = lazy(() => import('./pages/DiscoverClubs'));
 const Club = lazy(() => import('./pages/Club'));
 const ClubEditor = lazy(() => import('./pages/ClubEditor'));
 
@@ -79,6 +79,14 @@ function App() {
 
           <Route
             path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/users/:userId"
             element={
               <PrivateRoute>
                 <Profile />

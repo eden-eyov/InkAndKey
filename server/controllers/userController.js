@@ -123,6 +123,8 @@ const getUserCurrentlyReading = async (req, res, next) => {
       });
     }
 
+    const isOwnProfile = req.user._id.toString() === req.params.id.toString();
+
     const progressList = await ReadingProgress.find({
       user: req.params.id,
       isCompleted: false,
@@ -133,6 +135,7 @@ const getUserCurrentlyReading = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+      isOwnProfile,
       count: progressList.length,
       data: progressList,
     });
