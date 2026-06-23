@@ -43,6 +43,8 @@ const getAllClubs = async (req, res, next) => {
     let clubs = await Club.find(filter)
       .populate('creator', 'username email profileImage')
       .populate('members', 'username profileImage')
+      .populate('currentBook', 'title author coverImage totalChapters')
+      .populate('previousBooks', 'title author coverImage totalChapters')
       .sort({ createdAt: -1 });
 
     if (creator) {
@@ -53,10 +55,26 @@ const getAllClubs = async (req, res, next) => {
       );
     }
 
+    const discoverClubs = clubs.map((club) => ({
+      _id: club._id,
+      name: club.name,
+      description: club.description,
+      image: club.image,
+      genres: club.genres,
+      creator: club.creator,
+      members: club.members,
+      currentBook: club.currentBook,
+      currentBookTitle: club.currentBook?.title || null,
+      totalChapters: club.currentBook?.totalChapters || 0,
+      previousBooks: club.previousBooks,
+      createdAt: club.createdAt,
+      updatedAt: club.updatedAt,
+    }));
+
     res.status(200).json({
       success: true,
-      count: clubs.length,
-      data: clubs,
+      count: discoverClubs.length,
+      data: discoverClubs,
     });
   } catch (error) {
     next(error);

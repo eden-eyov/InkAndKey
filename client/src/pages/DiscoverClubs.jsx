@@ -30,7 +30,10 @@ function DiscoverClubs() {
     return (displayedClubs || []).filter((club) => {
       const name = club.name?.toLowerCase() || '';
       const description = club.description?.toLowerCase() || '';
-      const currentBookTitle = club.currentBookTitle?.toLowerCase() || '';
+      const currentBookTitle =
+        club.currentBookTitle?.toLowerCase() ||
+        club.currentBook?.title?.toLowerCase() ||
+        '';
       const genres = club.genres?.join(' ').toLowerCase() || '';
       return (
         name.includes(normalizedSearch) ||
