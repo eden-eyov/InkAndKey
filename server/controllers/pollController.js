@@ -854,6 +854,13 @@ const getClubPolls = async (req, res, next) => {
             });
         }
 
+        if (!isClubMember(club, req.user._id)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only club members can view this club poll history',
+            });
+        }
+
         const polls = await Poll.find({ club: clubId })
             .sort({ createdAt: -1 })
             .populate('winnerBook', 'title author coverImage totalChapters');

@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { fetchAllClubs, fetchUserClubs } from '../store/clubsSlice';
 
 import ThreadCard from '../components/ThreadCard';
 import AddThreadForm from '../components/AddThreadForm';
@@ -12,6 +14,7 @@ import GENRES from '../utils/genres';
 function Club() {
   const { id: clubId } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useAuth();
 
   const isGuest = !user;
@@ -77,6 +80,13 @@ function Club() {
     genres: [],
   });
 
+  const refreshClubLists = () => {
+    dispatch(fetchAllClubs());
+
+    if (user) {
+      dispatch(fetchUserClubs());
+    }
+  };
 
   useEffect(() => {
     const fetchClub = async () => {
@@ -587,6 +597,8 @@ function Club() {
       if (updatedClub.currentBook?._id) {
         await fetchThreads(updatedClub.currentBook._id, false);
       }
+
+      refreshClubLists();
     } catch (err) {
       console.log(
         'SET WINNER BOOK AS CURRENT ERROR:',
@@ -643,6 +655,8 @@ function Club() {
       if (updatedClub.currentBook?._id) {
         await fetchThreads(updatedClub.currentBook._id, false);
       }
+
+      refreshClubLists();
     } catch (err) {
       console.log('JOIN CLUB ERROR:', err.response?.data || err);
 
@@ -670,6 +684,8 @@ function Club() {
       if (updatedClub.currentBook?._id) {
         await fetchThreads(updatedClub.currentBook._id, true);
       }
+
+      refreshClubLists();
     } catch (err) {
       console.log('LEAVE CLUB ERROR:', err.response?.data || err);
 
@@ -694,6 +710,7 @@ function Club() {
 
       await api.delete(`/clubs/${clubId}`);
 
+      refreshClubLists();
       navigate('/clubs');
     } catch (err) {
       console.log('DELETE CLUB ERROR:', err.response?.data || err);
@@ -776,6 +793,8 @@ function Club() {
       if (updatedClub.currentBook?._id) {
         await fetchThreads(updatedClub.currentBook._id, false);
       }
+
+      refreshClubLists();
 
       setNewBookData({
         title: '',
@@ -1336,18 +1355,32 @@ function Club() {
                 onSubmitThread={handleSubmitThread}
               />
             )}
-            <div className="space-y-4">
-              {visibleThreads.map((thread) => (
-                <ThreadCard
-                  key={thread._id}
-                  thread={thread}
-                  isGuest={isGuest}
-                  canLike={isMember}
-                  onSubmitReply={handleSubmitReply}
-                  onToggleLike={handleToggleLike}
-                />
-              ))}
-            </div>
+            {threadsLoading ? (
+              <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
+                <p className="font-serif text-stone-500 italic text-lg">
+                  Loading discussions...
+                </p>
+              </div>
+            ) : visibleThreads.length > 0 ? (
+              <div className="space-y-4">
+                {visibleThreads.map((thread) => (
+                  <ThreadCard
+                    key={thread._id}
+                    thread={thread}
+                    isGuest={isGuest}
+                    canLike={isMember}
+                    onSubmitReply={handleSubmitReply}
+                    onToggleLike={handleToggleLike}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
+                <p className="text-stone-500 text-sm">
+                  No discussions yet.
+                </p>
+              </div>
+            )}
           </div>
 
           {isGuest ? (

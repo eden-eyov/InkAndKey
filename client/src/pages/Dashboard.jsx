@@ -16,8 +16,6 @@ function Dashboard() {
     dispatch(fetchUserClubs());
   }, [dispatch]);
 
-  const activeSurveys = [];
-  
   // if (loading) return <LoadingSpinner message="Loading your book clubs..." />;
   if (loading) {
   return (
@@ -40,11 +38,9 @@ if (error) {
 }
   return (
     <div className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-12">
-      {/* Changed to a 3-column grid layout for desktop */}
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
+      <div className="max-w-5xl mx-auto">
         
-        {/* Left & Center: Main Content (Takes up 2/3 of the space) */}
-        <div className="lg:col-span-2 space-y-12">
+        <div className="space-y-12">
           
           {/* Top Header */}
           <header className="border-b border-stone-200 pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -114,60 +110,6 @@ if (error) {
             )}
           </section>
         </div>
-
-        {/* Right Side: Active Surveys / Sidebar (Takes up 1/3 of the space) */}
-        <aside className="lg:col-span-1 mt-8 lg:mt-0">
-          <div className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm sticky top-24">
-            <h2 className="font-serif text-xl mb-6 text-ink border-b border-stone-100 pb-3">Active Surveys</h2>
-            
-            <div className="space-y-6">
-              
-              {/* Replace 'true' with 'activeSurveys.length === 0' when connected to real data */}
-              {activeSurveys.length === 0 ? (
-                
-                // --- EMPTY STATE: TYPOGRAPHY ONLY ---
-                <div className="text-center bg-cream p-8 rounded-xl border border-stone-100 flex flex-col items-center">
-                  <h4 className="font-serif text-lg text-ink mb-2 italic">No active surveys</h4>
-                  <p className="text-xs text-stone-500 mb-6 leading-relaxed px-4">
-                    There are currently no open votes in your book clubs.
-                  </p>
-                  <button className="px-6 py-2.5 bg-white border border-stone-200 text-ink text-xs font-bold uppercase tracking-wider rounded-full hover:border-accent hover:text-accent transition shadow-sm">
-                    Propose a book
-                  </button>
-                </div>
-                
-              ) : (
-                
-                // --- POPULATED STATE ---
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 mb-1 block">
-                    Midnight Readers
-                  </span>
-                  <h4 className="text-sm font-medium text-ink mb-3">Vote for our next thriller read</h4>
-                  
-                  <form className="space-y-2">
-                    <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition cursor-pointer border border-transparent hover:border-stone-100">
-                      <input type="radio" name="poll1" className="text-accent focus:ring-accent w-4 h-4" />
-                      <span className="text-sm text-stone-600">The Silent Patient</span>
-                    </label>
-                    <label className="flex items-center gap-3 p-2 rounded-lg hover:bg-stone-50 transition cursor-pointer border border-transparent hover:border-stone-100">
-                      <input type="radio" name="poll1" className="text-accent focus:ring-accent w-4 h-4" />
-                      <span className="text-sm text-stone-600">Gone Girl</span>
-                    </label>
-                    
-                    <button 
-                      type="button"
-                      className="w-full mt-4 py-2.5 bg-stone-100 text-stone-600 text-xs font-bold uppercase tracking-wider rounded-xl hover:bg-stone-200 transition"
-                    >
-                      Submit Vote
-                    </button>
-                  </form>
-                </div>
-              )}
-
-            </div>
-          </div>
-        </aside>
 
       </div>
     </div>

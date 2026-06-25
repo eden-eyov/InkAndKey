@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { fetchAllClubs, fetchUserClubs } from '../store/clubsSlice';
 import GENRES from '../utils/genres';
 
 function ClubEditor() {
   const { id: clubId } = useParams();
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const { user } = useAuth();
 
   const isEditMode = Boolean(clubId);
@@ -25,6 +28,11 @@ function ClubEditor() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+
+  const refreshClubLists = () => {
+    dispatch(fetchAllClubs());
+    dispatch(fetchUserClubs());
+  };
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -139,11 +147,13 @@ function ClubEditor() {
         const { data } = await api.patch(`/clubs/${clubId}`, payload);
         const updatedClub = data.data;
 
+        refreshClubLists();
         navigate(`/clubs/${updatedClub._id || clubId}`);
       } else {
         const { data } = await api.post('/clubs', payload);
         const newClub = data.data;
 
+        refreshClubLists();
         navigate(`/clubs/${newClub._id}`);
       }
     } catch (err) {
@@ -173,6 +183,7 @@ function ClubEditor() {
 
       await api.delete(`/clubs/${clubId}`);
 
+      refreshClubLists();
       navigate('/clubs');
     } catch (err) {
       console.log('DELETE CLUB ERROR:', err.response?.data || err);

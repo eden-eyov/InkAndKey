@@ -6,6 +6,12 @@ const api = axios.create({
   withCredentials: true,
 });
 
+let unauthorizedHandler = null;
+
+export const setUnauthorizedHandler = (handler) => {
+  unauthorizedHandler = handler;
+};
+
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
@@ -24,13 +30,16 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
     const requestUrl = error.config?.url;
+    const isAuthFormRequest =
+      requestUrl?.includes('/auth/login') ||
+      requestUrl?.includes('/auth/register');
 
-    if (
-      status === 401 &&
-      !requestUrl?.includes('/auth/login') &&
-      !requestUrl?.includes('/auth/register')
-    ) {
+    if (status === 401 && !isAuthFormRequest) {
       localStorage.removeItem('token');
+
+      if (unauthorizedHandler) {
+        unauthorizedHandler(error);
+      }
     }
 
     return Promise.reject(error);

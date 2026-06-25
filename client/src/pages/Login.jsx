@@ -15,6 +15,9 @@ function Login() {
 
   // Smart redirect: check if the user tried to visit a protected page before logging in
   const attemptedPath = location.state?.from?.pathname;
+  const sessionMessage = location.state?.sessionExpired
+    ? 'Your session expired. Please sign in again.'
+    : '';
 
   const from =
     attemptedPath && attemptedPath !== '/onboarding'
@@ -80,9 +83,9 @@ function Login() {
         <h2 className="font-serif text-3xl text-center mb-2">Ink & Key</h2>
         <p className="text-center text-sm text-stone-500 mb-8">Welcome back to your reading community</p>
         
-        {serverError && (
+        {(serverError || sessionMessage) && (
           <div className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4 text-center">
-            {serverError}
+            {serverError || sessionMessage}
           </div>
         )}
         

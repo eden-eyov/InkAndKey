@@ -56,10 +56,6 @@ const updateMeSchema = Joi.object({
     Joi.string().trim().min(1).max(120)
   ),
 
-  bio: Joi.string().trim().max(500).allow('').messages({
-    'string.max': 'Bio cannot exceed 500 characters',
-  }),
-
   profileImage: Joi.string().trim().allow(''),
 }).min(1).messages({'object.min': 'At least one field is required for update',});
 
