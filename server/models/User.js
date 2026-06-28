@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema(
       default: '',
     },
 
+    profileImagePublicId: {
+      type: String,
+      default: '',
+    },
+
     favoriteGenres: {
       type: [String],
       default: [],

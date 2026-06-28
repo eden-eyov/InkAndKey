@@ -102,13 +102,18 @@ const updateMyProfileImage = async (req, res, next) => {
       });
     }
 
+    const oldProfileImagePublicId = req.user.profileImagePublicId;
+
     const uploadedImage = await uploadBufferToCloudinary(req.file.buffer, {
       folder: 'livebook/profile-images',
     });
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
-      { profileImage: uploadedImage.secure_url },
+      {
+        profileImage: uploadedImage.secure_url,
+        profileImagePublicId: uploadedImage.public_id,
+      },
       {
         new: true,
         runValidators: true,
@@ -122,6 +127,20 @@ const updateMyProfileImage = async (req, res, next) => {
         success: false,
         message: 'User not found',
       });
+    }
+
+    if (
+      oldProfileImagePublicId &&
+      oldProfileImagePublicId !== uploadedImage.public_id
+    ) {
+      try {
+        await cloudinary.uploader.destroy(oldProfileImagePublicId);
+      } catch (cleanupError) {
+        console.error(
+          'Failed to delete old profile image from Cloudinary:',
+          cleanupError.message
+        );
+      }
     }
 
     res.status(200).json({
