@@ -1036,12 +1036,8 @@ function Club() {
     Boolean(creatorId) &&
     creatorId.toString() === currentUserId.toString();
 
-<<<<<<< HEAD
-=======
   const displayedClubCoverImage = coverImagePreview || club.coverImage || '';
   const hasClubCoverImage = Boolean(displayedClubCoverImage);
-
->>>>>>> feature/image-uploads
   const canVoteInPoll = isMember || isCreator;
 
   const visibleThreads = threads.map((thread) => {
