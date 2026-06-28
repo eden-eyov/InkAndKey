@@ -878,6 +878,86 @@ const getClubPolls = async (req, res, next) => {
     }
 };
 
+/**
+ * @desc    Get open polls from the logged-in user's clubs.
+ * @route   GET /api/polls/my-active-polls
+ * @access  Private
+ *
+ * Purpose:
+ * - Let the dashboard show active polls across clubs the user belongs to.
+ * - Include clubs created by the user even if older data missed the members list.
+ */
+const getMyActivePolls = async (req, res, next) => {
+    try {
+        const now = new Date();
+
+        const clubs = await Club.find({
+            $or: [
+                { members: req.user._id },
+                { creator: req.user._id },
+            ],
+        }).select('_id name');
+
+        const clubIds = clubs.map((club) => club._id);
+
+        if (clubIds.length === 0) {
+            return res.status(200).json({
+                success: true,
+                count: 0,
+                data: [],
+            });
+        }
+
+        await Poll.updateMany(
+            {
+                club: { $in: clubIds },
+                status: 'open',
+                closesAt: { $lte: now },
+            },
+            {
+                $set: {
+                    status: 'closed',
+                },
+            }
+        );
+
+        const polls = await Poll.find({
+            club: { $in: clubIds },
+            status: 'open',
+            closesAt: { $gt: now },
+        })
+            .sort({ closesAt: 1 })
+            .populate('club', 'name');
+
+        const formattedPolls = await Promise.all(
+            polls.map(async (poll) => {
+                const formattedPoll = await formatPollResponse(poll, req.user._id);
+                const pollClub = poll.club;
+
+                return {
+                    ...formattedPoll,
+                    clubId: pollClub?._id,
+                    clubName: pollClub?.name || '',
+                    club: pollClub
+                        ? {
+                            _id: pollClub._id,
+                            name: pollClub.name,
+                        }
+                        : formattedPoll.club,
+                };
+            })
+        );
+
+        res.status(200).json({
+            success: true,
+            count: formattedPolls.length,
+            data: formattedPolls,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createPoll,
     getCurrentPoll,
@@ -886,4 +966,5 @@ module.exports = {
     announcePollWinner,
     setWinnerBookAsCurrent,
     getClubPolls,
+    getMyActivePolls,
 };

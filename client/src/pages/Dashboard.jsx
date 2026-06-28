@@ -1,20 +1,137 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 // import LoadingSpinner from '../components/LoadingSpinner';
 // import ErrorMessage from '../components/ErrorMessage';
 import { fetchUserClubs } from '../store/clubsSlice';
+import PollCard from '../components/PollCard';
 
 function Dashboard() {
   const { user } = useAuth();
   const dispatch = useDispatch();
+  const [activePolls, setActivePolls] = useState([]);
+  const [activePollsLoading, setActivePollsLoading] = useState(false);
+  const [activePollsError, setActivePollsError] = useState('');
+  const [selectedPollOptions, setSelectedPollOptions] = useState({});
+  const [pollActionLoadingId, setPollActionLoadingId] = useState('');
+  const [pollMessages, setPollMessages] = useState({});
+  const [pollErrors, setPollErrors] = useState({});
 
   const { list: clubs, loading, error } = useSelector((state) => state.clubs);
 
   useEffect(() => {
     dispatch(fetchUserClubs());
   }, [dispatch]);
+
+  const fetchActivePolls = useCallback(async (showLoading = true) => {
+    if (!user) return;
+
+    try {
+      if (showLoading) {
+        setActivePollsLoading(true);
+      }
+
+      setActivePollsError('');
+
+      const { data } = await api.get('/polls/my-active-polls');
+      const polls = Array.isArray(data.data) ? data.data : [];
+
+      setActivePolls(polls);
+      setSelectedPollOptions((prev) => {
+        const next = { ...prev };
+
+        polls.forEach((poll) => {
+          if (poll.userVoteOptionId) {
+            next[poll._id] = poll.userVoteOptionId;
+          }
+        });
+
+        return next;
+      });
+    } catch (err) {
+      console.log('FETCH ACTIVE POLLS ERROR:', err.response?.data || err);
+
+      setActivePolls([]);
+      setActivePollsError(
+        err.response?.data?.message ||
+        'Could not load active polls right now.'
+      );
+    } finally {
+      if (showLoading) {
+        setActivePollsLoading(false);
+      }
+    }
+  }, [user]);
+
+  useEffect(() => {
+    fetchActivePolls();
+  }, [fetchActivePolls]);
+
+  const getPollClubId = (poll) => poll.clubId || poll.club?._id || poll.club;
+
+  const getPollClubName = (poll) => poll.clubName || poll.club?.name || 'Your club';
+
+  const handleSelectPollOption = (pollId, optionId) => {
+    setSelectedPollOptions((prev) => ({
+      ...prev,
+      [pollId]: optionId,
+    }));
+  };
+
+  const handleVoteInDashboardPoll = async (poll) => {
+    const clubId = getPollClubId(poll);
+    const selectedOptionId = selectedPollOptions[poll._id];
+
+    if (!clubId || !selectedOptionId) return;
+
+    try {
+      setPollActionLoadingId(poll._id);
+      setPollErrors((prev) => ({
+        ...prev,
+        [poll._id]: '',
+      }));
+      setPollMessages((prev) => ({
+        ...prev,
+        [poll._id]: '',
+      }));
+
+      const { data } = await api.post(
+        `/clubs/${clubId}/polls/${poll._id}/vote`,
+        {
+          optionId: selectedOptionId,
+        }
+      );
+
+      const updatedPoll = {
+        ...poll,
+        ...data.data,
+        clubId,
+        clubName: getPollClubName(poll),
+        club: poll.club,
+      };
+
+      setActivePolls((prev) =>
+        prev.map((item) => (item._id === poll._id ? updatedPoll : item))
+      );
+      setPollMessages((prev) => ({
+        ...prev,
+        [poll._id]: 'Your vote was submitted.',
+      }));
+    } catch (err) {
+      console.log('VOTE IN DASHBOARD POLL ERROR:', err.response?.data || err);
+
+      setPollErrors((prev) => ({
+        ...prev,
+        [poll._id]:
+          err.response?.data?.message ||
+          'Failed to submit your vote. Please try again.',
+      }));
+    } finally {
+      setPollActionLoadingId('');
+    }
+  };
 
   // if (loading) return <LoadingSpinner message="Loading your book clubs..." />;
   if (loading) {
@@ -55,6 +172,54 @@ if (error) {
               Discover new clubs
             </Link>
           </header>
+
+          {/* Active Polls Section */}
+          <section>
+            <h2 className="font-serif text-2xl mb-6">Active polls in your clubs</h2>
+
+            {activePollsLoading ? (
+              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
+                <p className="text-stone-500 italic">Loading active polls...</p>
+              </div>
+            ) : activePollsError ? (
+              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
+                <p className="text-stone-500">
+                  {activePollsError}
+                </p>
+              </div>
+            ) : activePolls.length === 0 ? (
+              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
+                <p className="text-stone-500">No active polls right now.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {activePolls.map((poll) => {
+                  const clubId = poll.clubId || poll.club?._id || poll.club;
+                  const clubName = poll.clubName || poll.club?.name || 'Your club';
+
+                  return (
+                    <PollCard
+                      key={poll._id}
+                      poll={poll}
+                      className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm hover:border-accent transition space-y-5"
+                      clubName={clubName}
+                      clubLink={clubId ? `/clubs/${clubId}` : ''}
+                      canVote
+                      selectedOptionId={selectedPollOptions[poll._id] || ''}
+                      onSelectOption={(optionId) =>
+                        handleSelectPollOption(poll._id, optionId)
+                      }
+                      onVote={() => handleVoteInDashboardPoll(poll)}
+                      voteLoading={pollActionLoadingId === poll._id}
+                      error={pollErrors[poll._id]}
+                      message={pollMessages[poll._id]}
+                      onRefresh={() => fetchActivePolls(false)}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </section>
 
           {/* User's Book Clubs Section */}
           <section>
