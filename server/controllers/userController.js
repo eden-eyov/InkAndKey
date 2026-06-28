@@ -1,6 +1,24 @@
 const User = require('../models/User');
 const Club = require('../models/Club');
 const ReadingProgress = require('../models/ReadingProgress');
+const cloudinary = require('../config/cloudinary');
+
+const uploadBufferToCloudinary = (buffer, options) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      options,
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+
+        resolve(result);
+      }
+    );
+
+    uploadStream.end(buffer);
+  });
+};
 
 /**
  * Get user profile by id.
@@ -65,6 +83,51 @@ const searchUsers = async (req, res, next) => {
       success: true,
       count: users.length,
       data: users,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update the logged-in user's profile image.
+ * The route uses memoryStorage, so the image buffer is streamed to Cloudinary.
+ */
+const updateMyProfileImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Profile image file is required',
+      });
+    }
+
+    const uploadedImage = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: 'livebook/profile-images',
+    });
+
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user._id,
+      { profileImage: uploadedImage.secure_url },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).select(
+      'username email profileImage favoriteGenres favoriteBooks createdAt updatedAt'
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Profile image updated successfully',
+      data: updatedUser,
     });
   } catch (error) {
     next(error);
@@ -185,6 +248,7 @@ const getUserCompletedBooks = async (req, res, next) => {
 module.exports = {
   getUserProfile,
   searchUsers,
+  updateMyProfileImage,
   getUserClubs,
   getUserCurrentlyReading,
   getUserCompletedBooks,

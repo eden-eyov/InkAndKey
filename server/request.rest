@@ -450,3 +450,16 @@ Content-Type: application/json
 ### Set winner book as current book
 PATCH http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/set-winner-current
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMjU5OTEsImV4cCI6MTc4MjEyNjg5MX0.DFggZMds_C1tWKEEoCZkq7XSvfrBAGD5frxt6JtX7fA
+
+
+### Upload profile image
+PUT http://localhost:5000/api/users/me/profile-image
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODI2NDE0OTIsImV4cCI6MTc4MjY0MjM5Mn0.aicaKobQaGBeXQNzHz3TV-bV_4-4stnMuB8O1cXs-08
+Content-Type: multipart/form-data; boundary=----LiveBookBoundary
+
+------LiveBookBoundary
+Content-Disposition: form-data; name="image"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ./avatar.jpg
+------LiveBookBoundary--
