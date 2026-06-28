@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 function ClubCard({ club }) {
-  const image = club.image || club.imageUrl || '';
+  const image = club.coverImage || club.image || club.imageUrl || '';
   const hasImage = Boolean(image);
 
   const genresText =

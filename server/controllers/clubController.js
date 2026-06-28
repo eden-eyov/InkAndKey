@@ -1,6 +1,7 @@
 const Club = require('../models/Club');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
+const cloudinary = require('../config/cloudinary');
 
 const populateClub = (clubId) =>
   Club.findById(clubId)
@@ -8,6 +9,23 @@ const populateClub = (clubId) =>
     .populate('members', 'username profileImage')
     .populate('currentBook', 'title author coverImage totalChapters')
     .populate('previousBooks', 'title author coverImage totalChapters');
+
+const uploadBufferToCloudinary = (buffer, options) => {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      options,
+      (error, result) => {
+        if (error) {
+          return reject(error);
+        }
+
+        resolve(result);
+      }
+    );
+
+    uploadStream.end(buffer);
+  });
+};
 
 const createClub = async (req, res, next) => {
   try {
@@ -60,6 +78,7 @@ const getAllClubs = async (req, res, next) => {
       name: club.name,
       description: club.description,
       image: club.image,
+      coverImage: club.coverImage,
       genres: club.genres,
       creator: club.creator,
       members: club.members,
@@ -115,6 +134,7 @@ const getMyClubs = async (req, res, next) => {
           name: club.name,
           description: club.description,
           image: club.image,
+          coverImage: club.coverImage,
           genres: club.genres,
           creator: club.creator,
           members: club.members,
@@ -191,6 +211,70 @@ const updateClub = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
+      data: updatedClub,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateClubCoverImage = async (req, res, next) => {
+  try {
+    const club = await Club.findById(req.params.id);
+
+    if (!club) {
+      return res.status(404).json({
+        success: false,
+        message: 'Club not found',
+      });
+    }
+
+    if (club.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the club creator can update the cover image',
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cover image file is required',
+      });
+    }
+
+    const oldCoverImagePublicId = club.coverImagePublicId;
+
+    const uploadedImage = await uploadBufferToCloudinary(req.file.buffer, {
+      folder: 'livebook/club-cover-images',
+    });
+
+    club.coverImage = uploadedImage.secure_url;
+    club.coverImagePublicId = uploadedImage.public_id;
+
+    await club.save();
+
+    if (
+      oldCoverImagePublicId &&
+      oldCoverImagePublicId !== uploadedImage.public_id
+    ) {
+      try {
+        await cloudinary.uploader.destroy(oldCoverImagePublicId);
+      } catch (cleanupError) {
+        console.error(
+          'Failed to delete old club cover image from Cloudinary:',
+          cleanupError.message
+        );
+      }
+    }
+
+    const updatedClub = await populateClub(club._id).select(
+      '-coverImagePublicId'
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Club cover image updated successfully',
       data: updatedClub,
     });
   } catch (error) {
@@ -423,6 +507,7 @@ module.exports = {
   getMyClubs,
   getClubById,
   updateClub,
+  updateClubCoverImage,
   deleteClub,
   joinClub,
   leaveClub,

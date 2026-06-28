@@ -43,7 +43,7 @@ POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "noa@example.com",
+  "email": "maya@example.com",
   "password": "123456"
 }
 
@@ -463,3 +463,21 @@ Content-Type: image/jpeg
 
 < ./avatar.jpg
 ------LiveBookBoundary--
+
+
+
+@baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODI2NTM5MzMsImV4cCI6MTc4MjY1NDgzM30.dr21Uh8qgOEjlhnqB8zz8sKBRaIK1DIE-t-DrJPZAes
+@clubId = 6a27fc8c711fc4a5878cb4a6
+
+### Upload club cover image
+PUT {{baseUrl}}/api/clubs/{{clubId}}/cover-image
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=LiveBookCoverBoundary
+
+--LiveBookCoverBoundary
+Content-Disposition: form-data; name="image"; filename="cover.jpg"
+Content-Type: image/jpeg
+
+< ./cover.jpg
+--LiveBookCoverBoundary--

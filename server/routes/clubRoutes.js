@@ -6,6 +6,7 @@ const {
   getMyClubs,
   getClubById,
   updateClub,
+  updateClubCoverImage,
   deleteClub,
   joinClub,
   leaveClub,
@@ -13,6 +14,7 @@ const {
 } = require('../controllers/clubController');
 
 const { protect } = require('../middleware/authMiddleware');
+const uploadImage = require('../middleware/uploadImage');
 const validate = require('../middleware/validate');
 
 const {
@@ -29,6 +31,12 @@ router.get('/:id', getClubById);
 
 router.post('/', protect, validate(createClubSchema), createClub);
 router.patch('/:id', protect, validate(updateClubSchema), updateClub);
+router.put(
+  '/:id/cover-image',
+  protect,
+  uploadImage.single('image'),
+  updateClubCoverImage
+);
 router.delete('/:id', protect, deleteClub);
 
 router.post('/:id/join', protect, joinClub);
