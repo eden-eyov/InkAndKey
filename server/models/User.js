@@ -9,7 +9,7 @@ const bcrypt = require('bcryptjs');
 * profile image
 * favorite genres
 * favorite books
-* */ 
+* */
 const userSchema = new mongoose.Schema(
   {
     username: {
@@ -31,9 +31,22 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
-      required: [true, 'Password is required'],
+      required: function () {
+        return this.authProvider === 'local';
+      },
       minlength: [6, 'Password must be at least 6 characters'],
       select: false,
+    },
+
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      default: 'local',
+    },
+
+    googleId: {
+      type: String,
+      default: '',
     },
 
     profileImage: {
@@ -61,13 +74,14 @@ const userSchema = new mongoose.Schema(
 );
 // encryption:
 userSchema.pre('save', async function () {
-  if (!this.isModified('password')) return;
+  if (!this.password || !this.isModified('password')) return;
 
   const salt = await bcrypt.genSalt(12);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 userSchema.methods.matchPassword = async function (enteredPassword) {
+  if (!this.password) return false;
   return bcrypt.compare(enteredPassword, this.password);
 };
 

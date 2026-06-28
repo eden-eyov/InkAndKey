@@ -1,5 +1,8 @@
+const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateAccessToken = (userId) => {
   return jwt.sign(
@@ -34,6 +37,7 @@ const buildUserResponse = (user) => {
     profileImage: user.profileImage,
     favoriteGenres: user.favoriteGenres,
     favoriteBooks: user.favoriteBooks,
+    authProvider: user.authProvider,
   };
 };
 
@@ -120,6 +124,88 @@ const login = async (req, res, next) => {
     res.status(200).json({
       success: true,
       message: 'Login successful',
+      accessToken,
+      data: buildUserResponse(user),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const googleLogin = async (req, res, next) => {
+  try {
+    const { credential } = req.body;
+
+    if (!credential) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google credential is required',
+      });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+
+    const payload = ticket.getPayload();
+
+    if (!payload || !payload.email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid Google account data',
+      });
+    }
+
+    const email = payload.email.toLowerCase();
+    const googleId = payload.sub;
+    const username =
+      payload.name ||
+      email.split('@')[0];
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      user = await User.create({
+        username,
+        email,
+        profileImage: payload.picture || '',
+        authProvider: 'google',
+        googleId,
+        favoriteGenres: [],
+        favoriteBooks: [],
+      });
+    } else {
+      let shouldSave = false;
+
+      if (!user.googleId) {
+        user.googleId = googleId;
+        shouldSave = true;
+      }
+
+      if (user.authProvider !== 'google') {
+        user.authProvider = 'google';
+        shouldSave = true;
+      }
+
+      if (!user.profileImage && payload.picture) {
+        user.profileImage = payload.picture;
+        shouldSave = true;
+      }
+
+      if (shouldSave) {
+        await user.save();
+      }
+    }
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    sendRefreshTokenCookie(res, refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Google login successful',
       accessToken,
       data: buildUserResponse(user),
     });
@@ -222,6 +308,7 @@ const updateMe = async (req, res, next) => {
 module.exports = {
   register,
   login,
+  googleLogin,
   refreshAccessToken,
   logout,
   getMe,

@@ -32,7 +32,8 @@ api.interceptors.response.use(
     const requestUrl = error.config?.url;
     const isAuthFormRequest =
       requestUrl?.includes('/auth/login') ||
-      requestUrl?.includes('/auth/register');
+      requestUrl?.includes('/auth/register') ||
+      requestUrl?.includes('/auth/google');
 
     if (status === 401 && !isAuthFormRequest) {
       localStorage.removeItem('token');
