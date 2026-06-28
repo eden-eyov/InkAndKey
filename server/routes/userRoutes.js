@@ -3,12 +3,14 @@ const express = require('express');
 const {
   getUserProfile,
   searchUsers,
+  updateMyProfileImage,
   getUserClubs,
   getUserCurrentlyReading,
   getUserCompletedBooks,
 } = require('../controllers/userController');
 
 const { protect } = require('../middleware/authMiddleware');
+const uploadImage = require('../middleware/uploadImage');
 
 const router = express.Router();
 
@@ -27,6 +29,17 @@ router.use(protect);
  * otherwise Express will treat "search" as a user id.
  */
 router.get('/search', searchUsers);
+
+/**
+ * Update the logged-in user's profile image.
+ * Example:
+ * PUT /api/users/me/profile-image
+ */
+router.put(
+  '/me/profile-image',
+  uploadImage.single('image'),
+  updateMyProfileImage
+);
 
 /**
  * Get all clubs that this user is a member of.

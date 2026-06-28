@@ -33,6 +33,16 @@ const clubSchema = new mongoose.Schema(
       default: '',
     },
 
+    coverImage: {
+      type: String,
+      default: '',
+    },
+
+    coverImagePublicId: {
+      type: String,
+      default: '',
+    },
+
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

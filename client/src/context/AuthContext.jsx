@@ -63,12 +63,27 @@ export const AuthProvider = ({ children }) => {
     setUser(userData);
   };
 
+  const updateUser = (updatedUserData) => {
+    setUser((currentUser) => {
+      if (!currentUser) return updatedUserData;
+
+      return {
+        ...currentUser,
+        ...updatedUserData,
+      };
+    });
+  };
+
   const logout = () => {
     clearSession();
   };
+
   const isAuthenticated = Boolean(user);
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, isAuthenticated }}>
+    <AuthContext.Provider
+      value={{ user, login, logout, updateUser, loading, isAuthenticated }}
+    >
       {children}
     </AuthContext.Provider>
   );

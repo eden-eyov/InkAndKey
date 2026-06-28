@@ -43,7 +43,7 @@ POST http://localhost:5000/api/auth/login
 Content-Type: application/json
 
 {
-  "email": "noa@example.com",
+  "email": "maya@example.com",
   "password": "123456"
 }
 
@@ -450,3 +450,34 @@ Content-Type: application/json
 ### Set winner book as current book
 PATCH http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/set-winner-current
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMjU5OTEsImV4cCI6MTc4MjEyNjg5MX0.DFggZMds_C1tWKEEoCZkq7XSvfrBAGD5frxt6JtX7fA
+
+
+### Upload profile image
+PUT http://localhost:5000/api/users/me/profile-image
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODI2NDE0OTIsImV4cCI6MTc4MjY0MjM5Mn0.aicaKobQaGBeXQNzHz3TV-bV_4-4stnMuB8O1cXs-08
+Content-Type: multipart/form-data; boundary=----LiveBookBoundary
+
+------LiveBookBoundary
+Content-Disposition: form-data; name="image"; filename="avatar.jpg"
+Content-Type: image/jpeg
+
+< ./avatar.jpg
+------LiveBookBoundary--
+
+
+
+@baseUrl = http://localhost:5000
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODI2NTM5MzMsImV4cCI6MTc4MjY1NDgzM30.dr21Uh8qgOEjlhnqB8zz8sKBRaIK1DIE-t-DrJPZAes
+@clubId = 6a27fc8c711fc4a5878cb4a6
+
+### Upload club cover image
+PUT {{baseUrl}}/api/clubs/{{clubId}}/cover-image
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=LiveBookCoverBoundary
+
+--LiveBookCoverBoundary
+Content-Disposition: form-data; name="image"; filename="cover.jpg"
+Content-Type: image/jpeg
+
+< ./cover.jpg
+--LiveBookCoverBoundary--

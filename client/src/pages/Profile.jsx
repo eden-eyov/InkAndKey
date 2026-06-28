@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -17,6 +17,13 @@ function Profile() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedProfileImage, setSelectedProfileImage] = useState(null);
+  const [profileImagePreview, setProfileImagePreview] = useState('');
+  const [imageUploadLoading, setImageUploadLoading] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState('');
+  const [imageUploadMessage, setImageUploadMessage] = useState('');
+
+  const profileImageInputRef = useRef(null);
 
   const isOwnProfile = useMemo(() => {
     const currentUserId = user?._id || user?.id;
@@ -62,6 +69,18 @@ function Profile() {
     fetchProfileData();
   }, [viewedUserId]);
 
+  useEffect(() => {
+    if (!selectedProfileImage) {
+      setProfileImagePreview('');
+      return undefined;
+    }
+
+    const objectUrl = URL.createObjectURL(selectedProfileImage);
+    setProfileImagePreview(objectUrl);
+
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [selectedProfileImage]);
+
   const initials = profile?.username
     ?.split(' ')
     .map((part) => part[0])
@@ -71,6 +90,70 @@ function Profile() {
 
   const handleEditProfile = () => {
     navigate('/onboarding');
+  };
+
+  const clearSelectedProfileImage = () => {
+    setSelectedProfileImage(null);
+
+    if (profileImageInputRef.current) {
+      profileImageInputRef.current.value = '';
+    }
+  };
+
+  const handleProfileImageChange = (e) => {
+    const file = e.target.files?.[0];
+
+    setImageUploadError('');
+    setImageUploadMessage('');
+
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setImageUploadError('Please choose an image file.');
+      clearSelectedProfileImage();
+      return;
+    }
+
+    setSelectedProfileImage(file);
+  };
+
+  const handleProfileImageUpload = async () => {
+    if (!selectedProfileImage || imageUploadLoading) return;
+
+    setImageUploadLoading(true);
+    setImageUploadError('');
+    setImageUploadMessage('');
+
+    try {
+      const formData = new FormData();
+      formData.append('image', selectedProfileImage);
+
+      const response = await api.put('/users/me/profile-image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      const updatedUser = response.data.data;
+
+      setProfile((currentProfile) => ({
+        ...currentProfile,
+        ...updatedUser,
+      }));
+
+      clearSelectedProfileImage();
+      setImageUploadMessage(
+        response.data.message || 'Profile image updated successfully.'
+      );
+    } catch (err) {
+      console.log('PROFILE IMAGE UPLOAD ERROR:', err.response?.data || err);
+      setImageUploadError(
+        err.response?.data?.message ||
+          'Failed to upload profile image. Please try again.'
+      );
+    } finally {
+      setImageUploadLoading(false);
+    }
   };
 
   if (loading) {
@@ -105,6 +188,11 @@ function Profile() {
     return null;
   }
 
+  const currentProfileImage = isOwnProfile
+    ? profile.profileImage || user?.profileImage
+    : profile.profileImage;
+  const displayedProfileImage = profileImagePreview || currentProfileImage;
+
   return (
     <main className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-16">
       <div className="max-w-6xl mx-auto">
@@ -112,17 +200,79 @@ function Profile() {
           <div className="p-8 md:p-10">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
               <div className="flex flex-col sm:flex-row sm:items-center gap-6">
-                <div className="w-28 h-28 rounded-full bg-cream border border-stone-200 flex items-center justify-center overflow-hidden shadow-sm">
-                  {profile.profileImage ? (
-                    <img
-                      src={profile.profileImage}
-                      alt={`${profile.username} avatar`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="font-serif text-4xl text-stone-400">
-                      {initials || '?'}
-                    </span>
+                <div className="flex flex-col items-start sm:items-center gap-3">
+                  <div className="w-28 h-28 rounded-full bg-cream border border-stone-200 flex items-center justify-center overflow-hidden shadow-sm">
+                    {displayedProfileImage ? (
+                      <img
+                        src={displayedProfileImage}
+                        alt={`${profile.username} avatar`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="font-serif text-4xl text-stone-400">
+                        {initials || '?'}
+                      </span>
+                    )}
+                  </div>
+
+                  {isOwnProfile && (
+                    <div className="w-full sm:w-44 space-y-2">
+                      <input
+                        ref={profileImageInputRef}
+                        id="profile-image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProfileImageChange}
+                        className="sr-only"
+                      />
+
+                      <label
+                        htmlFor="profile-image-upload"
+                        className="block cursor-pointer rounded-full border border-stone-200 bg-white px-4 py-2 text-center text-xs font-bold uppercase tracking-widest text-stone-500 transition hover:border-accent hover:text-accent"
+                      >
+                        Change photo
+                      </label>
+
+                      {selectedProfileImage && (
+                        <div className="space-y-2">
+                          <p className="truncate text-center text-xs text-stone-400">
+                            {selectedProfileImage.name}
+                          </p>
+
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={handleProfileImageUpload}
+                              disabled={imageUploadLoading}
+                              className="flex-1 rounded-full bg-ink px-4 py-2 text-xs font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {imageUploadLoading ? 'Uploading...' : 'Save'}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={clearSelectedProfileImage}
+                              disabled={imageUploadLoading}
+                              className="flex-1 rounded-full border border-stone-200 px-4 py-2 text-xs font-medium text-stone-500 transition hover:border-stone-300 hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {imageUploadError && (
+                        <p className="text-center text-xs text-red-500">
+                          {imageUploadError}
+                        </p>
+                      )}
+
+                      {imageUploadMessage && (
+                        <p className="text-center text-xs text-accent">
+                          {imageUploadMessage}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
 

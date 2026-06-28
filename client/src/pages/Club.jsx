@@ -79,6 +79,11 @@ function Club() {
     coverImage: '',
     genres: [],
   });
+  const [coverImageFile, setCoverImageFile] = useState(null);
+  const [coverImagePreview, setCoverImagePreview] = useState('');
+  const [coverImageUploading, setCoverImageUploading] = useState(false);
+  const [coverImageUploadError, setCoverImageUploadError] = useState('');
+  const [coverImageUploadMessage, setCoverImageUploadMessage] = useState('');
 
   const refreshClubLists = () => {
     dispatch(fetchAllClubs());
@@ -87,6 +92,14 @@ function Club() {
       dispatch(fetchUserClubs());
     }
   };
+
+  useEffect(() => {
+    return () => {
+      if (coverImagePreview) {
+        URL.revokeObjectURL(coverImagePreview);
+      }
+    };
+  }, [coverImagePreview]);
 
   useEffect(() => {
     const fetchClub = async () => {
@@ -715,6 +728,82 @@ function Club() {
     }
   };
 
+  const clearSelectedCoverImage = () => {
+    setCoverImageFile(null);
+    setCoverImagePreview('');
+    setCoverImageUploadError('');
+  };
+
+  const handleCoverImageSelect = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setCoverImageUploadError('');
+    setCoverImageUploadMessage('');
+
+    if (!file.type.startsWith('image/')) {
+      setCoverImageFile(null);
+      setCoverImagePreview('');
+      setCoverImageUploadError('Please choose an image file.');
+      e.target.value = '';
+      return;
+    }
+
+    setCoverImageFile(file);
+    setCoverImagePreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const handleCoverImageUpload = async () => {
+    if (!coverImageFile || coverImageUploading) return;
+
+    try {
+      setCoverImageUploading(true);
+      setCoverImageUploadError('');
+      setCoverImageUploadMessage('');
+
+      const formData = new FormData();
+      formData.append('image', coverImageFile);
+
+      const { data } = await api.put(
+        `/clubs/${clubId}/cover-image`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      const updatedClub = data.data;
+
+      setClub((currentClub) => ({
+        ...updatedClub,
+        userCurrentChapter:
+          currentClub?.userCurrentChapter ??
+          updatedClub.userCurrentChapter ??
+          0,
+      }));
+
+      setCoverImageFile(null);
+      setCoverImagePreview('');
+      setCoverImageUploadMessage(
+        data.message || 'Club cover image updated successfully.'
+      );
+      refreshClubLists();
+    } catch (err) {
+      console.log('CLUB COVER IMAGE UPLOAD ERROR:', err.response?.data || err);
+
+      setCoverImageUploadError(
+        err.response?.data?.message ||
+        'Failed to upload the club cover image. Please try again.'
+      );
+    } finally {
+      setCoverImageUploading(false);
+    }
+  };
+
   const handleNewBookChange = (e) => {
     const { name, value } = e.target;
 
@@ -947,6 +1036,12 @@ function Club() {
     Boolean(creatorId) &&
     creatorId.toString() === currentUserId.toString();
 
+<<<<<<< HEAD
+=======
+  const displayedClubCoverImage = coverImagePreview || club.coverImage || '';
+  const hasClubCoverImage = Boolean(displayedClubCoverImage);
+
+>>>>>>> feature/image-uploads
   const canVoteInPoll = isMember || isCreator;
 
   const visibleThreads = threads.map((thread) => {
@@ -1108,6 +1203,24 @@ function Club() {
         )}
 
         <section className="bg-white rounded-2xl border border-stone-200/60 shadow-sm overflow-hidden mb-10">
+          {hasClubCoverImage && (
+            <div className="relative h-56 md:h-72 bg-ink overflow-hidden">
+              <img
+                src={displayedClubCoverImage}
+                alt={`${club.name} club cover`}
+                className="w-full h-full object-cover"
+              />
+
+              <div className="absolute inset-0 bg-gradient-to-t from-ink/55 via-ink/10 to-transparent" />
+
+              {coverImagePreview && (
+                <span className="absolute bottom-4 left-4 bg-white/90 border border-stone-200 text-ink text-xs font-medium rounded-full px-3 py-1 shadow-sm">
+                  Preview
+                </span>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-0">
             <div className="bg-cream p-8 flex justify-center items-center border-b lg:border-b-0 lg:border-r border-stone-200/60">
               {hasCurrentBookCover ? (
@@ -1244,6 +1357,80 @@ function Club() {
                         Start a discussion
                       </button>
                     )}
+                  </div>
+
+                  {isCreator && (
+                    <div className="bg-cream border border-stone-100 rounded-2xl p-5 space-y-4">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
+                            Club cover
+                          </span>
+
+                          <h3 className="font-serif text-xl text-ink">
+                            {club.coverImage ? 'Change cover image' : 'Upload cover image'}
+                          </h3>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <input
+                            id="club-cover-image"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCoverImageSelect}
+                            className="sr-only"
+                          />
+
+                          <label
+                            htmlFor="club-cover-image"
+                            className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition text-center cursor-pointer"
+                          >
+                            Choose image
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={handleCoverImageUpload}
+                            disabled={!coverImageFile || coverImageUploading}
+                            className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {coverImageUploading ? 'Uploading...' : 'Save cover'}
+                          </button>
+
+                          {coverImageFile && (
+                            <button
+                              type="button"
+                              onClick={clearSelectedCoverImage}
+                              disabled={coverImageUploading}
+                              className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {coverImageFile && (
+                        <p className="text-xs text-stone-500 break-all">
+                          Selected: {coverImageFile.name}
+                        </p>
+                      )}
+
+                      {coverImageUploadError && (
+                        <p className="text-sm text-red-600">
+                          {coverImageUploadError}
+                        </p>
+                      )}
+
+                      {coverImageUploadMessage && (
+                        <p className="text-sm text-green-700">
+                          {coverImageUploadMessage}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
                     {isCreator && showSetBookForm && (
                       <form
                         onSubmit={handleSetCurrentBook}

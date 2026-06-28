@@ -18,7 +18,6 @@ function ClubEditor() {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    image: '',
     genres: [],
     isPublic: true,
   });
@@ -28,11 +27,24 @@ function ClubEditor() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [coverImageFile, setCoverImageFile] = useState(null);
+  const [coverImagePreview, setCoverImagePreview] = useState('');
+  const [coverImageUploading, setCoverImageUploading] = useState(false);
+  const [coverImageUploadError, setCoverImageUploadError] = useState('');
+  const [coverImageUploadMessage, setCoverImageUploadMessage] = useState('');
 
   const refreshClubLists = () => {
     dispatch(fetchAllClubs());
     dispatch(fetchUserClubs());
   };
+
+  useEffect(() => {
+    return () => {
+      if (coverImagePreview) {
+        URL.revokeObjectURL(coverImagePreview);
+      }
+    };
+  }, [coverImagePreview]);
 
   useEffect(() => {
     if (!isEditMode) return;
@@ -62,7 +74,6 @@ function ClubEditor() {
         setFormData({
           name: clubData.name || '',
           description: clubData.description || '',
-          image: clubData.image || '',
           genres: clubData.genres || [],
           isPublic: clubData.isPublic ?? true,
         });
@@ -121,6 +132,73 @@ function ClubEditor() {
     return '';
   };
 
+  const clearSelectedCoverImage = () => {
+    setCoverImageFile(null);
+    setCoverImagePreview('');
+    setCoverImageUploadError('');
+  };
+
+  const handleCoverImageSelect = (e) => {
+    const file = e.target.files?.[0];
+
+    if (!file) return;
+
+    setCoverImageUploadError('');
+    setCoverImageUploadMessage('');
+
+    if (!file.type.startsWith('image/')) {
+      setCoverImageFile(null);
+      setCoverImagePreview('');
+      setCoverImageUploadError('Please choose an image file.');
+      e.target.value = '';
+      return;
+    }
+
+    setCoverImageFile(file);
+    setCoverImagePreview(URL.createObjectURL(file));
+    e.target.value = '';
+  };
+
+  const handleCoverImageUpload = async () => {
+    if (!isEditMode || !club || !coverImageFile || coverImageUploading) return;
+
+    try {
+      setCoverImageUploading(true);
+      setCoverImageUploadError('');
+      setCoverImageUploadMessage('');
+
+      const uploadData = new FormData();
+      uploadData.append('image', coverImageFile);
+
+      const { data } = await api.put(
+        `/clubs/${clubId}/cover-image`,
+        uploadData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+
+      setClub(data.data);
+      setCoverImageFile(null);
+      setCoverImagePreview('');
+      setCoverImageUploadMessage(
+        data.message || 'Club cover image updated successfully.'
+      );
+      refreshClubLists();
+    } catch (err) {
+      console.log('CLUB COVER IMAGE UPLOAD ERROR:', err.response?.data || err);
+
+      setCoverImageUploadError(
+        err.response?.data?.message ||
+          'Failed to upload the club cover image. Please try again.'
+      );
+    } finally {
+      setCoverImageUploading(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -138,7 +216,6 @@ function ClubEditor() {
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
-        image: formData.image.trim(),
         genres: formData.genres,
         isPublic: formData.isPublic,
       };
@@ -197,6 +274,15 @@ function ClubEditor() {
     }
   };
 
+  const currentUserId = user?.id || user?._id;
+  const creatorId = club?.creator?._id || club?.creator;
+  const isCreator =
+    Boolean(currentUserId) &&
+    Boolean(creatorId) &&
+    creatorId.toString() === currentUserId.toString();
+  const displayedCoverImage = coverImagePreview || club?.coverImage || '';
+  const hasDisplayedCoverImage = Boolean(displayedCoverImage);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex justify-center items-center">
@@ -229,7 +315,7 @@ function ClubEditor() {
 
             <p className="text-stone-500 max-w-2xl">
               {isEditMode
-                ? 'Update your club details, image, and genres.'
+                ? 'Update your club details, cover image, and genres.'
                 : 'Start a new spoiler-free reading space for your community.'}
             </p>
           </div>
@@ -288,37 +374,86 @@ function ClubEditor() {
             </p>
           </div>
 
-          <div>
-            <label
-              htmlFor="image"
-              className="block text-xs uppercase tracking-wider text-stone-500 mb-2"
-            >
-              Club image URL
-            </label>
+          {isEditMode && isCreator && (
+            <div className="bg-cream border border-stone-100 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                <div>
+                  <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                    Club cover image
+                  </span>
 
-            <input
-              id="image"
-              name="image"
-              type="text"
-              value={formData.image}
-              onChange={handleChange}
-              placeholder="https://example.com/club-image.jpg"
-              className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-            />
+                  {hasDisplayedCoverImage ? (
+                    <img
+                      src={displayedCoverImage}
+                      alt={`${club.name} club cover preview`}
+                      className="w-full max-w-sm h-40 object-cover rounded-xl shadow-sm"
+                    />
+                  ) : (
+                    <div className="w-full max-w-sm h-40 bg-ink rounded-xl shadow-sm flex items-center justify-center p-5 text-center">
+                      <span className="font-serif text-xl italic text-cream leading-tight">
+                        {club.name}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
-            {formData.image && (
-              <div className="mt-4 bg-cream border border-stone-100 rounded-xl p-4 inline-block">
-                <img
-                  src={formData.image}
-                  alt="Club preview"
-                  className="w-32 h-44 object-cover rounded-lg shadow-sm"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
+                <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
+                  <input
+                    id="club-editor-cover-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleCoverImageSelect}
+                    className="sr-only"
+                  />
+
+                  <label
+                    htmlFor="club-editor-cover-image"
+                    className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition text-center cursor-pointer"
+                  >
+                    Choose image
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={handleCoverImageUpload}
+                    disabled={!coverImageFile || coverImageUploading}
+                    className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {coverImageUploading ? 'Uploading...' : 'Save cover'}
+                  </button>
+
+                  {coverImageFile && (
+                    <button
+                      type="button"
+                      onClick={clearSelectedCoverImage}
+                      disabled={coverImageUploading}
+                      className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
+
+              {coverImageFile && (
+                <p className="text-xs text-stone-500 break-all">
+                  Selected: {coverImageFile.name}
+                </p>
+              )}
+
+              {coverImageUploadError && (
+                <p className="text-sm text-red-600">
+                  {coverImageUploadError}
+                </p>
+              )}
+
+              {coverImageUploadMessage && (
+                <p className="text-sm text-green-700">
+                  {coverImageUploadMessage}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <span className="block text-xs uppercase tracking-wider text-stone-500 mb-3">
