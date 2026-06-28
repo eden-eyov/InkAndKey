@@ -8,6 +8,7 @@ const {
     announcePollWinner,
     setWinnerBookAsCurrent,
     getClubPolls,
+    getMyActivePolls,
 } = require('../controllers/pollController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -20,6 +21,9 @@ const {
 } = require('../validation/pollValidation');
 
 const router = express.Router({ mergeParams: true });
+const userPollRouter = express.Router();
+
+userPollRouter.get('/my-active-polls', protect, getMyActivePolls);
 
 /**
  * Protected poll routes:
@@ -125,3 +129,4 @@ router.patch('/:pollId/set-winner-current', setWinnerBookAsCurrent);
 router.patch('/:pollId/close', closePoll);
 
 module.exports = router;
+module.exports.userPollRouter = userPollRouter;

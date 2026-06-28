@@ -56,6 +56,7 @@ app.use('/api/auth/register', authLimiter);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/clubs', clubRoutes);
+app.use('/api/polls', pollRoutes.userPollRouter);
 app.use('/api/clubs/:clubId/polls', pollRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/reading-progress', readingProgressRoutes);
