@@ -1,6 +1,7 @@
 const express = require('express');
 
 const {
+  searchGoogleBooks,
   createBook,
   getAllBooks,
   getBookById,
@@ -19,6 +20,7 @@ const {
 const router = express.Router();
 
 router.get('/', getAllBooks);
+router.get('/google-search', protect, searchGoogleBooks);
 router.get('/:id', getBookById);
 
 router.post('/', protect, validate(createBookSchema), createBook);

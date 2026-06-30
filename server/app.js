@@ -13,6 +13,7 @@ const bookRoutes = require('./routes/bookRoutes');
 const readingProgressRoutes = require('./routes/readingProgressRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const userRoutes = require('./routes/userRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 
 // middleware imports
@@ -59,6 +60,7 @@ app.use('/api/clubs', clubRoutes);
 app.use('/api/polls', pollRoutes.userPollRouter);
 app.use('/api/clubs/:clubId/polls', pollRoutes);
 app.use('/api/books', bookRoutes);
+app.use('/api/uploads', uploadRoutes);
 app.use('/api/reading-progress', readingProgressRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/users', userRoutes);

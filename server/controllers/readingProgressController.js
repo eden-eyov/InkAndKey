@@ -83,7 +83,7 @@ const upsertMyProgress = async (req, res, next) => {
     )
       .populate('user', 'username email profileImage')
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters');
+      .populate('book', 'title author coverImage totalChapters description');
 
     res.status(200).json({
       success: true,
@@ -112,7 +112,7 @@ const getMyProgress = async (req, res, next) => {
 
     const progressList = await ReadingProgress.find(filter)
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters')
+      .populate('book', 'title author coverImage totalChapters description')
       .sort({ updatedAt: -1 });
 
     res.status(200).json({
@@ -132,7 +132,7 @@ const getMyProgressById = async (req, res, next) => {
       user: req.user._id,
     })
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters');
+      .populate('book', 'title author coverImage totalChapters description');
 
     if (!progress) {
       return res.status(404).json({

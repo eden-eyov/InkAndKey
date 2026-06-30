@@ -3,6 +3,9 @@ const PollVote = require('../models/PollVote');
 const Club = require('../models/Club');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
+const {
+    safelyDeleteManagedBookCover,
+} = require('../utils/cloudinaryImages');
 /**
  * Builds a clean poll response for the frontend.
  *
@@ -43,6 +46,7 @@ const formatPollResponse = async (poll, userId) => {
             title: option.title,
             author: option.author,
             coverImage: option.coverImage,
+            coverImagePublicId: option.coverImagePublicId,
             description: option.description,
             googleBooksId: option.googleBooksId,
             votesCount,
@@ -626,11 +630,19 @@ const announcePollWinner = async (req, res, next) => {
          * The poll option is the base data.
          * The request body can override details if the creator corrected them.
          */
+        const coverImageWasOverridden =
+            coverImage !== undefined && coverImage !== winnerOption.coverImage;
+        const resolvedCoverImage = coverImageWasOverridden
+            ? coverImage
+            : winnerOption.coverImage;
+        const resolvedCoverImagePublicId =
+            coverImageWasOverridden ? '' : winnerOption.coverImagePublicId;
+
         const winnerBook = await Book.create({
             title: title || winnerOption.title,
             author: author || winnerOption.author,
-            coverImage:
-                coverImage !== undefined ? coverImage : winnerOption.coverImage,
+            coverImage: resolvedCoverImage,
+            coverImagePublicId: resolvedCoverImagePublicId,
             description:
                 description !== undefined ? description : winnerOption.description,
             genres: genres || [],
@@ -642,6 +654,16 @@ const announcePollWinner = async (req, res, next) => {
         poll.winnerOption = winnerOption._id;
         poll.winnerBook = winnerBook._id;
         poll.winnerAnnouncedAt = new Date();
+
+        if (coverImageWasOverridden && winnerOption.coverImagePublicId) {
+            await safelyDeleteManagedBookCover(
+                winnerOption.coverImagePublicId,
+                `overridden winning poll option cover ${winnerOption._id}`
+            );
+
+            winnerOption.coverImage = resolvedCoverImage;
+            winnerOption.coverImagePublicId = '';
+        }
 
         await poll.save();
 
@@ -802,11 +824,42 @@ const setWinnerBookAsCurrent = async (req, res, next) => {
         poll.appliedAt = new Date();
         await poll.save();
 
+        /**
+         * Uploaded poll-option covers are temporary until a winner becomes
+         * the current book. Keep the winner's image, and best-effort delete
+         * losing option images that were uploaded through our managed endpoint.
+         */
+        let cleanedLosingOptionImages = false;
+
+        await Promise.all(
+            poll.options.map(async (option) => {
+                const isWinningOption =
+                    option._id.toString() === poll.winnerOption.toString();
+
+                if (isWinningOption || !option.coverImagePublicId) {
+                    return;
+                }
+
+                await safelyDeleteManagedBookCover(
+                    option.coverImagePublicId,
+                    `losing poll option cover ${option._id}`
+                );
+
+                option.coverImage = '';
+                option.coverImagePublicId = '';
+                cleanedLosingOptionImages = true;
+            })
+        );
+
+        if (cleanedLosingOptionImages) {
+            await poll.save();
+        }
+
         const updatedClub = await Club.findById(club._id)
             .populate('creator', 'username email profileImage')
             .populate('members', 'username profileImage')
-            .populate('currentBook', 'title author coverImage totalChapters')
-            .populate('previousBooks', 'title author coverImage totalChapters');
+            .populate('currentBook', 'title author coverImage totalChapters description')
+            .populate('previousBooks', 'title author coverImage totalChapters description');
 
         const formattedPoll = await formatPollResponse(poll, req.user._id);
 
@@ -863,7 +916,7 @@ const getClubPolls = async (req, res, next) => {
 
         const polls = await Poll.find({ club: clubId })
             .sort({ createdAt: -1 })
-            .populate('winnerBook', 'title author coverImage totalChapters');
+            .populate('winnerBook', 'title author coverImage totalChapters description');
         const formattedPolls = await Promise.all(
             polls.map((poll) => formatPollResponse(poll, req.user._id))
         );

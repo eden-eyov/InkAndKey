@@ -174,7 +174,7 @@ const getUserClubs = async (req, res, next) => {
       members: req.params.id,
     })
       .populate('creator', 'username profileImage')
-      .populate('currentBook', 'title author coverImage totalChapters')
+      .populate('currentBook', 'title author coverImage totalChapters description')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -212,7 +212,7 @@ const getUserCurrentlyReading = async (req, res, next) => {
       isCompleted: false,
     })
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters')
+      .populate('book', 'title author coverImage totalChapters description')
       .sort({ updatedAt: -1 });
 
     res.status(200).json({
@@ -251,7 +251,7 @@ const getUserCompletedBooks = async (req, res, next) => {
       isCompleted: true,
     })
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters')
+      .populate('book', 'title author coverImage totalChapters description')
       .sort({ updatedAt: -1 });
 
     res.status(200).json({

@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const GENRES = require('../utils/genres');
+
 /**         Book schema:
  * title
  * author
@@ -31,6 +32,12 @@ const bookSchema = new mongoose.Schema(
       default: '',
     },
 
+    coverImagePublicId: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
     description: {
       type: String,
       trim: true,
@@ -48,6 +55,36 @@ const bookSchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Total chapters is required'],
       min: [1, 'Book must have at least 1 chapter'],
+    },
+
+    googleBooksId: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    pageCount: {
+      type: Number,
+      min: [0, 'Page count cannot be negative'],
+      default: null,
+    },
+
+    publishedDate: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    language: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    infoLink: {
+      type: String,
+      trim: true,
+      default: '',
     },
 
     club: {

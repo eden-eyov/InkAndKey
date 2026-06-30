@@ -68,6 +68,7 @@ function PollCard({
   setWinnerLoading = false,
 }) {
   const [now, setNow] = useState(Date.now());
+  const [expandedOptionSummaries, setExpandedOptionSummaries] = useState({});
 
   useEffect(() => {
     if (!poll?.closesAt || poll.status !== 'open') return undefined;
@@ -78,6 +79,10 @@ function PollCard({
 
     return () => clearInterval(intervalId);
   }, [poll?.closesAt, poll?.status]);
+
+  useEffect(() => {
+    setExpandedOptionSummaries({});
+  }, [poll?._id]);
 
   if (!poll) {
     return null;
@@ -100,6 +105,100 @@ function PollCard({
       : 'Winning book selected';
   const winnerBookAuthor =
     winnerBook && typeof winnerBook === 'object' ? winnerBook.author : '';
+  const winnerBookCover =
+    winnerBook && typeof winnerBook === 'object' ? winnerBook.coverImage : '';
+  const winnerBookDescription =
+    winnerBook && typeof winnerBook === 'object' ? winnerBook.description : '';
+  const canShowAnnounceWinnerButton =
+    canAnnounceWinner && !poll.winnerBook && !poll.appliedAt && !pollIsOpen;
+
+  const getOptionId = (option) =>
+    option.optionId?.toString() ||
+    option._id?.toString() ||
+    `${option.title}-${option.author}`;
+
+  const toggleOptionSummary = (optionId) => {
+    setExpandedOptionSummaries((prev) => ({
+      ...prev,
+      [optionId]: !prev[optionId],
+    }));
+  };
+
+  const renderOptionDetails = (option, trailing = null) => {
+    const optionId = getOptionId(option);
+    const isSummaryExpanded = Boolean(expandedOptionSummaries[optionId]);
+    const hasSummary = Boolean(option.description?.trim());
+
+    return (
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        {option.coverImage ? (
+          <img
+            src={option.coverImage}
+            alt={`${option.title || 'Book option'} cover`}
+            className="w-12 h-16 object-cover rounded-lg shadow-sm flex-shrink-0"
+          />
+        ) : (
+          <div className="w-12 h-16 bg-ink rounded-lg flex items-center justify-center p-1 text-center flex-shrink-0">
+            <span className="font-serif text-[10px] italic text-cream leading-tight">
+              No cover
+            </span>
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h4 className="text-sm font-medium text-ink leading-tight line-clamp-2">
+                {option.title}
+              </h4>
+
+              {option.author && (
+                <p className="text-xs text-stone-500 mt-0.5">
+                  by {option.author}
+                </p>
+              )}
+            </div>
+
+            {trailing}
+          </div>
+
+          {hasSummary && (
+            <>
+              <button
+                type="button"
+                onClick={() => toggleOptionSummary(optionId)}
+                className="mt-1 text-xs font-medium text-accent hover:underline"
+              >
+                {isSummaryExpanded ? 'Hide summary' : 'View summary'}
+              </button>
+
+              {isSummaryExpanded && (
+                <p className="mt-2 text-xs text-stone-500 leading-relaxed">
+                  {option.description}
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderOptionResults = (option) => (
+    <div className="mt-3">
+      <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-stone-100">
+        <div
+          className="h-full bg-accent rounded-full"
+          style={{ width: `${option.percentage}%` }}
+        />
+      </div>
+
+      <p className="text-[11px] text-stone-400 mt-2">
+        {option.votesCount} vote
+        {option.votesCount === 1 ? '' : 's'}
+      </p>
+    </div>
+  );
 
   return (
     <div className={className}>
@@ -132,10 +231,12 @@ function PollCard({
           </div>
         )}
 
-        {pollIsOpen && pollIsExpired && (
+        {!pollIsOpen && !winnerBook && (
           <div className="mt-3 bg-stone-50 border border-stone-200 rounded-xl p-4">
             <p className="text-xs text-stone-500 leading-relaxed">
-              Voting has closed. The creator can now announce the winning book.
+              {canAnnounceWinner
+                ? 'Voting has closed. Choose the winning book.'
+                : 'Voting has closed. The creator can now announce the winning book.'}
             </p>
           </div>
         )}
@@ -159,20 +260,68 @@ function PollCard({
             Next book chosen
           </span>
 
-          <h4 className="font-serif text-xl text-ink mb-1">
-            {winnerBookTitle}
-          </h4>
+          <div className="flex items-start gap-3">
+            {winnerBookCover ? (
+              <img
+                src={winnerBookCover}
+                alt={`${winnerBookTitle} cover`}
+                className="w-14 h-20 object-cover rounded-lg shadow-sm flex-shrink-0"
+              />
+            ) : (
+              <div className="w-14 h-20 bg-ink rounded-lg flex items-center justify-center p-2 text-center flex-shrink-0">
+                <span className="font-serif text-[10px] italic text-cream leading-tight">
+                  No cover
+                </span>
+              </div>
+            )}
 
-          {winnerBookAuthor && (
-            <p className="text-sm text-stone-500 mb-3">
-              by {winnerBookAuthor}
-            </p>
-          )}
+            <div className="min-w-0">
+              <h4 className="font-serif text-xl text-ink mb-1 leading-tight">
+                {winnerBookTitle}
+              </h4>
 
-          <p className="text-xs text-stone-500 leading-relaxed">
+              {winnerBookAuthor && (
+                <p className="text-sm text-stone-500">
+                  by {winnerBookAuthor}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs text-stone-500 leading-relaxed">
             This book has been chosen as the club's next read. The creator will
             start it when the club is ready.
           </p>
+
+          {winnerBookDescription && (
+            <p className="mt-3 text-xs text-stone-500 leading-relaxed line-clamp-3">
+              {winnerBookDescription}
+            </p>
+          )}
+
+          {pollOptions.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-stone-200/70 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                Final results
+              </p>
+
+              {pollOptions.map((option) => (
+                <div
+                  key={option.optionId}
+                  className="bg-white border border-stone-200 rounded-xl p-3"
+                >
+                  {renderOptionDetails(
+                    option,
+                    <span className="text-xs font-semibold text-accent flex-shrink-0">
+                      {option.percentage}%
+                    </span>
+                  )}
+
+                  {renderOptionResults(option)}
+                </div>
+              ))}
+            </div>
+          )}
 
           {onSetWinnerAsCurrent && !poll.appliedAt && (
             <button
@@ -204,7 +353,7 @@ function PollCard({
                   className="bg-cream border border-stone-100 rounded-xl p-4"
                 >
                   {canSubmitVote && (
-                    <label className="flex items-start gap-3 cursor-pointer">
+                    <div className="flex items-start gap-3">
                       <input
                         type="radio"
                         name={`pollOption-${poll._id}`}
@@ -214,65 +363,24 @@ function PollCard({
                         className="mt-1"
                       />
 
-                      <span>
-                        <span className="block text-sm font-medium text-ink">
-                          {option.title}
-                        </span>
-
-                        {option.author && (
-                          <span className="block text-xs text-stone-500 mt-0.5">
-                            by {option.author}
-                          </span>
-                        )}
-                      </span>
-                    </label>
+                      {renderOptionDetails(option)}
+                    </div>
                   )}
 
                   {pollIsOpen && !poll.userHasVoted && !canSubmitVote && !showResults && (
-                    <div>
-                      <h4 className="text-sm font-medium text-ink">
-                        {option.title}
-                      </h4>
-
-                      {option.author && (
-                        <p className="text-xs text-stone-500">
-                          by {option.author}
-                        </p>
-                      )}
-                    </div>
+                    renderOptionDetails(option)
                   )}
 
                   {showResults && (
                     <div>
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div>
-                          <h4 className="text-sm font-medium text-ink">
-                            {option.title}
-                          </h4>
-
-                          {option.author && (
-                            <p className="text-xs text-stone-500">
-                              by {option.author}
-                            </p>
-                          )}
-                        </div>
-
-                        <span className="text-xs font-semibold text-accent">
+                      {renderOptionDetails(
+                        option,
+                        <span className="text-xs font-semibold text-accent flex-shrink-0">
                           {option.percentage}%
                         </span>
-                      </div>
+                      )}
 
-                      <div className="w-full h-2 bg-white rounded-full overflow-hidden border border-stone-100">
-                        <div
-                          className="h-full bg-accent rounded-full"
-                          style={{ width: `${option.percentage}%` }}
-                        />
-                      </div>
-
-                      <p className="text-[11px] text-stone-400 mt-2">
-                        {option.votesCount} vote
-                        {option.votesCount === 1 ? '' : 's'}
-                      </p>
+                      {renderOptionResults(option)}
                     </div>
                   )}
                 </div>
@@ -316,7 +424,7 @@ function PollCard({
                 </button>
               )}
 
-              {canAnnounceWinner && !poll.winnerBook && poll.totalVotes > 0 && (
+              {canShowAnnounceWinnerButton && (
                 <button
                   type="button"
                   onClick={onToggleAnnounceWinnerForm}

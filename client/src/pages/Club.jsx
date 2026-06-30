@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +11,63 @@ import ProgressTracker from '../components/ProgressTracker';
 import PollCard from '../components/PollCard';
 
 import GENRES from '../utils/genres';
+
+const BOOK_SUGGESTION_MIN_QUERY_LENGTH = 3;
+const BOOK_SUGGESTION_DEBOUNCE_MS = 600;
+const DESCRIPTION_PREVIEW_LENGTH = 260;
+
+const emptySetBookFormErrors = {
+  general: '',
+  title: '',
+  author: '',
+  totalChapters: '',
+};
+
+const emptyCreatePollFormErrors = {
+  general: '',
+  closesAt: '',
+  options: '',
+};
+
+const buildBookSuggestionQuery = (bookData) => {
+  const title = bookData?.title?.trim() || '';
+  const author = bookData?.author?.trim() || '';
+
+  return [title, author].filter(Boolean).join(' ').trim();
+};
+
+const getApiErrorMessage = (err, fallback) => {
+  const errors = err.response?.data?.errors;
+
+  if (Array.isArray(errors) && errors.length > 0) {
+    return errors.join(' ');
+  }
+
+  return err.response?.data?.message || fallback;
+};
+
+const createPollOptionClientId = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+};
+
+const createEmptyPollOption = () => ({
+  _clientId: createPollOptionClientId(),
+  title: '',
+  author: '',
+  coverImage: '',
+  coverImagePublicId: '',
+  description: '',
+});
+
+const createInitialPollData = () => ({
+  question: 'What should we read next?',
+  closesAt: '',
+  options: [createEmptyPollOption(), createEmptyPollOption()],
+});
 
 function Club() {
   const { id: clubId } = useParams();
@@ -27,24 +84,21 @@ function Club() {
   const [showCreatePollForm, setShowCreatePollForm] = useState(false);
   const [creatingPoll, setCreatingPoll] = useState(false);
 
-  const [newPollData, setNewPollData] = useState({
-    question: 'What should we read next?',
-    closesAt: '',
-    options: [
-      {
-        title: '',
-        author: '',
-        coverImage: '',
-        description: '',
-      },
-      {
-        title: '',
-        author: '',
-        coverImage: '',
-        description: '',
-      },
-    ],
-  });
+  const [newPollData, setNewPollData] = useState(createInitialPollData);
+
+  const [pollBookSearchResults, setPollBookSearchResults] = useState({});
+  const [pollBookSearchLoading, setPollBookSearchLoading] = useState({});
+  const [pollBookSearchError, setPollBookSearchError] = useState({});
+  const [activePollBookOptionIndex, setActivePollBookOptionIndex] = useState(null);
+  const [suppressedPollBookSearchQueries, setSuppressedPollBookSearchQueries] =
+    useState({});
+  const [pollOptionCoverUploadLoading, setPollOptionCoverUploadLoading] =
+    useState({});
+  const [pollOptionCoverUploadError, setPollOptionCoverUploadError] =
+    useState({});
+  const [createPollFormErrors, setCreatePollFormErrors] = useState(
+    emptyCreatePollFormErrors
+  );
 
   const [poll, setPoll] = useState(null);
   const [pollLoading, setPollLoading] = useState(false);
@@ -71,19 +125,46 @@ function Club() {
   const [error, setError] = useState('');
 
   const [settingCurrentBook, setSettingCurrentBook] = useState(false);
-  const [newBookData, setNewBookData] = useState({
+  const emptyNewBookData = {
     title: '',
     author: '',
     totalChapters: '',
     description: '',
     coverImage: '',
+    coverImagePublicId: '',
     genres: [],
-  });
+    googleBooksId: '',
+    pageCount: null,
+    publishedDate: '',
+    language: '',
+    infoLink: '',
+  };
+
+  const [newBookData, setNewBookData] = useState(emptyNewBookData);
+  const [googleBookResults, setGoogleBookResults] = useState([]);
+  const [googleBooksLoading, setGoogleBooksLoading] = useState(false);
+  const [googleBooksError, setGoogleBooksError] = useState('');
+  const [newBookSuggestionsActive, setNewBookSuggestionsActive] = useState(false);
+  const [suppressedNewBookSearchQuery, setSuppressedNewBookSearchQuery] =
+    useState('');
+  const [setBookFormErrors, setSetBookFormErrors] = useState(
+    emptySetBookFormErrors
+  );
+  const [newBookCoverUploadLoading, setNewBookCoverUploadLoading] =
+    useState(false);
+  const [newBookCoverUploadError, setNewBookCoverUploadError] = useState('');
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
   const [coverImageFile, setCoverImageFile] = useState(null);
   const [coverImagePreview, setCoverImagePreview] = useState('');
   const [coverImageUploading, setCoverImageUploading] = useState(false);
   const [coverImageUploadError, setCoverImageUploadError] = useState('');
   const [coverImageUploadMessage, setCoverImageUploadMessage] = useState('');
+  const newPollDataRef = useRef(newPollData);
+  const newBookDataRef = useRef(newBookData);
+  const showCreatePollFormRef = useRef(showCreatePollForm);
+  const showSetBookFormRef = useRef(showSetBookForm);
+  const createPollFormSessionRef = useRef(0);
+  const bookFormSessionRef = useRef(0);
 
   const refreshClubLists = () => {
     dispatch(fetchAllClubs());
@@ -92,6 +173,77 @@ function Club() {
       dispatch(fetchUserClubs());
     }
   };
+
+  const cleanupUploadedBookCover = async (publicId) => {
+    if (!publicId) return;
+
+    try {
+      await api.delete('/uploads/image', {
+        data: { publicId },
+      });
+    } catch (err) {
+      console.log('BOOK COVER CLEANUP ERROR:', err.response?.data || err);
+    }
+  };
+
+  const resetPollUploadState = () => {
+    setPollOptionCoverUploadLoading({});
+    setPollOptionCoverUploadError({});
+  };
+
+  const cleanupPollOptionUploads = async (
+    options = newPollDataRef.current.options
+  ) => {
+    const publicIds = [...new Set(options
+      .map((option) => option.coverImagePublicId)
+      .filter(Boolean))];
+
+    await Promise.all(publicIds.map((publicId) => cleanupUploadedBookCover(publicId)));
+  };
+
+  const clearPollOptionUploadState = (optionClientId) => {
+    if (!optionClientId) return;
+
+    setPollOptionCoverUploadLoading((prev) => {
+      const next = { ...prev };
+      delete next[optionClientId];
+      return next;
+    });
+
+    setPollOptionCoverUploadError((prev) => {
+      const next = { ...prev };
+      delete next[optionClientId];
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    newPollDataRef.current = newPollData;
+  }, [newPollData]);
+
+  useEffect(() => {
+    newBookDataRef.current = newBookData;
+  }, [newBookData]);
+
+  useEffect(() => {
+    showCreatePollFormRef.current = showCreatePollForm;
+  }, [showCreatePollForm]);
+
+  useEffect(() => {
+    showSetBookFormRef.current = showSetBookForm;
+  }, [showSetBookForm]);
+
+  useEffect(() => {
+    return () => {
+      if (showSetBookFormRef.current && newBookDataRef.current.coverImagePublicId) {
+        void cleanupUploadedBookCover(newBookDataRef.current.coverImagePublicId);
+      }
+
+      if (showCreatePollFormRef.current) {
+        void cleanupPollOptionUploads(newPollDataRef.current.options);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -175,6 +327,170 @@ function Club() {
 
     fetchClub();
   }, [clubId, user]);
+
+  useEffect(() => {
+    if (!showCreatePollForm || activePollBookOptionIndex === null) {
+      return;
+    }
+
+    const option = newPollData.options[activePollBookOptionIndex];
+    const query = buildBookSuggestionQuery(option);
+    const suppressedQuery =
+      suppressedPollBookSearchQueries[activePollBookOptionIndex] || '';
+
+    if (
+      query.length < BOOK_SUGGESTION_MIN_QUERY_LENGTH ||
+      query === suppressedQuery
+    ) {
+      setPollBookSearchResults((prev) => ({
+        ...prev,
+        [activePollBookOptionIndex]: [],
+      }));
+      setPollBookSearchError((prev) => ({
+        ...prev,
+        [activePollBookOptionIndex]: '',
+      }));
+      setPollBookSearchLoading((prev) => ({
+        ...prev,
+        [activePollBookOptionIndex]: false,
+      }));
+      return;
+    }
+
+    let isCurrent = true;
+
+    const timer = setTimeout(async () => {
+      try {
+        setPollBookSearchLoading((prev) => ({
+          ...prev,
+          [activePollBookOptionIndex]: true,
+        }));
+        setPollBookSearchError((prev) => ({
+          ...prev,
+          [activePollBookOptionIndex]: '',
+        }));
+
+        const { data } = await api.get('/books/google-search', {
+          params: { query },
+        });
+
+        if (!isCurrent) return;
+
+        setPollBookSearchResults((prev) => ({
+          ...prev,
+          [activePollBookOptionIndex]: data.data || [],
+        }));
+      } catch (err) {
+        if (!isCurrent) return;
+
+        console.log('POLL GOOGLE BOOKS SEARCH ERROR:', err.response?.data || err);
+
+        setPollBookSearchError((prev) => ({
+          ...prev,
+          [activePollBookOptionIndex]:
+            err.response?.data?.message ||
+            'Failed to search Google Books.',
+        }));
+      } finally {
+        if (isCurrent) {
+          setPollBookSearchLoading((prev) => ({
+            ...prev,
+            [activePollBookOptionIndex]: false,
+          }));
+        }
+      }
+    }, BOOK_SUGGESTION_DEBOUNCE_MS);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [
+    activePollBookOptionIndex,
+    newPollData.options,
+    showCreatePollForm,
+    suppressedPollBookSearchQueries,
+  ]);
+
+  useEffect(() => {
+    if (showCreatePollForm) return;
+
+    setActivePollBookOptionIndex(null);
+    setPollBookSearchResults({});
+    setPollBookSearchLoading({});
+    setPollBookSearchError({});
+    setCreatePollFormErrors(emptyCreatePollFormErrors);
+  }, [showCreatePollForm]);
+
+  useEffect(() => {
+    if (!showSetBookForm || !newBookSuggestionsActive) {
+      return;
+    }
+
+    const query = buildBookSuggestionQuery(newBookData);
+
+    if (
+      query.length < BOOK_SUGGESTION_MIN_QUERY_LENGTH ||
+      query === suppressedNewBookSearchQuery
+    ) {
+      setGoogleBookResults([]);
+      setGoogleBooksError('');
+      setGoogleBooksLoading(false);
+      return;
+    }
+
+    let isCurrent = true;
+
+    const timer = setTimeout(async () => {
+      try {
+        setGoogleBooksLoading(true);
+        setGoogleBooksError('');
+
+        const { data } = await api.get('/books/google-search', {
+          params: { query },
+        });
+
+        if (!isCurrent) return;
+
+        setGoogleBookResults(data.data || []);
+      } catch (err) {
+        if (!isCurrent) return;
+
+        console.log('GOOGLE BOOKS SEARCH ERROR:', err.response?.data || err);
+
+        setGoogleBooksError(
+          err.response?.data?.message ||
+          'Failed to search Google Books. Please try again.'
+        );
+      } finally {
+        if (isCurrent) {
+          setGoogleBooksLoading(false);
+        }
+      }
+    }, BOOK_SUGGESTION_DEBOUNCE_MS);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timer);
+    };
+  }, [
+    newBookData.author,
+    newBookData.title,
+    newBookSuggestionsActive,
+    showSetBookForm,
+    suppressedNewBookSearchQuery,
+  ]);
+
+  useEffect(() => {
+    if (showSetBookForm) return;
+
+    setNewBookSuggestionsActive(false);
+    setSuppressedNewBookSearchQuery('');
+    setGoogleBookResults([]);
+    setGoogleBooksError('');
+    setGoogleBooksLoading(false);
+    setSetBookFormErrors(emptySetBookFormErrors);
+  }, [showSetBookForm]);
 
   // TEMPORARY DESIGN TEST ONLY:
   // These demo threads are used only while the backend is not ready.
@@ -268,6 +584,7 @@ function Club() {
       const visiblePoll =
         polls.find((item) => item.status === 'open') ||
         polls.find((item) => item.winnerBook && !item.appliedAt) ||
+        polls.find((item) => item.status === 'closed' && !item.winnerBook) ||
         null;
 
       setPoll(visiblePoll);
@@ -450,28 +767,41 @@ function Club() {
 
     if (!userIsCreator) return;
 
+    if (Object.values(pollOptionCoverUploadLoading).some(Boolean)) {
+      setCreatePollFormErrors((prev) => ({
+        ...prev,
+        general: 'Please wait for cover uploads to finish before creating the poll.',
+      }));
+      return;
+    }
+
+    const nextFormErrors = { ...emptyCreatePollFormErrors };
     const validOptions = newPollData.options
       .map((option) => ({
         title: option.title.trim(),
         author: option.author.trim(),
         coverImage: option.coverImage.trim(),
+        coverImagePublicId: option.coverImagePublicId || '',
         description: option.description.trim(),
       }))
       .filter((option) => option.title);
 
     if (validOptions.length < 2) {
-      setPollError('Please add at least two book options.');
-      return;
+      nextFormErrors.options = 'Please add at least two book options.';
     }
 
     if (!newPollData.closesAt) {
-      setPollError('Please choose a closing date for the poll.');
+      nextFormErrors.closesAt = 'Please choose a closing date for the poll.';
+    }
+
+    if (nextFormErrors.options || nextFormErrors.closesAt) {
+      setCreatePollFormErrors(nextFormErrors);
       return;
     }
 
     try {
       setCreatingPoll(true);
-      setPollError('');
+      setCreatePollFormErrors(emptyCreatePollFormErrors);
       setPollMessage('');
 
       const { data } = await api.post(`/clubs/${clubId}/polls`, {
@@ -482,33 +812,40 @@ function Club() {
 
       setPoll(data.data);
       setPollMessage('Poll created successfully.');
+      createPollFormSessionRef.current += 1;
+      showCreatePollFormRef.current = false;
       setShowCreatePollForm(false);
 
-      setNewPollData({
-        question: 'What should we read next?',
-        closesAt: '',
-        options: [
-          {
-            title: '',
-            author: '',
-            coverImage: '',
-            description: '',
-          },
-          {
-            title: '',
-            author: '',
-            coverImage: '',
-            description: '',
-          },
-        ],
-      });
+      const resetPollData = createInitialPollData();
+      newPollDataRef.current = resetPollData;
+      setNewPollData(resetPollData);
+      setPollBookSearchResults({});
+      setPollBookSearchError({});
+      setPollBookSearchLoading({});
+      setSuppressedPollBookSearchQueries({});
+      setActivePollBookOptionIndex(null);
+      resetPollUploadState();
     } catch (err) {
       console.log('CREATE POLL ERROR:', err.response?.data || err);
 
-      setPollError(
-        err.response?.data?.message ||
+      const errorMessage = getApiErrorMessage(
+        err,
         'Failed to create poll. Please try again.'
       );
+      const serverErrors = {
+        ...emptyCreatePollFormErrors,
+        general: errorMessage,
+      };
+
+      if (/closing|closes|date/i.test(errorMessage)) {
+        serverErrors.closesAt = errorMessage;
+      }
+
+      if (/option|title|book|description/i.test(errorMessage)) {
+        serverErrors.options = errorMessage;
+      }
+
+      setCreatePollFormErrors(serverErrors);
     } finally {
       setCreatingPoll(false);
     }
@@ -517,6 +854,12 @@ function Club() {
   const handleNewPollChange = (e) => {
     const { name, value } = e.target;
 
+    setCreatePollFormErrors((prev) => ({
+      ...prev,
+      general: '',
+      [name]: '',
+    }));
+
     setNewPollData((prev) => ({
       ...prev,
       [name]: value,
@@ -524,6 +867,39 @@ function Club() {
   };
 
   const handlePollOptionChange = (index, field, value) => {
+    const currentOption = newPollData.options[index];
+    const optionClientId = currentOption?._clientId || index;
+
+    if (field === 'title' || field === 'author') {
+      setActivePollBookOptionIndex(index);
+      setSuppressedPollBookSearchQueries((prev) => ({
+        ...prev,
+        [index]: '',
+      }));
+    }
+
+    const shouldClearUploadedCover =
+      field === 'coverImage' &&
+      currentOption?.coverImagePublicId &&
+      value !== currentOption.coverImage;
+
+    if (shouldClearUploadedCover) {
+      void cleanupUploadedBookCover(currentOption.coverImagePublicId);
+    }
+
+    if (field === 'coverImage') {
+      setPollOptionCoverUploadError((prev) => ({
+        ...prev,
+        [optionClientId]: '',
+      }));
+    }
+
+    setCreatePollFormErrors((prev) => ({
+      ...prev,
+      general: '',
+      options: '',
+    }));
+
     setNewPollData((prev) => ({
       ...prev,
       options: prev.options.map((option, optionIndex) =>
@@ -531,9 +907,60 @@ function Club() {
           ? {
             ...option,
             [field]: value,
+            ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
           }
           : option
       ),
+    }));
+  };
+
+  const handleSelectPollGoogleBook = (index, book) => {
+    const selectedQuery = buildBookSuggestionQuery(book);
+    const optionClientId = newPollData.options[index]?._clientId || index;
+    const previousPublicId = newPollData.options[index]?.coverImagePublicId;
+
+    if (previousPublicId) {
+      void cleanupUploadedBookCover(previousPublicId);
+    }
+
+    setNewPollData((prev) => ({
+      ...prev,
+      options: prev.options.map((option, optionIndex) =>
+        optionIndex === index
+          ? {
+            ...option,
+            title: book.title || '',
+            author: book.author || '',
+            coverImage: book.coverImage || '',
+            coverImagePublicId: '',
+            description: book.description || '',
+          }
+          : option
+      ),
+    }));
+
+    setSuppressedPollBookSearchQueries((prev) => ({
+      ...prev,
+      [index]: selectedQuery,
+    }));
+    setActivePollBookOptionIndex(null);
+    setPollBookSearchResults((prev) => ({
+      ...prev,
+      [index]: [],
+    }));
+
+    setPollBookSearchError((prev) => ({
+      ...prev,
+      [index]: '',
+    }));
+    setPollOptionCoverUploadError((prev) => ({
+      ...prev,
+      [optionClientId]: '',
+    }));
+    setCreatePollFormErrors((prev) => ({
+      ...prev,
+      general: '',
+      options: '',
     }));
   };
 
@@ -542,17 +969,28 @@ function Club() {
       ...prev,
       options: [
         ...prev.options,
-        {
-          title: '',
-          author: '',
-          coverImage: '',
-          description: '',
-        },
+        createEmptyPollOption(),
       ],
+    }));
+    setCreatePollFormErrors((prev) => ({
+      ...prev,
+      general: '',
+      options: '',
     }));
   };
 
   const handleRemovePollOption = (index) => {
+    if (newPollData.options.length <= 2) {
+      return;
+    }
+
+    const optionToRemove = newPollData.options[index];
+    const optionClientId = optionToRemove?._clientId;
+
+    if (optionToRemove?.coverImagePublicId) {
+      void cleanupUploadedBookCover(optionToRemove.coverImagePublicId);
+    }
+
     setNewPollData((prev) => {
       if (prev.options.length <= 2) {
         return prev;
@@ -563,6 +1001,240 @@ function Club() {
         options: prev.options.filter((_, optionIndex) => optionIndex !== index),
       };
     });
+    setActivePollBookOptionIndex(null);
+    setPollBookSearchResults({});
+    setPollBookSearchLoading({});
+    setPollBookSearchError({});
+    setSuppressedPollBookSearchQueries({});
+    clearPollOptionUploadState(optionClientId);
+  };
+
+  const handlePollBookFieldsFocus = (index) => {
+    setActivePollBookOptionIndex(index);
+  };
+
+  const handlePollBookFieldsBlur = (e, index) => {
+    if (e.currentTarget.contains(e.relatedTarget)) {
+      return;
+    }
+
+    setActivePollBookOptionIndex((prev) => (prev === index ? null : prev));
+  };
+
+  const handleNewBookFieldsBlur = (e) => {
+    if (e.currentTarget.contains(e.relatedTarget)) {
+      return;
+    }
+
+    setNewBookSuggestionsActive(false);
+  };
+
+  const handlePollOptionCoverUpload = async (index, e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file) return;
+
+    const optionAtUploadStart = newPollData.options[index];
+
+    if (!optionAtUploadStart?._clientId) return;
+
+    const optionClientId = optionAtUploadStart._clientId;
+    const uploadSession = createPollFormSessionRef.current;
+    const previousCoverImage = optionAtUploadStart.coverImage || '';
+    const previousPublicId = optionAtUploadStart.coverImagePublicId || '';
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      setPollOptionCoverUploadLoading((prev) => ({
+        ...prev,
+        [optionClientId]: true,
+      }));
+      setPollOptionCoverUploadError((prev) => ({
+        ...prev,
+        [optionClientId]: '',
+      }));
+
+      const { data } = await api.post('/uploads/image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const uploadedImage = data.data;
+      const latestOption = newPollDataRef.current.options.find(
+        (option) => option._clientId === optionClientId
+      );
+      const uploadCanStillApply =
+        showCreatePollFormRef.current &&
+        uploadSession === createPollFormSessionRef.current &&
+        latestOption &&
+        (latestOption.coverImage || '') === previousCoverImage &&
+        (latestOption.coverImagePublicId || '') === previousPublicId;
+
+      if (!uploadCanStillApply) {
+        if (uploadedImage.publicId) {
+          await cleanupUploadedBookCover(uploadedImage.publicId);
+        }
+
+        return;
+      }
+
+      setNewPollData((prev) => ({
+        ...prev,
+        options: prev.options.map((option) =>
+          option._clientId === optionClientId
+            ? {
+              ...option,
+              coverImage: uploadedImage.url || '',
+              coverImagePublicId: uploadedImage.publicId || '',
+            }
+            : option
+        ),
+      }));
+
+      if (
+        previousPublicId &&
+        previousPublicId !== uploadedImage.publicId
+      ) {
+        void cleanupUploadedBookCover(previousPublicId);
+      }
+    } catch (err) {
+      console.log('POLL OPTION COVER UPLOAD ERROR:', err.response?.data || err);
+
+      setPollOptionCoverUploadError((prev) => ({
+        ...prev,
+        [optionClientId]:
+          err.response?.data?.message ||
+          'Failed to upload cover image. Please try again.',
+      }));
+    } finally {
+      setPollOptionCoverUploadLoading((prev) => ({
+        ...prev,
+        [optionClientId]: false,
+      }));
+    }
+  };
+
+  const handleNewBookCoverUpload = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+
+    if (!file) return;
+
+    const uploadSession = bookFormSessionRef.current;
+    const previousCoverImage = newBookData.coverImage || '';
+    const previousPublicId = newBookData.coverImagePublicId || '';
+    const formData = new FormData();
+    formData.append('image', file);
+
+    try {
+      setNewBookCoverUploadLoading(true);
+      setNewBookCoverUploadError('');
+
+      const { data } = await api.post('/uploads/image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      const uploadedImage = data.data;
+      const latestBookData = newBookDataRef.current;
+      const uploadCanStillApply =
+        showSetBookFormRef.current &&
+        uploadSession === bookFormSessionRef.current &&
+        (latestBookData.coverImage || '') === previousCoverImage &&
+        (latestBookData.coverImagePublicId || '') === previousPublicId;
+
+      if (!uploadCanStillApply) {
+        if (uploadedImage.publicId) {
+          await cleanupUploadedBookCover(uploadedImage.publicId);
+        }
+
+        return;
+      }
+
+      setNewBookData((prev) => ({
+        ...prev,
+        coverImage: uploadedImage.url || '',
+        coverImagePublicId: uploadedImage.publicId || '',
+      }));
+
+      if (
+        previousPublicId &&
+        previousPublicId !== uploadedImage.publicId
+      ) {
+        void cleanupUploadedBookCover(previousPublicId);
+      }
+    } catch (err) {
+      console.log('NEW BOOK COVER UPLOAD ERROR:', err.response?.data || err);
+
+      setNewBookCoverUploadError(
+        err.response?.data?.message ||
+        'Failed to upload cover image. Please try again.'
+      );
+    } finally {
+      setNewBookCoverUploadLoading(false);
+    }
+  };
+
+  const handleCloseCreatePollForm = async () => {
+    createPollFormSessionRef.current += 1;
+    showCreatePollFormRef.current = false;
+    await cleanupPollOptionUploads(newPollDataRef.current.options);
+
+    const resetPollData = createInitialPollData();
+    newPollDataRef.current = resetPollData;
+    setNewPollData(resetPollData);
+    setActivePollBookOptionIndex(null);
+    setPollBookSearchResults({});
+    setPollBookSearchLoading({});
+    setPollBookSearchError({});
+    setSuppressedPollBookSearchQueries({});
+    setCreatePollFormErrors(emptyCreatePollFormErrors);
+    resetPollUploadState();
+    setShowCreatePollForm(false);
+  };
+
+  const handleToggleCreatePollForm = async () => {
+    if (showCreatePollForm) {
+      await handleCloseCreatePollForm();
+      return;
+    }
+
+    createPollFormSessionRef.current += 1;
+    showCreatePollFormRef.current = true;
+    setShowCreatePollForm(true);
+  };
+
+  const handleCloseSetBookForm = async () => {
+    bookFormSessionRef.current += 1;
+    showSetBookFormRef.current = false;
+
+    if (newBookDataRef.current.coverImagePublicId) {
+      await cleanupUploadedBookCover(newBookDataRef.current.coverImagePublicId);
+      newBookDataRef.current = {
+        ...newBookDataRef.current,
+        coverImage: '',
+        coverImagePublicId: '',
+      };
+      setNewBookData((prev) => ({
+        ...prev,
+        coverImage: '',
+        coverImagePublicId: '',
+      }));
+    }
+
+    setNewBookCoverUploadError('');
+    setShowSetBookForm(false);
+  };
+
+  const handleToggleSetBookForm = async () => {
+    if (showSetBookForm) {
+      await handleCloseSetBookForm();
+      return;
+    }
+
+    bookFormSessionRef.current += 1;
+    showSetBookFormRef.current = true;
+    setShowSetBookForm(true);
   };
 
   const handleSetWinnerBookAsCurrent = async () => {
@@ -807,9 +1479,34 @@ function Club() {
   const handleNewBookChange = (e) => {
     const { name, value } = e.target;
 
+    if (name === 'title' || name === 'author') {
+      setNewBookSuggestionsActive(true);
+      setSuppressedNewBookSearchQuery('');
+    }
+
+    const shouldClearUploadedCover =
+      name === 'coverImage' &&
+      newBookData.coverImagePublicId &&
+      value !== newBookData.coverImage;
+
+    if (shouldClearUploadedCover) {
+      void cleanupUploadedBookCover(newBookData.coverImagePublicId);
+    }
+
+    if (name === 'coverImage') {
+      setNewBookCoverUploadError('');
+    }
+
+    setSetBookFormErrors((prev) => ({
+      ...prev,
+      general: '',
+      [name]: '',
+    }));
+
     setNewBookData((prev) => ({
       ...prev,
       [name]: value,
+      ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
     }));
   };
 
@@ -826,23 +1523,83 @@ function Club() {
     });
   };
 
+  const handleSelectGoogleBook = (book) => {
+    const selectedQuery = buildBookSuggestionQuery(book);
+    const previousPublicId = newBookData.coverImagePublicId;
+
+    if (previousPublicId) {
+      void cleanupUploadedBookCover(previousPublicId);
+    }
+
+    setNewBookData((prev) => ({
+      ...prev,
+      title: book.title || '',
+      author: book.author || '',
+      description: book.description || '',
+      coverImage: book.coverImage || '',
+      coverImagePublicId: '',
+      googleBooksId: book.googleBooksId || '',
+      pageCount: book.pageCount || null,
+      publishedDate: book.publishedDate || '',
+      language: book.language || '',
+      infoLink: book.infoLink || '',
+    }));
+
+    setSuppressedNewBookSearchQuery(selectedQuery);
+    setNewBookSuggestionsActive(false);
+    setGoogleBookResults([]);
+    setGoogleBooksError('');
+    setNewBookCoverUploadError('');
+    setSetBookFormErrors((prev) => ({
+      ...prev,
+      general: '',
+      title: '',
+      author: '',
+    }));
+  };
+
   const handleSetCurrentBook = async (e) => {
     e.preventDefault();
 
     if (!isCreator) return;
 
+    if (newBookCoverUploadLoading) {
+      setNewBookCoverUploadError(
+        'Please wait for the cover upload to finish before saving.'
+      );
+      return;
+    }
+
     const title = newBookData.title.trim();
     const author = newBookData.author.trim();
     const totalChapters = Number(newBookData.totalChapters);
+    const nextErrors = { ...emptySetBookFormErrors };
 
-    if (!title || !author || !totalChapters || totalChapters < 1) {
-      setError('Please enter book title, author, and a valid number of chapters.');
+    if (!title) {
+      nextErrors.title = 'Book title is required.';
+    }
+
+    if (!author) {
+      nextErrors.author = 'Author is required.';
+    }
+
+    if (!Number.isInteger(totalChapters) || totalChapters < 1) {
+      nextErrors.totalChapters =
+        'Total chapters is required and must be at least 1.';
+    }
+
+    if (
+      nextErrors.title ||
+      nextErrors.author ||
+      nextErrors.totalChapters
+    ) {
+      setSetBookFormErrors(nextErrors);
       return;
     }
 
     try {
       setSettingCurrentBook(true);
-      setError('');
+      setSetBookFormErrors(emptySetBookFormErrors);
 
       const createBookResponse = await api.post('/books', {
         title,
@@ -850,7 +1607,13 @@ function Club() {
         totalChapters,
         description: newBookData.description.trim(),
         coverImage: newBookData.coverImage.trim(),
+        coverImagePublicId: newBookData.coverImagePublicId,
         genres: newBookData.genres,
+        googleBooksId: newBookData.googleBooksId,
+        pageCount: newBookData.pageCount,
+        publishedDate: newBookData.publishedDate,
+        language: newBookData.language,
+        infoLink: newBookData.infoLink,
         club: clubId,
       });
 
@@ -878,23 +1641,45 @@ function Club() {
 
       refreshClubLists();
 
-      setNewBookData({
-        title: '',
-        author: '',
-        totalChapters: '',
-        description: '',
-        coverImage: '',
-        genres: [],
-      });
+      bookFormSessionRef.current += 1;
+      showSetBookFormRef.current = false;
+      newBookDataRef.current = emptyNewBookData;
+      setNewBookData(emptyNewBookData);
+      setGoogleBookResults([]);
+      setGoogleBooksError('');
+      setSuppressedNewBookSearchQuery('');
+      setNewBookSuggestionsActive(false);
+      setSetBookFormErrors(emptySetBookFormErrors);
+      setNewBookCoverUploadError('');
+      setNewBookCoverUploadLoading(false);
 
       setShowSetBookForm(false);
     } catch (err) {
       console.log('SET NEW CURRENT BOOK ERROR:', err.response?.data || err);
 
-      setError(
-        err.response?.data?.message ||
+      const errorMessage = getApiErrorMessage(
+        err,
         'Failed to create and set current book. Please try again.'
       );
+      const serverErrors = {
+        ...emptySetBookFormErrors,
+        general: errorMessage,
+      };
+
+      if (/title/i.test(errorMessage)) {
+        serverErrors.title = 'Book title is required.';
+      }
+
+      if (/author/i.test(errorMessage)) {
+        serverErrors.author = 'Author is required.';
+      }
+
+      if (/chapter/i.test(errorMessage)) {
+        serverErrors.totalChapters =
+          'Total chapters is required and must be at least 1.';
+      }
+
+      setSetBookFormErrors(serverErrors);
     } finally {
       setSettingCurrentBook(false);
     }
@@ -977,6 +1762,113 @@ function Club() {
     }
   };
 
+  const toggleDescriptionPreview = (key) => {
+    setExpandedDescriptions((prev) => ({
+      ...prev,
+      [key]: !prev[key],
+    }));
+  };
+
+  const renderDescriptionPreview = (
+    description,
+    key,
+    { className = '', limit = DESCRIPTION_PREVIEW_LENGTH } = {}
+  ) => {
+    const text = description?.trim();
+
+    if (!text) return null;
+
+    const isExpanded = Boolean(expandedDescriptions[key]);
+    const shouldShorten = text.length > limit;
+    const visibleText =
+      shouldShorten && !isExpanded ? `${text.slice(0, limit).trim()}...` : text;
+
+    return (
+      <div className={className}>
+        <p
+          className={`text-xs text-stone-500 leading-relaxed ${isExpanded ? '' : 'line-clamp-3'
+            }`}
+        >
+          {visibleText}
+        </p>
+
+        {shouldShorten && (
+          <button
+            type="button"
+            onClick={() => toggleDescriptionPreview(key)}
+            className="mt-1 text-xs font-medium text-accent hover:underline"
+          >
+            {isExpanded ? 'Show less' : 'Show more'}
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderGoogleBookSuggestion = (
+    book,
+    descriptionKey,
+    onSelect,
+    { selectLabel = 'Use this result', compact = false } = {}
+  ) => (
+    <div
+      key={`${descriptionKey}-${book.googleBooksId || book.title || 'book'}`}
+      className="text-left bg-white border border-stone-200 rounded-xl p-3 hover:border-accent transition"
+    >
+      <div className="flex gap-3">
+        {book.coverImage ? (
+          <img
+            src={book.coverImage}
+            alt={`${book.title || 'Book'} cover`}
+            className={`${compact ? 'w-12 h-16' : 'w-16 h-24'
+              } object-cover rounded-lg shadow-sm flex-shrink-0`}
+          />
+        ) : (
+          <div
+            className={`${compact ? 'w-12 h-16' : 'w-16 h-24'
+              } bg-ink rounded-lg flex items-center justify-center p-2 text-center flex-shrink-0`}
+          >
+            <span className="font-serif text-[10px] italic text-cream">
+              No cover
+            </span>
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1">
+          <h4
+            className={`${compact ? 'text-base' : 'text-lg'
+              } font-serif text-ink leading-tight line-clamp-2`}
+          >
+            {book.title || 'Untitled book'}
+          </h4>
+
+          <p className="text-xs text-stone-500 mt-1">
+            {book.author || 'Unknown author'}
+          </p>
+
+          <div className="flex flex-wrap gap-2 mt-2 text-[11px] text-stone-400">
+            {book.publishedDate && <span>{book.publishedDate}</span>}
+            {book.pageCount && <span>{book.pageCount} pages</span>}
+            {book.language && <span>{book.language.toUpperCase()}</span>}
+          </div>
+
+          {renderDescriptionPreview(book.description, descriptionKey, {
+            className: 'mt-2',
+            limit: compact ? 180 : DESCRIPTION_PREVIEW_LENGTH,
+          })}
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onSelect}
+        className="mt-3 text-xs font-medium text-accent hover:underline"
+      >
+        {selectLabel}
+      </button>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex justify-center items-center">
@@ -1039,6 +1931,9 @@ function Club() {
   const displayedClubCoverImage = coverImagePreview || club.coverImage || '';
   const hasClubCoverImage = Boolean(displayedClubCoverImage);
   const canVoteInPoll = isMember || isCreator;
+  const pollOptionUploadInProgress = Object.values(
+    pollOptionCoverUploadLoading
+  ).some(Boolean);
 
   const visibleThreads = threads.map((thread) => {
     if (isGuest) {
@@ -1263,6 +2158,12 @@ function Club() {
                 <p className="text-sm text-stone-500">
                   {currentBookAuthor && `by ${currentBookAuthor}`}
                 </p>
+
+                {renderDescriptionPreview(
+                  currentBook?.description,
+                  'current-book-description',
+                  { className: 'mt-3 max-w-3xl' }
+                )}
               </div>
 
               {isGuest ? (
@@ -1328,7 +2229,7 @@ function Club() {
 
                         <button
                           type="button"
-                          onClick={() => setShowSetBookForm((prev) => !prev)}
+                          onClick={handleToggleSetBookForm}
                           className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
                         >
                           {showSetBookForm ? 'Close book form' : 'Set new current book'}
@@ -1445,34 +2346,86 @@ function Club() {
                             Add the next book your club is reading. The previous current book will move to the club history automatically.
                           </p>
                         </div>
+                        {setBookFormErrors.general && (
+                          <p className="text-sm text-red-600">
+                            {setBookFormErrors.general}
+                          </p>
+                        )}
+
+                        <div
+                          onFocus={() => setNewBookSuggestionsActive(true)}
+                          onBlur={handleNewBookFieldsBlur}
+                          className="bg-white border border-stone-200 rounded-2xl p-4 space-y-4"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                Book title
+                              </label>
+                              <input
+                                type="text"
+                                name="title"
+                                value={newBookData.title}
+                                onChange={handleNewBookChange}
+                                className={`w-full p-3 bg-cream border rounded-xl focus:outline-none text-sm ${setBookFormErrors.title
+                                  ? 'border-red-500 focus:border-red-500'
+                                  : 'border-stone-200 focus:border-accent'
+                                  }`}
+                              />
+                              {setBookFormErrors.title && (
+                                <p className="text-xs text-red-600 mt-2">
+                                  {setBookFormErrors.title}
+                                </p>
+                              )}
+                            </div>
+
+                            <div>
+                              <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                Author
+                              </label>
+                              <input
+                                type="text"
+                                name="author"
+                                value={newBookData.author}
+                                onChange={handleNewBookChange}
+                                className={`w-full p-3 bg-cream border rounded-xl focus:outline-none text-sm ${setBookFormErrors.author
+                                  ? 'border-red-500 focus:border-red-500'
+                                  : 'border-stone-200 focus:border-accent'
+                                  }`}
+                              />
+                              {setBookFormErrors.author && (
+                                <p className="text-xs text-red-600 mt-2">
+                                  {setBookFormErrors.author}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {googleBooksLoading && (
+                            <p className="text-xs text-stone-400">
+                              Searching Google Books...
+                            </p>
+                          )}
+
+                          {googleBooksError && (
+                            <p className="text-sm text-red-600">{googleBooksError}</p>
+                          )}
+
+                          {newBookSuggestionsActive && googleBookResults.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              {googleBookResults.slice(0, 6).map((book) =>
+                                renderGoogleBookSuggestion(
+                                  book,
+                                  `new-book-suggestion-${book.googleBooksId || book.title}`,
+                                  () => handleSelectGoogleBook(book),
+                                  { selectLabel: 'Choose this book' }
+                                )
+                              )}
+                            </div>
+                          )}
+                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                              Book title
-                            </label>
-                            <input
-                              type="text"
-                              name="title"
-                              value={newBookData.title}
-                              onChange={handleNewBookChange}
-                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                              Author
-                            </label>
-                            <input
-                              type="text"
-                              name="author"
-                              value={newBookData.author}
-                              onChange={handleNewBookChange}
-                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                            />
-                          </div>
-
                           <div>
                             <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
                               Total chapters
@@ -1483,8 +2436,16 @@ function Club() {
                               name="totalChapters"
                               value={newBookData.totalChapters}
                               onChange={handleNewBookChange}
-                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                              className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${setBookFormErrors.totalChapters
+                                ? 'border-red-500 focus:border-red-500'
+                                : 'border-stone-200 focus:border-accent'
+                                }`}
                             />
+                            {setBookFormErrors.totalChapters && (
+                              <p className="text-xs text-red-600 mt-2">
+                                {setBookFormErrors.totalChapters}
+                              </p>
+                            )}
                           </div>
 
                           <div>
@@ -1499,7 +2460,70 @@ function Club() {
                               placeholder="Optional"
                               className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
                             />
+
+                            <label className="mt-3 block">
+                              <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                Upload cover image
+                              </span>
+
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleNewBookCoverUpload}
+                                disabled={newBookCoverUploadLoading}
+                                className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-cream file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
+                              />
+                            </label>
+
+                            {newBookCoverUploadLoading && (
+                              <p className="text-xs text-stone-400 mt-2">
+                                Uploading cover...
+                              </p>
+                            )}
+
+                            {newBookCoverUploadError && (
+                              <p className="text-xs text-red-600 mt-2">
+                                {newBookCoverUploadError}
+                              </p>
+                            )}
                           </div>
+                          {newBookData.coverImage && (
+                            <div className="md:col-span-2 bg-white border border-stone-200 rounded-xl p-4">
+                              <p className="text-xs uppercase tracking-wider text-stone-500 mb-3">
+                                Cover preview
+                              </p>
+
+                              <div className="flex gap-4 items-start">
+                                <img
+                                  src={newBookData.coverImage}
+                                  alt={`${newBookData.title || 'Selected book'} cover`}
+                                  className="w-24 h-36 object-cover rounded-xl shadow-sm"
+                                />
+
+                                <div className="text-sm text-stone-500">
+                                  <p className="font-serif text-xl text-ink mb-1">
+                                    {newBookData.title || 'Selected book'}
+                                  </p>
+
+                                  {newBookData.author && <p>by {newBookData.author}</p>}
+
+                                  {newBookData.pageCount && (
+                                    <p className="mt-2">{newBookData.pageCount} pages</p>
+                                  )}
+
+                                  {newBookData.publishedDate && (
+                                    <p>Published: {newBookData.publishedDate}</p>
+                                  )}
+
+                                  {renderDescriptionPreview(
+                                    newBookData.description,
+                                    'new-book-selected-preview',
+                                    { className: 'mt-3' }
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         <div>
@@ -1540,7 +2564,7 @@ function Club() {
                         <div className="flex justify-end gap-3">
                           <button
                             type="button"
-                            onClick={() => setShowSetBookForm(false)}
+                            onClick={handleCloseSetBookForm}
                             className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
                           >
                             Cancel
@@ -1548,7 +2572,7 @@ function Club() {
 
                           <button
                             type="submit"
-                            disabled={settingCurrentBook}
+                            disabled={settingCurrentBook || newBookCoverUploadLoading}
                             className="px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {settingCurrentBook ? 'Saving...' : 'Create and set current book'}
@@ -1698,7 +2722,7 @@ function Club() {
                       <div className="mt-5">
                         <button
                           type="button"
-                          onClick={() => setShowCreatePollForm((prev) => !prev)}
+                          onClick={handleToggleCreatePollForm}
                           className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
                         >
                           {showCreatePollForm ? 'Close poll form' : 'Create next read poll'}
@@ -1708,6 +2732,12 @@ function Club() {
 
                     {isCreator && showCreatePollForm && (
                       <form onSubmit={handleCreatePoll} className="mt-5 space-y-4 text-left">
+                        {createPollFormErrors.general && (
+                          <p className="text-sm text-red-600">
+                            {createPollFormErrors.general}
+                          </p>
+                        )}
+
                         <div>
                           <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
                             Question
@@ -1732,8 +2762,16 @@ function Club() {
                             name="closesAt"
                             value={newPollData.closesAt}
                             onChange={handleNewPollChange}
-                            className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                            className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${createPollFormErrors.closesAt
+                              ? 'border-red-500 focus:border-red-500'
+                              : 'border-stone-200 focus:border-accent'
+                              }`}
                           />
+                          {createPollFormErrors.closesAt && (
+                            <p className="text-xs text-red-600 mt-2">
+                              {createPollFormErrors.closesAt}
+                            </p>
+                          )}
                         </div>
 
                         <div className="space-y-4">
@@ -1741,9 +2779,18 @@ function Club() {
                             Book options
                           </p>
 
-                          {newPollData.options.map((option, index) => (
+                          {createPollFormErrors.options && (
+                            <p className="text-xs text-red-600">
+                              {createPollFormErrors.options}
+                            </p>
+                          )}
+
+                          {newPollData.options.map((option, index) => {
+                            const optionUploadKey = option._clientId || index;
+
+                            return (
                             <div
-                              key={index}
+                              key={optionUploadKey}
                               className="bg-white border border-stone-200 rounded-xl p-4 space-y-3"
                             >
                               <div className="flex items-center justify-between gap-3">
@@ -1762,34 +2809,68 @@ function Club() {
                                 )}
                               </div>
 
-                              <div>
-                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                  Book title
-                                </label>
+                              <div
+                                onFocus={() => handlePollBookFieldsFocus(index)}
+                                onBlur={(e) => handlePollBookFieldsBlur(e, index)}
+                                className="space-y-3"
+                              >
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Book title
+                                  </label>
 
-                                <input
-                                  type="text"
-                                  value={option.title}
-                                  onChange={(e) =>
-                                    handlePollOptionChange(index, 'title', e.target.value)
-                                  }
-                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                />
-                              </div>
+                                  <input
+                                    type="text"
+                                    value={option.title}
+                                    onChange={(e) =>
+                                      handlePollOptionChange(index, 'title', e.target.value)
+                                    }
+                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+                                </div>
 
-                              <div>
-                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                  Author
-                                </label>
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Author
+                                  </label>
 
-                                <input
-                                  type="text"
-                                  value={option.author}
-                                  onChange={(e) =>
-                                    handlePollOptionChange(index, 'author', e.target.value)
-                                  }
-                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                />
+                                  <input
+                                    type="text"
+                                    value={option.author}
+                                    onChange={(e) =>
+                                      handlePollOptionChange(index, 'author', e.target.value)
+                                    }
+                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+                                </div>
+
+                                {activePollBookOptionIndex === index &&
+                                  pollBookSearchLoading[index] && (
+                                    <p className="text-xs text-stone-400">
+                                      Searching Google Books...
+                                    </p>
+                                  )}
+
+                                {activePollBookOptionIndex === index &&
+                                  pollBookSearchError[index] && (
+                                    <p className="text-xs text-red-600">
+                                      {pollBookSearchError[index]}
+                                    </p>
+                                  )}
+
+                                {activePollBookOptionIndex === index &&
+                                  pollBookSearchResults[index]?.length > 0 && (
+                                    <div className="space-y-2">
+                                      {pollBookSearchResults[index].slice(0, 4).map((book) =>
+                                        renderGoogleBookSuggestion(
+                                          book,
+                                          `poll-${index}-suggestion-${book.googleBooksId || book.title}`,
+                                          () => handleSelectPollGoogleBook(index, book),
+                                          { compact: true }
+                                        )
+                                      )}
+                                    </div>
+                                  )}
                               </div>
 
                               <div>
@@ -1806,6 +2887,66 @@ function Club() {
                                   placeholder="Optional"
                                   className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
                                 />
+
+                                <label className="mt-3 block">
+                                  <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Upload cover image
+                                  </span>
+
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handlePollOptionCoverUpload(index, e)}
+                                    disabled={pollOptionCoverUploadLoading[optionUploadKey]}
+                                    className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-white file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
+                                  />
+                                </label>
+
+                                {pollOptionCoverUploadLoading[optionUploadKey] && (
+                                  <p className="text-xs text-stone-400 mt-2">
+                                    Uploading cover...
+                                  </p>
+                                )}
+
+                                {pollOptionCoverUploadError[optionUploadKey] && (
+                                  <p className="text-xs text-red-600 mt-2">
+                                    {pollOptionCoverUploadError[optionUploadKey]}
+                                  </p>
+                                )}
+
+                                {option.coverImage && (
+                                  <div className="bg-cream border border-stone-200 rounded-xl p-3">
+                                    <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                      Cover preview
+                                    </p>
+
+                                    <div className="flex gap-3 items-start">
+                                      <img
+                                        src={option.coverImage}
+                                        alt={`${option.title || 'Book option'} cover`}
+                                        className="w-14 h-20 object-cover rounded-lg shadow-sm"
+                                      />
+
+                                      <div className="min-w-0">
+                                        <p className="font-serif text-base text-ink leading-tight">
+                                          {option.title || 'Selected book'}
+                                        </p>
+
+                                        {option.author && (
+                                          <p className="text-xs text-stone-500">
+                                            by {option.author}
+                                          </p>
+                                        )}
+
+                                        {renderDescriptionPreview(
+                                          option.description,
+                                          `poll-option-${index}-selected-preview`,
+                                          { className: 'mt-2', limit: 180 }
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
 
                               <div>
@@ -1824,7 +2965,8 @@ function Club() {
                                 />
                               </div>
                             </div>
-                          ))}
+                            );
+                          })}
 
                           <button
                             type="button"
@@ -1837,7 +2979,7 @@ function Club() {
 
                         <button
                           type="submit"
-                          disabled={creatingPoll}
+                          disabled={creatingPoll || pollOptionUploadInProgress}
                           className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {creatingPoll ? 'Creating...' : 'Create poll'}

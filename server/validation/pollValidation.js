@@ -34,6 +34,8 @@ const announcePollWinnerSchema = Joi.object({
 
     coverImage: Joi.string().trim().allow('').optional(),
 
+    coverImagePublicId: Joi.string().trim().allow('').optional(),
+
     description: Joi.string().trim().max(3000).allow('').optional(),
 
     genres: Joi.array().items(Joi.string()).optional(),
@@ -75,7 +77,9 @@ const createPollSchema = Joi.object({
 
                 coverImage: Joi.string().trim().allow('').optional(),
 
-                description: Joi.string().trim().max(1000).allow('').optional(),
+                coverImagePublicId: Joi.string().trim().allow('').optional(),
+
+                description: Joi.string().trim().max(3000).allow('').optional(),
 
                 googleBooksId: Joi.string().trim().allow('').optional(),
             })

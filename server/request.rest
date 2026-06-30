@@ -481,3 +481,8 @@ Content-Type: image/jpeg
 
 < ./cover.jpg
 --LiveBookCoverBoundary--
+
+### Search Google Books
+GET http://localhost:5000/api/books/google-search?query=dune
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODI3MTc3NTgsImV4cCI6MTc4MjcxODY1OH0.Iq2qNtSzZRDoYyfBZYLYe545J5q3aQFYVYc55b0k84s
+

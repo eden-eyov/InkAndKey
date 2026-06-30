@@ -21,10 +21,16 @@ const pollOptionSchema = new mongoose.Schema(
             default: '',
         },
 
+        coverImagePublicId: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+
         description: {
             type: String,
             trim: true,
-            maxlength: [1000, 'Description cannot be longer than 1000 characters'],
+            maxlength: [3000, 'Description cannot be longer than 3000 characters'],
             default: '',
         },
 

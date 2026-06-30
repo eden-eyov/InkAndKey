@@ -19,6 +19,8 @@ const createBookSchema = Joi.object({
 
   coverImage: Joi.string().trim().allow(''),
 
+  coverImagePublicId: Joi.string().trim().allow('').optional(),
+
   description: Joi.string().trim().max(3000).allow('').messages({
     'string.max': 'Description cannot exceed 3000 characters',
   }),
@@ -33,6 +35,20 @@ const createBookSchema = Joi.object({
     'number.min': 'Book must have at least 1 chapter',
     'any.required': 'Total chapters is required',
   }),
+
+  googleBooksId: Joi.string().trim().allow('').optional(),
+
+  pageCount: Joi.number().integer().min(0).allow(null).optional().messages({
+    'number.base': 'Page count must be a number',
+    'number.integer': 'Page count must be a whole number',
+    'number.min': 'Page count cannot be negative',
+  }),
+
+  publishedDate: Joi.string().trim().allow('').optional(),
+
+  language: Joi.string().trim().allow('').optional(),
+
+  infoLink: Joi.string().trim().allow('').optional(),
 
   club: objectIdSchema.required().messages({
     'string.hex': 'Club id must be a valid MongoDB id',
@@ -55,6 +71,8 @@ const updateBookSchema = Joi.object({
 
   coverImage: Joi.string().trim().allow(''),
 
+  coverImagePublicId: Joi.string().trim().allow('').optional(),
+
   description: Joi.string().trim().max(3000).allow('').messages({
     'string.max': 'Description cannot exceed 3000 characters',
   }),
@@ -66,6 +84,20 @@ const updateBookSchema = Joi.object({
     'number.integer': 'Total chapters must be a whole number',
     'number.min': 'Book must have at least 1 chapter',
   }),
+
+  googleBooksId: Joi.string().trim().allow('').optional(),
+
+  pageCount: Joi.number().integer().min(0).allow(null).optional().messages({
+    'number.base': 'Page count must be a number',
+    'number.integer': 'Page count must be a whole number',
+    'number.min': 'Page count cannot be negative',
+  }),
+
+  publishedDate: Joi.string().trim().allow('').optional(),
+
+  language: Joi.string().trim().allow('').optional(),
+
+  infoLink: Joi.string().trim().allow('').optional(),
 }).min(1).messages({
   'object.min': 'At least one field is required for update',
 });

@@ -1,5 +1,75 @@
 const Book = require('../models/Book');
 const Club = require('../models/Club');
+const {
+  safelyDeleteManagedBookCover,
+} = require('../utils/cloudinaryImages');
+
+
+const searchGoogleBooks = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+
+    if (!query || !query.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query is required',
+      });
+    }
+
+    if (!process.env.GOOGLE_BOOKS_API_KEY) {
+      return res.status(500).json({
+        success: false,
+        message: 'Google Books API key is not configured',
+      });
+    }
+
+    const encodedQuery = encodeURIComponent(query.trim());
+
+    const googleBooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&maxResults=10&key=${process.env.GOOGLE_BOOKS_API_KEY}`;
+
+    const googleResponse = await fetch(googleBooksUrl);
+
+    if (!googleResponse.ok) {
+      return res.status(502).json({
+        success: false,
+        message: 'Failed to search Google Books',
+      });
+    }
+
+    const googleData = await googleResponse.json();
+
+    const books = (googleData.items || []).map((item) => {
+      const volumeInfo = item.volumeInfo || {};
+
+      return {
+        googleBooksId: item.id || '',
+        title: volumeInfo.title || '',
+        author: Array.isArray(volumeInfo.authors)
+          ? volumeInfo.authors.join(', ')
+          : 'Unknown author',
+        authors: volumeInfo.authors || [],
+        description: volumeInfo.description || '',
+        coverImage:
+          volumeInfo.imageLinks?.thumbnail ||
+          volumeInfo.imageLinks?.smallThumbnail ||
+          '',
+        pageCount: volumeInfo.pageCount || null,
+        publishedDate: volumeInfo.publishedDate || '',
+        language: volumeInfo.language || '',
+        infoLink: volumeInfo.infoLink || '',
+        categories: volumeInfo.categories || [],
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: books.length,
+      data: books,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 const createBook = async (req, res, next) => {
   try {
@@ -115,6 +185,8 @@ const updateBook = async (req, res, next) => {
       });
     }
 
+    const oldCoverImagePublicId = book.coverImagePublicId;
+
     const updatedBook = await Book.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -123,6 +195,16 @@ const updateBook = async (req, res, next) => {
         runValidators: true,
       }
     ).populate('club', 'name image');
+
+    if (
+      oldCoverImagePublicId &&
+      oldCoverImagePublicId !== updatedBook.coverImagePublicId
+    ) {
+      await safelyDeleteManagedBookCover(
+        oldCoverImagePublicId,
+        `replaced book cover ${book._id}`
+      );
+    }
 
     res.status(200).json({
       success: true,
@@ -172,6 +254,11 @@ const deleteBook = async (req, res, next) => {
 
     await Book.findByIdAndDelete(req.params.id);
 
+    await safelyDeleteManagedBookCover(
+      book.coverImagePublicId,
+      `deleted book cover ${book._id}`
+    );
+
     res.status(200).json({
       success: true,
       message: 'Book deleted successfully',
@@ -182,6 +269,7 @@ const deleteBook = async (req, res, next) => {
 };
 
 module.exports = {
+  searchGoogleBooks,
   createBook,
   getAllBooks,
   getBookById,
