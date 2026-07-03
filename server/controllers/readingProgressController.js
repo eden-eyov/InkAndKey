@@ -52,9 +52,12 @@ const upsertMyProgress = async (req, res, next) => {
 
     const isCompleted = currentChapter >= book.totalChapters;
 
+    const status = isCompleted ? 'completed' : 'reading';
+
     const updateData = {
       currentChapter,
       isCompleted,
+      status,
     };
 
     if (rating !== undefined) {
@@ -150,6 +153,54 @@ const getMyProgressById = async (req, res, next) => {
   }
 };
 
+const markMyProgressAsDnf = async (req, res, next) => {
+  try {
+    const progress = await ReadingProgress.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reading progress not found',
+      });
+    }
+
+    if (progress.isCompleted || progress.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Completed books cannot be marked as DNF',
+      });
+    }
+
+    if (progress.currentChapter <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only mark a book as DNF after starting it',
+      });
+    }
+
+    progress.status = 'dnf';
+    progress.isCompleted = false;
+
+    await progress.save();
+
+    const updatedProgress = await ReadingProgress.findById(progress._id)
+      .populate('user', 'username email profileImage')
+      .populate('club', 'name image')
+      .populate('book', 'title author coverImage totalChapters description');
+
+    res.status(200).json({
+      success: true,
+      message: 'Book marked as DNF',
+      data: updatedProgress,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 const deleteMyProgress = async (req, res, next) => {
   try {
     const progress = await ReadingProgress.findOneAndDelete({
@@ -177,5 +228,6 @@ module.exports = {
   upsertMyProgress,
   getMyProgress,
   getMyProgressById,
+  markMyProgressAsDnf,
   deleteMyProgress,
 };

@@ -38,6 +38,12 @@ const readingProgressSchema = new mongoose.Schema(
       default: false,
     },
 
+    status: {
+      type: String,
+      enum: ['reading', 'completed', 'dnf'],
+      default: 'reading',
+    },
+
     rating: {
       type: Number,
       min: [1, 'Rating must be at least 1'],
@@ -51,8 +57,8 @@ const readingProgressSchema = new mongoose.Schema(
 );
 // preventing duplicates of user progress in a specific book
 // for example, can't be:
-    // Maya + Fantasy Club + Fourth Wing
-    // Maya + Fantasy Club + Fourth Wing
+// Maya + Fantasy Club + Fourth Wing
+// Maya + Fantasy Club + Fourth Wing
 readingProgressSchema.index(
   { user: 1, club: 1, book: 1 },
   { unique: true }

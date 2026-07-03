@@ -114,7 +114,7 @@ GET http://localhost:5000/api/clubs?genre=Fantasy
 
 ### Search clubs by creator name
 ### This request returns public clubs created by users whose name includes the search text.
-GET http://localhost:5000/api/clubs?creator=maya
+GET http://localhost:5000/api/clubs?creator=linoy
 
 ### Search clubs by name and genre together
 ### This request returns public clubs whose name includes the search text
@@ -486,3 +486,82 @@ Content-Type: image/jpeg
 GET http://localhost:5000/api/books/google-search?query=dune
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODI3MTc3NTgsImV4cCI6MTc4MjcxODY1OH0.Iq2qNtSzZRDoYyfBZYLYe545J5q3aQFYVYc55b0k84s
 
+
+@baseUrl = http://localhost:5000/api
+
+### 1. Login - get token
+# Replace email/password with one of your real users
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "linoy@example.com",
+  "password": "123456"
+}
+
+###
+
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODMwODE1MTIsImV4cCI6MTc4MzA4MjQxMn0.mMP7cfFDgzpx5K0tfykVh41PnBPMcp410imRXzOOqb8
+
+@userId = 6a2e64941db2b912c15d72bd
+@clubId = 6a412f1ebfbf7ba79c5ec6b3
+@bookId = 6a42b2fe23cb90d2f340a01c
+@progressId = 6a42b4ab51e8d0115a4a54f2
+
+### 2. Update reading progress - should return status: "reading"
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "club": "{{clubId}}",
+  "book": "{{bookId}}",
+  "currentChapter": 3
+}
+
+### 3. Get my reading progress list
+GET {{baseUrl}}/reading-progress
+Authorization: Bearer {{token}}
+
+### 4. Get user's currently reading books
+# After update progress, the book should appear here if status is "reading"
+GET {{baseUrl}}/users/{{userId}}/currently-reading
+Authorization: Bearer {{token}}
+
+### 5. Mark progress as DNF
+# Use the _id returned from step 2 or 3 as progressId
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/dnf
+Authorization: Bearer {{token}}
+
+### 6. Check currently reading again
+# After DNF, the book should NOT appear here
+GET {{baseUrl}}/users/{{userId}}/currently-reading
+Authorization: Bearer {{token}}
+
+### 7. Check completed / previous books
+# After DNF, the book SHOULD appear here with status: "dnf"
+GET {{baseUrl}}/users/{{userId}}/completed-books
+Authorization: Bearer {{token}}
+
+### 8. Try to mark as DNF again
+# Expected: either stays DNF or returns an error, depending on our controller logic
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/dnf
+Authorization: Bearer {{token}}
+
+### 9. Complete a book
+# Use totalChapters or higher currentChapter.
+# Expected: status: "completed", isCompleted: true
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "club": "{{clubId}}",
+  "book": "{{bookId}}",
+  "currentChapter": 29
+}
+
+### 10. Check completed / previous books again
+# Completed book should appear here with status: "completed"
+GET {{baseUrl}}/users/{{userId}}/completed-books
+Authorization: Bearer {{token}}
