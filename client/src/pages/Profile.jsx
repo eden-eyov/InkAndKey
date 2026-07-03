@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import ProgressTracker from '../components/ProgressTracker';
 
 function Profile() {
   const { userId } = useParams();
@@ -23,6 +24,10 @@ function Profile() {
   const [imageUploadError, setImageUploadError] = useState('');
   const [imageUploadMessage, setImageUploadMessage] = useState('');
 
+  const [progressActionError, setProgressActionError] = useState('');
+  const [progressActionMessage, setProgressActionMessage] = useState('');
+  const [dnfLoadingId, setDnfLoadingId] = useState('');
+
   const profileImageInputRef = useRef(null);
 
   const isOwnProfile = useMemo(() => {
@@ -35,37 +40,37 @@ function Profile() {
     );
   }, [user, viewedUserId]);
 
+  const fetchProfileData = async () => {
+    if (!viewedUserId) return;
+
+    try {
+      setLoading(true);
+      setError('');
+
+      const [profileResponse, clubsResponse, currentResponse, completedResponse] =
+        await Promise.all([
+          api.get(`/users/${viewedUserId}`),
+          api.get(`/users/${viewedUserId}/clubs`),
+          api.get(`/users/${viewedUserId}/currently-reading`),
+          api.get(`/users/${viewedUserId}/completed-books`),
+        ]);
+
+      setProfile(profileResponse.data.data);
+      setClubs(clubsResponse.data.data || []);
+      setCurrentlyReading(currentResponse.data.data || []);
+      setCompletedBooks(completedResponse.data.data || []);
+    } catch (err) {
+      console.log('PROFILE ERROR:', err.response?.data || err);
+      setError(
+        err.response?.data?.message ||
+        'Failed to load profile. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchProfileData = async () => {
-      if (!viewedUserId) return;
-
-      try {
-        setLoading(true);
-        setError('');
-
-        const [profileResponse, clubsResponse, currentResponse, completedResponse] =
-          await Promise.all([
-            api.get(`/users/${viewedUserId}`),
-            api.get(`/users/${viewedUserId}/clubs`),
-            api.get(`/users/${viewedUserId}/currently-reading`),
-            api.get(`/users/${viewedUserId}/completed-books`),
-          ]);
-
-        setProfile(profileResponse.data.data);
-        setClubs(clubsResponse.data.data || []);
-        setCurrentlyReading(currentResponse.data.data || []);
-        setCompletedBooks(completedResponse.data.data || []);
-      } catch (err) {
-        console.log('PROFILE ERROR:', err.response?.data || err);
-        setError(
-          err.response?.data?.message ||
-          'Failed to load profile. Please try again.'
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchProfileData();
   }, [viewedUserId]);
 
@@ -149,10 +154,63 @@ function Profile() {
       console.log('PROFILE IMAGE UPLOAD ERROR:', err.response?.data || err);
       setImageUploadError(
         err.response?.data?.message ||
-          'Failed to upload profile image. Please try again.'
+        'Failed to upload profile image. Please try again.'
       );
     } finally {
       setImageUploadLoading(false);
+    }
+  };
+
+  const handleUpdateProgress = async (progress, nextChapter) => {
+    if (!progress?.club?._id || !progress?.book?._id) return;
+
+    setProgressActionError('');
+    setProgressActionMessage('');
+
+    try {
+      await api.post('/reading-progress', {
+        club: progress.club._id,
+        book: progress.book._id,
+        currentChapter: nextChapter,
+      });
+
+      setProgressActionMessage('Reading progress updated.');
+      await fetchProfileData();
+    } catch (err) {
+      console.log('PROFILE PROGRESS UPDATE ERROR:', err.response?.data || err);
+      setProgressActionError(
+        err.response?.data?.message ||
+        'Failed to update reading progress. Please try again.'
+      );
+    }
+  };
+
+  const handleMarkAsDnf = async (progress) => {
+    if (!progress?._id || dnfLoadingId) return;
+
+    const confirmed = window.confirm(
+      'Mark this book as DNF? It will move to your previous books and keep your last saved chapter.'
+    );
+
+    if (!confirmed) return;
+
+    setDnfLoadingId(progress._id);
+    setProgressActionError('');
+    setProgressActionMessage('');
+
+    try {
+      await api.patch(`/reading-progress/${progress._id}/dnf`);
+
+      setProgressActionMessage('Book marked as DNF.');
+      await fetchProfileData();
+    } catch (err) {
+      console.log('PROFILE DNF ERROR:', err.response?.data || err);
+      setProgressActionError(
+        err.response?.data?.message ||
+        'Failed to mark this book as DNF. Please try again.'
+      );
+    } finally {
+      setDnfLoadingId('');
     }
   };
 
@@ -382,6 +440,13 @@ function Profile() {
                 <p className="text-sm text-stone-500">
                   Books connected to active club reading.
                 </p>
+                {isOwnProfile && progressActionError && (
+                  <p className="text-sm text-red-500 mt-3">{progressActionError}</p>
+                )}
+
+                {isOwnProfile && progressActionMessage && (
+                  <p className="text-sm text-accent mt-3">{progressActionMessage}</p>
+                )}
               </div>
 
               {currentlyReading.length > 0 ? (
@@ -389,35 +454,53 @@ function Profile() {
                   {currentlyReading.map((progress) => (
                     <div
                       key={progress._id}
-                      className="bg-white p-5 rounded-2xl border border-stone-200/60 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                      className="bg-white p-5 rounded-2xl border border-stone-200/60 shadow-sm space-y-4"
                     >
-                      <div>
-                        <h3 className="font-serif text-xl mb-1">
-                          {progress.book?.title || 'Untitled book'}
-                        </h3>
-                        <p className="text-sm text-stone-500">
-                          Reading with {progress.club?.name || 'a book club'}
-                        </p>
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                        <div>
+                          <h3 className="font-serif text-xl mb-1">
+                            {progress.book?.title || 'Untitled book'}
+                          </h3>
 
-                        {progress.currentChapter !== undefined && (
-                          <p className="text-xs text-stone-400 mt-2">
-                            Current chapter: {progress.currentChapter}
+                          <p className="text-sm text-stone-500">
+                            Reading with {progress.club?.name || 'a book club'}
                           </p>
+
+                          {progress.currentChapter !== undefined && (
+                            <p className="text-xs text-stone-400 mt-2">
+                              Current chapter: {progress.currentChapter}
+                            </p>
+                          )}
+                        </div>
+
+                        {!isOwnProfile && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                            View only
+                          </span>
                         )}
                       </div>
 
-                      {isOwnProfile ? (
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/clubs/${progress.club?._id}`)}
-                          className="px-4 py-2 bg-ink text-white text-xs font-bold uppercase tracking-widest rounded-full hover:opacity-90 transition"
-                        >
-                          Update progress
-                        </button>
-                      ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
-                          View only
-                        </span>
+                      {isOwnProfile && (
+                        <div className="space-y-3">
+                          <ProgressTracker
+                            currentChapter={progress.currentChapter || 0}
+                            totalChapters={progress.book?.totalChapters || 0}
+                            onUpdateProgress={(nextChapter) =>
+                              handleUpdateProgress(progress, nextChapter)
+                            }
+                          />
+
+                          {Number(progress.currentChapter) > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => handleMarkAsDnf(progress)}
+                              disabled={dnfLoadingId === progress._id}
+                              className="px-4 py-2 border border-stone-200 text-stone-500 text-xs font-bold uppercase tracking-widest rounded-full hover:border-red-300 hover:text-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {dnfLoadingId === progress._id ? 'Marking...' : 'Mark as DNF'}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   ))}
@@ -433,9 +516,9 @@ function Profile() {
 
             <section>
               <div className="border-b border-stone-200 pb-4 mb-5">
-                <h2 className="font-serif text-3xl mb-1">Completed books</h2>
+                <h2 className="font-serif text-3xl mb-1">Previous books</h2>
                 <p className="text-sm text-stone-500">
-                  Books this reader has finished through Ink & Key clubs.
+                  Books this reader has completed or marked as DNF.
                 </p>
               </div>
 
@@ -468,9 +551,11 @@ function Profile() {
                           {progress.book?.author}
                         </p>
                         <p className="text-xs text-stone-400 mb-3">
-                          Read with {progress.club?.name || 'a book club'}
+                          Tracked with {progress.club?.name || 'a book club'}
                         </p>
-
+                        <span className="inline-block mb-2 px-3 py-1 rounded-full bg-cream border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                          {progress.status === 'dnf' ? 'DNF' : 'Completed'}
+                        </span>
                         <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
                           {progress.rating
                             ? `Rating: ${progress.rating}/5`
@@ -483,7 +568,7 @@ function Profile() {
               ) : (
                 <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
                   <p className="text-stone-500 text-sm">
-                    No completed books to show yet.
+                    No previous books to show yet.
                   </p>
                 </div>
               )}
