@@ -124,6 +124,10 @@ function Club() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const [dnfLoading, setDnfLoading] = useState(false);
+  const [dnfError, setDnfError] = useState('');
+  const [dnfMessage, setDnfMessage] = useState('');
+
   const [settingCurrentBook, setSettingCurrentBook] = useState(false);
   const emptyNewBookData = {
     title: '',
@@ -272,11 +276,12 @@ function Club() {
               },
             });
 
-            const progress = progressResponse.data.data?.[0];
+            const progress = progressResponse.data.data?.[0] || null;
 
             clubData = {
               ...clubData,
               userCurrentChapter: progress?.currentChapter || 0,
+              userReadingProgress: progress,
             };
           } catch (progressError) {
             console.log(
@@ -287,6 +292,7 @@ function Club() {
             clubData = {
               ...clubData,
               userCurrentChapter: 0,
+              userReadingProgress: null,
             };
           }
         }
@@ -1296,6 +1302,9 @@ function Club() {
     if (!currentBook || !isMember) return;
 
     try {
+      setDnfError('');
+      setDnfMessage('');
+
       const { data } = await api.post('/reading-progress', {
         club: clubId,
         book: currentBook._id,
@@ -1305,6 +1314,7 @@ function Club() {
       setClub((prevClub) => ({
         ...prevClub,
         userCurrentChapter: data.data.currentChapter,
+        userReadingProgress: data.data,
       }));
     } catch (err) {
       console.log('UPDATE PROGRESS ERROR:', err.response?.data || err);
@@ -1313,6 +1323,44 @@ function Club() {
         err.response?.data?.message ||
         'Failed to update reading progress. Please try again.'
       );
+    }
+  };
+
+  const handleMarkCurrentBookAsDnf = async () => {
+    const progressId = club?.userReadingProgress?._id;
+
+    if (!progressId || dnfLoading) return;
+
+    const confirmed = window.confirm(
+      'Mark this book as DNF? It will move to your previous books and keep your last saved chapter.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDnfLoading(true);
+      setDnfError('');
+      setDnfMessage('');
+
+      const { data } = await api.patch(`/reading-progress/${progressId}/dnf`);
+
+      setClub((prevClub) => ({
+        ...prevClub,
+        userReadingProgress: data.data,
+        userCurrentChapter: data.data.currentChapter,
+      }));
+
+      setDnfMessage('Book marked as DNF.');
+      refreshClubLists();
+    } catch (err) {
+      console.log('CLUB DNF ERROR:', err.response?.data || err);
+
+      setDnfError(
+        err.response?.data?.message ||
+        'Failed to mark this book as DNF. Please try again.'
+      );
+    } finally {
+      setDnfLoading(false);
     }
   };
 
@@ -1920,6 +1968,21 @@ function Club() {
     return memberId?.toString() === currentUserId?.toString();
   });
 
+  const userReadingProgress = club.userReadingProgress;
+
+  const hasActiveReadingProgress =
+    userReadingProgress &&
+    userReadingProgress.status !== 'completed' &&
+    userReadingProgress.status !== 'dnf' &&
+    !userReadingProgress.isCompleted;
+
+  const canMarkCurrentBookAsDnf =
+    isMember &&
+    hasActiveReadingProgress &&
+    Number(userReadingProgress.currentChapter) > 0;
+
+  const hasMarkedCurrentBookAsDnf =
+    userReadingProgress?.status === 'dnf';
 
   const creatorId = club.creator?._id || club.creator;
 
@@ -2185,11 +2248,40 @@ function Club() {
               ) : (
                 <div className="space-y-5">
                   {isMember && currentBook ? (
-                    <ProgressTracker
-                      currentChapter={userCurrentChapter}
-                      totalChapters={totalChapters}
-                      onUpdateProgress={handleUpdateProgress}
-                    />
+                    <div className="space-y-4">
+                      {hasMarkedCurrentBookAsDnf ? (
+                        <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
+                          You marked this book as DNF. It now appears in your previous books.
+                        </div>
+                      ) : (
+                        <>
+                          <ProgressTracker
+                            currentChapter={userCurrentChapter}
+                            totalChapters={totalChapters}
+                            onUpdateProgress={handleUpdateProgress}
+                          />
+
+                          {dnfError && (
+                            <p className="text-sm text-red-500">{dnfError}</p>
+                          )}
+
+                          {dnfMessage && (
+                            <p className="text-sm text-accent">{dnfMessage}</p>
+                          )}
+
+                          {canMarkCurrentBookAsDnf && (
+                            <button
+                              type="button"
+                              onClick={handleMarkCurrentBookAsDnf}
+                              disabled={dnfLoading}
+                              className="px-4 py-2 border border-stone-200 text-stone-500 text-xs font-bold uppercase tracking-widest rounded-full hover:border-red-300 hover:text-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {dnfLoading ? 'Marking...' : 'Mark as DNF'}
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   ) : (
                     <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
                       {currentBook
@@ -2789,182 +2881,182 @@ function Club() {
                             const optionUploadKey = option._clientId || index;
 
                             return (
-                            <div
-                              key={optionUploadKey}
-                              className="bg-white border border-stone-200 rounded-xl p-4 space-y-3"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <h5 className="font-serif text-base text-ink">
-                                  Option {index + 1}
-                                </h5>
-
-                                {newPollData.options.length > 2 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemovePollOption(index)}
-                                    className="text-xs text-red-600 hover:underline"
-                                  >
-                                    Remove
-                                  </button>
-                                )}
-                              </div>
-
                               <div
-                                onFocus={() => handlePollBookFieldsFocus(index)}
-                                onBlur={(e) => handlePollBookFieldsBlur(e, index)}
-                                className="space-y-3"
+                                key={optionUploadKey}
+                                className="bg-white border border-stone-200 rounded-xl p-4 space-y-3"
                               >
-                                <div>
-                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                    Book title
-                                  </label>
+                                <div className="flex items-center justify-between gap-3">
+                                  <h5 className="font-serif text-base text-ink">
+                                    Option {index + 1}
+                                  </h5>
 
-                                  <input
-                                    type="text"
-                                    value={option.title}
-                                    onChange={(e) =>
-                                      handlePollOptionChange(index, 'title', e.target.value)
-                                    }
-                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                  />
+                                  {newPollData.options.length > 2 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemovePollOption(index)}
+                                      className="text-xs text-red-600 hover:underline"
+                                    >
+                                      Remove
+                                    </button>
+                                  )}
                                 </div>
 
-                                <div>
-                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                    Author
-                                  </label>
+                                <div
+                                  onFocus={() => handlePollBookFieldsFocus(index)}
+                                  onBlur={(e) => handlePollBookFieldsBlur(e, index)}
+                                  className="space-y-3"
+                                >
+                                  <div>
+                                    <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                      Book title
+                                    </label>
 
-                                  <input
-                                    type="text"
-                                    value={option.author}
-                                    onChange={(e) =>
-                                      handlePollOptionChange(index, 'author', e.target.value)
-                                    }
-                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                  />
-                                </div>
+                                    <input
+                                      type="text"
+                                      value={option.title}
+                                      onChange={(e) =>
+                                        handlePollOptionChange(index, 'title', e.target.value)
+                                      }
+                                      className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                    />
+                                  </div>
 
-                                {activePollBookOptionIndex === index &&
-                                  pollBookSearchLoading[index] && (
-                                    <p className="text-xs text-stone-400">
-                                      Searching Google Books...
-                                    </p>
-                                  )}
+                                  <div>
+                                    <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                      Author
+                                    </label>
 
-                                {activePollBookOptionIndex === index &&
-                                  pollBookSearchError[index] && (
-                                    <p className="text-xs text-red-600">
-                                      {pollBookSearchError[index]}
-                                    </p>
-                                  )}
+                                    <input
+                                      type="text"
+                                      value={option.author}
+                                      onChange={(e) =>
+                                        handlePollOptionChange(index, 'author', e.target.value)
+                                      }
+                                      className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                    />
+                                  </div>
 
-                                {activePollBookOptionIndex === index &&
-                                  pollBookSearchResults[index]?.length > 0 && (
-                                    <div className="space-y-2">
-                                      {pollBookSearchResults[index].slice(0, 4).map((book) =>
-                                        renderGoogleBookSuggestion(
-                                          book,
-                                          `poll-${index}-suggestion-${book.googleBooksId || book.title}`,
-                                          () => handleSelectPollGoogleBook(index, book),
-                                          { compact: true }
-                                        )
-                                      )}
-                                    </div>
-                                  )}
-                              </div>
+                                  {activePollBookOptionIndex === index &&
+                                    pollBookSearchLoading[index] && (
+                                      <p className="text-xs text-stone-400">
+                                        Searching Google Books...
+                                      </p>
+                                    )}
 
-                              <div>
-                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                  Cover image URL
-                                </label>
+                                  {activePollBookOptionIndex === index &&
+                                    pollBookSearchError[index] && (
+                                      <p className="text-xs text-red-600">
+                                        {pollBookSearchError[index]}
+                                      </p>
+                                    )}
 
-                                <input
-                                  type="text"
-                                  value={option.coverImage}
-                                  onChange={(e) =>
-                                    handlePollOptionChange(index, 'coverImage', e.target.value)
-                                  }
-                                  placeholder="Optional"
-                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                />
-
-                                <label className="mt-3 block">
-                                  <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                    Upload cover image
-                                  </span>
-
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => handlePollOptionCoverUpload(index, e)}
-                                    disabled={pollOptionCoverUploadLoading[optionUploadKey]}
-                                    className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-white file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
-                                  />
-                                </label>
-
-                                {pollOptionCoverUploadLoading[optionUploadKey] && (
-                                  <p className="text-xs text-stone-400 mt-2">
-                                    Uploading cover...
-                                  </p>
-                                )}
-
-                                {pollOptionCoverUploadError[optionUploadKey] && (
-                                  <p className="text-xs text-red-600 mt-2">
-                                    {pollOptionCoverUploadError[optionUploadKey]}
-                                  </p>
-                                )}
-
-                                {option.coverImage && (
-                                  <div className="bg-cream border border-stone-200 rounded-xl p-3">
-                                    <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                      Cover preview
-                                    </p>
-
-                                    <div className="flex gap-3 items-start">
-                                      <img
-                                        src={option.coverImage}
-                                        alt={`${option.title || 'Book option'} cover`}
-                                        className="w-14 h-20 object-cover rounded-lg shadow-sm"
-                                      />
-
-                                      <div className="min-w-0">
-                                        <p className="font-serif text-base text-ink leading-tight">
-                                          {option.title || 'Selected book'}
-                                        </p>
-
-                                        {option.author && (
-                                          <p className="text-xs text-stone-500">
-                                            by {option.author}
-                                          </p>
-                                        )}
-
-                                        {renderDescriptionPreview(
-                                          option.description,
-                                          `poll-option-${index}-selected-preview`,
-                                          { className: 'mt-2', limit: 180 }
+                                  {activePollBookOptionIndex === index &&
+                                    pollBookSearchResults[index]?.length > 0 && (
+                                      <div className="space-y-2">
+                                        {pollBookSearchResults[index].slice(0, 4).map((book) =>
+                                          renderGoogleBookSuggestion(
+                                            book,
+                                            `poll-${index}-suggestion-${book.googleBooksId || book.title}`,
+                                            () => handleSelectPollGoogleBook(index, book),
+                                            { compact: true }
+                                          )
                                         )}
                                       </div>
+                                    )}
+                                </div>
+
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Cover image URL
+                                  </label>
+
+                                  <input
+                                    type="text"
+                                    value={option.coverImage}
+                                    onChange={(e) =>
+                                      handlePollOptionChange(index, 'coverImage', e.target.value)
+                                    }
+                                    placeholder="Optional"
+                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                                  />
+
+                                  <label className="mt-3 block">
+                                    <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                      Upload cover image
+                                    </span>
+
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={(e) => handlePollOptionCoverUpload(index, e)}
+                                      disabled={pollOptionCoverUploadLoading[optionUploadKey]}
+                                      className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-white file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
+                                    />
+                                  </label>
+
+                                  {pollOptionCoverUploadLoading[optionUploadKey] && (
+                                    <p className="text-xs text-stone-400 mt-2">
+                                      Uploading cover...
+                                    </p>
+                                  )}
+
+                                  {pollOptionCoverUploadError[optionUploadKey] && (
+                                    <p className="text-xs text-red-600 mt-2">
+                                      {pollOptionCoverUploadError[optionUploadKey]}
+                                    </p>
+                                  )}
+
+                                  {option.coverImage && (
+                                    <div className="bg-cream border border-stone-200 rounded-xl p-3">
+                                      <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                        Cover preview
+                                      </p>
+
+                                      <div className="flex gap-3 items-start">
+                                        <img
+                                          src={option.coverImage}
+                                          alt={`${option.title || 'Book option'} cover`}
+                                          className="w-14 h-20 object-cover rounded-lg shadow-sm"
+                                        />
+
+                                        <div className="min-w-0">
+                                          <p className="font-serif text-base text-ink leading-tight">
+                                            {option.title || 'Selected book'}
+                                          </p>
+
+                                          {option.author && (
+                                            <p className="text-xs text-stone-500">
+                                              by {option.author}
+                                            </p>
+                                          )}
+
+                                          {renderDescriptionPreview(
+                                            option.description,
+                                            `poll-option-${index}-selected-preview`,
+                                            { className: 'mt-2', limit: 180 }
+                                          )}
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                )}
-                              </div>
+                                  )}
+                                </div>
 
-                              <div>
-                                <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                  Description
-                                </label>
+                                <div>
+                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                                    Description
+                                  </label>
 
-                                <textarea
-                                  value={option.description}
-                                  onChange={(e) =>
-                                    handlePollOptionChange(index, 'description', e.target.value)
-                                  }
-                                  rows="2"
-                                  placeholder="Optional"
-                                  className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
-                                />
+                                  <textarea
+                                    value={option.description}
+                                    onChange={(e) =>
+                                      handlePollOptionChange(index, 'description', e.target.value)
+                                    }
+                                    rows="2"
+                                    placeholder="Optional"
+                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
+                                  />
+                                </div>
                               </div>
-                            </div>
                             );
                           })}
 
