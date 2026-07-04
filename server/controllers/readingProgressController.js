@@ -2,9 +2,54 @@ const ReadingProgress = require('../models/ReadingProgress');
 const Club = require('../models/Club');
 const Book = require('../models/Book');
 
+const recalculateBookRating = async (bookId) => {
+  const ratingStats = await ReadingProgress.aggregate([
+    {
+      $match: {
+        book: bookId,
+        rating: { $ne: null },
+        status: 'completed',
+        isCompleted: true,
+      },
+    },
+    {
+      $group: {
+        _id: '$book',
+        averageRating: { $avg: '$rating' },
+        ratingsCount: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const stats = ratingStats[0];
+
+  const averageRating = stats
+    ? Math.round(stats.averageRating * 10) / 10
+    : 0;
+
+  const ratingsCount = stats ? stats.ratingsCount : 0;
+
+  await Book.findByIdAndUpdate(
+    bookId,
+    {
+      averageRating,
+      ratingsCount,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  return {
+    averageRating,
+    ratingsCount,
+  };
+};
+
 const upsertMyProgress = async (req, res, next) => {
   try {
-    const { club: clubId, book: bookId, currentChapter, rating } = req.body;
+    const { club: clubId, book: bookId, currentChapter } = req.body;
     const userId = req.user._id;
 
     const club = await Club.findById(clubId);
@@ -60,10 +105,6 @@ const upsertMyProgress = async (req, res, next) => {
       status,
     };
 
-    if (rating !== undefined) {
-      updateData.rating = rating;
-    }
-
     const progress = await ReadingProgress.findOneAndUpdate(
       {
         user: userId,
@@ -86,8 +127,10 @@ const upsertMyProgress = async (req, res, next) => {
     )
       .populate('user', 'username email profileImage')
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters description');
-
+      .populate(
+        'book',
+        'title author coverImage totalChapters description averageRating ratingsCount'
+      )
     res.status(200).json({
       success: true,
       data: progress,
@@ -115,8 +158,10 @@ const getMyProgress = async (req, res, next) => {
 
     const progressList = await ReadingProgress.find(filter)
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters description')
-      .sort({ updatedAt: -1 });
+      .populate(
+        'book',
+        'title author coverImage totalChapters description averageRating ratingsCount'
+      ).sort({ updatedAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -135,7 +180,10 @@ const getMyProgressById = async (req, res, next) => {
       user: req.user._id,
     })
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters description');
+      .populate(
+        'book',
+        'title author coverImage totalChapters description averageRating ratingsCount'
+      );
 
     if (!progress) {
       return res.status(404).json({
@@ -189,12 +237,75 @@ const markMyProgressAsDnf = async (req, res, next) => {
     const updatedProgress = await ReadingProgress.findById(progress._id)
       .populate('user', 'username email profileImage')
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters description');
-
+      .populate(
+        'book',
+        'title author coverImage totalChapters description averageRating ratingsCount'
+      )
     res.status(200).json({
       success: true,
       message: 'Book marked as DNF',
       data: updatedProgress,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const rateMyCompletedBook = async (req, res, next) => {
+  try {
+    const { rating } = req.body;
+
+    if (rating === undefined || rating === null) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating is required',
+      });
+    }
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({
+        success: false,
+        message: 'Rating must be an integer between 1 and 5',
+      });
+    }
+
+    const progress = await ReadingProgress.findOne({
+      _id: req.params.id,
+      user: req.user._id,
+    });
+
+    if (!progress) {
+      return res.status(404).json({
+        success: false,
+        message: 'Reading progress not found',
+      });
+    }
+
+    if (!progress.isCompleted || progress.status !== 'completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'You can only rate books you have completed',
+      });
+    }
+
+    progress.rating = rating;
+    await progress.save();
+
+    const ratingStats = await recalculateBookRating(progress.book);
+
+    const updatedProgress = await ReadingProgress.findById(progress._id)
+      .populate('user', 'username email profileImage')
+      .populate('club', 'name image')
+      .populate(
+        'book',
+        'title author coverImage totalChapters description averageRating ratingsCount'
+      );
+
+    res.status(200).json({
+      success: true,
+      message: 'Book rating saved successfully',
+      data: updatedProgress,
+      bookRating: ratingStats,
     });
   } catch (error) {
     next(error);
@@ -229,5 +340,6 @@ module.exports = {
   getMyProgress,
   getMyProgressById,
   markMyProgressAsDnf,
+  rateMyCompletedBook,
   deleteMyProgress,
 };

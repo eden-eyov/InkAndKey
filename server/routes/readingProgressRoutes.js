@@ -5,6 +5,7 @@ const {
   getMyProgress,
   getMyProgressById,
   markMyProgressAsDnf,
+  rateMyCompletedBook,
   deleteMyProgress,
 } = require('../controllers/readingProgressController');
 
@@ -23,6 +24,7 @@ router.get('/', getMyProgress);
 router.get('/:id', getMyProgressById);
 router.post('/', validate(upsertReadingProgressSchema), upsertMyProgress);
 router.patch('/:id/dnf', markMyProgressAsDnf);
+router.patch('/:id/rating', rateMyCompletedBook);
 router.delete('/:id', deleteMyProgress);
 
 module.exports = router;

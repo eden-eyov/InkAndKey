@@ -57,6 +57,19 @@ const bookSchema = new mongoose.Schema(
       min: [1, 'Book must have at least 1 chapter'],
     },
 
+    averageRating: {
+      type: Number,
+      min: [0, 'Average rating cannot be negative'],
+      max: [5, 'Average rating cannot exceed 5'],
+      default: 0,
+    },
+
+    ratingsCount: {
+      type: Number,
+      min: [0, 'Ratings count cannot be negative'],
+      default: 0,
+    },
+
     googleBooksId: {
       type: String,
       trim: true,

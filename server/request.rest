@@ -565,3 +565,111 @@ Content-Type: application/json
 # Completed book should appear here with status: "completed"
 GET {{baseUrl}}/users/{{userId}}/completed-books
 Authorization: Bearer {{token}}
+
+
+@baseUrl = http://localhost:5000/api
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODMxOTg2OTgsImV4cCI6MTc4MzE5OTU5OH0.PHixTEVF-o3mYTLM63dxKTUqbELwYSXLqA057gU3SmA
+@progressId = 6a42b4ab51e8d0115a4a54f2
+
+### 1. Login - get token
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "linoy@example.com",
+  "password": "123456"
+}
+
+
+### 2. Get my reading progress list
+### Use this to copy a progress _id into @progressId above
+GET {{baseUrl}}/reading-progress
+Authorization: Bearer {{token}}
+
+
+### 3. Update reading progress to completed
+### Change club/book/currentChapter according to your DB
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "club": "PUT_CLUB_ID_HERE",
+  "book": "PUT_BOOK_ID_HERE",
+  "currentChapter": 30
+}
+
+
+### 4. Rate completed book - valid rating
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rating": 5
+}
+
+
+### 5. Update existing rating
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rating": 3
+}
+
+
+### 6. Invalid rating - too high
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rating": 6
+}
+
+
+### 7. Invalid rating - too low
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rating": 0
+}
+
+
+### 8. Invalid rating - not an integer
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rating": 4.5
+}
+
+
+### 9. Invalid rating - missing rating
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+}
+
+
+### 10. Try to rate a book that is not completed
+### For this test, @progressId should be a progress record with status reading/dnf
+PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "rating": 4
+}
+
+
+### 11. Get specific progress after rating
+GET {{baseUrl}}/reading-progress/{{progressId}}
+Authorization: Bearer {{token}}
