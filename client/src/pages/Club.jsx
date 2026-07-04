@@ -510,6 +510,19 @@ function Club() {
   // For guests:
   // The backend should return only spoiler-free threads/reviews.
 
+  const getCommentUserId = (comment) => {
+    const commentUser = comment.user;
+
+    if (!commentUser) {
+      return '';
+    }
+
+    if (typeof commentUser === 'string') {
+      return commentUser;
+    }
+
+    return commentUser._id || '';
+  };
 
   const mapCommentsToThreads = (comments) => {
     const topLevelComments = comments.filter((comment) => !comment.parentComment);
@@ -531,6 +544,7 @@ function Club() {
         body: comment.text || '',
         chapterNumber: comment.chapterNumber,
         spoilerFree: comment.isSpoilerFreeReview,
+        authorId: getCommentUserId(comment),
         authorName: comment.user?.username || 'Reader',
         isLocked: comment.isLocked,
         lockedReason: comment.isLocked
@@ -542,6 +556,7 @@ function Club() {
         replies: commentReplies.map((reply) => ({
           _id: reply._id,
           body: reply.text || '',
+          authorId: getCommentUserId(reply),
           authorName: reply.user?.username || 'Reader',
           likesCount: reply.likesCount || 0,
           isLikedByMe: Boolean(reply.isLikedByMe),

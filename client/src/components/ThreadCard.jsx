@@ -2,6 +2,24 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LockedContent from './LockedContent';
 
+function AuthorLink({ userId, name }) {
+  const displayName = name || 'Reader';
+
+  if (!userId) {
+    return <span className="font-medium text-stone-500">{displayName}</span>;
+  }
+
+  return (
+    <Link
+      to={`/users/${userId}`}
+      onClick={(e) => e.stopPropagation()}
+      className="font-medium text-ink hover:text-accent hover:underline transition"
+    >
+      {displayName}
+    </Link>
+  );
+}
+
 function ThreadCard({
   thread,
   isGuest = false,
@@ -49,11 +67,10 @@ function ThreadCard({
 
   return (
     <article
-      className={`relative overflow-hidden bg-white p-6 rounded-2xl border shadow-sm transition ${
-        thread.isLocked
-          ? 'border-stone-200/60'
-          : 'border-stone-200/60 hover:border-accent'
-      }`}
+      className={`relative overflow-hidden bg-white p-6 rounded-2xl border shadow-sm transition ${thread.isLocked
+        ? 'border-stone-200/60'
+        : 'border-stone-200/60 hover:border-accent'
+        }`}
     >
       <div
         className={
@@ -93,7 +110,11 @@ function ThreadCard({
           </p>
 
           <div className="flex items-center justify-between text-xs text-stone-400">
-            <span>Posted by {thread.authorName}</span>
+            <span>
+              Posted by{' '}
+              <AuthorLink userId={thread.authorId} name={thread.authorName} />
+            </span>
+
             <span>
               {isOpen ? 'Hide replies' : `${thread.repliesCount || 0} replies`}
             </span>
@@ -105,11 +126,10 @@ function ThreadCard({
               type="button"
               onClick={() => handleLikeClick(thread._id)}
               disabled={likingId === thread._id}
-              className={`text-sm font-medium transition ${
-                thread.isLikedByMe
-                  ? 'text-accent'
-                  : 'text-stone-400 hover:text-accent'
-              } disabled:opacity-50`}
+              className={`text-sm font-medium transition ${thread.isLikedByMe
+                ? 'text-accent'
+                : 'text-stone-400 hover:text-accent'
+                } disabled:opacity-50`}
             >
               {thread.isLikedByMe ? 'Liked' : 'Like'}
             </button>
@@ -137,7 +157,8 @@ function ThreadCard({
 
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs text-stone-400">
-                        Posted by {reply.authorName}
+                        Posted by{' '}
+                        <AuthorLink userId={reply.authorId} name={reply.authorName} />
                       </span>
 
                       {canLike && (
@@ -145,11 +166,10 @@ function ThreadCard({
                           type="button"
                           onClick={() => handleLikeClick(reply._id)}
                           disabled={likingId === reply._id}
-                          className={`text-xs font-medium transition ${
-                            reply.isLikedByMe
-                              ? 'text-accent'
-                              : 'text-stone-400 hover:text-accent'
-                          } disabled:opacity-50`}
+                          className={`text-xs font-medium transition ${reply.isLikedByMe
+                            ? 'text-accent'
+                            : 'text-stone-400 hover:text-accent'
+                            } disabled:opacity-50`}
                         >
                           {reply.isLikedByMe ? 'Liked' : 'Like'} · {reply.likesCount || 0}
                         </button>
