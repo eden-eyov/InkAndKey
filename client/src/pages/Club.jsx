@@ -9,6 +9,7 @@ import ThreadCard from '../components/ThreadCard';
 import AddThreadForm from '../components/AddThreadForm';
 import ProgressTracker from '../components/ProgressTracker';
 import PollCard from '../components/PollCard';
+import BookCard from '../components/BookCard';
 
 import GENRES from '../utils/genres';
 
@@ -2145,6 +2146,8 @@ function Club() {
     );
   };
 
+  const previousBooks = club?.previousBooks || [];
+
   return (
     <main className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-16">
       <div className="max-w-7xl mx-auto">
@@ -3109,6 +3112,40 @@ function Club() {
             </aside>
           )}
         </section>
+
+        <section className="mb-12">
+          <div className="flex items-end justify-between gap-4 border-b border-stone-200 pb-5 mb-6">
+            <div>
+              <h2 className="font-serif text-3xl mb-1">Previous books</h2>
+
+              <p className="text-sm text-stone-500">
+                Books this club has already read together.
+              </p>
+            </div>
+          </div>
+
+          {previousBooks.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {previousBooks.map((book) => (
+                <BookCard
+                  key={book._id}
+                  book={{
+                    ...book,
+                    coverUrl: book.coverImage,
+                  }}
+                  actionLabel="View club"
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
+              <p className="text-stone-500 text-sm">
+                This club does not have previous books yet.
+              </p>
+            </div>
+          )}
+        </section>
+
       </div>
     </main>
   );
