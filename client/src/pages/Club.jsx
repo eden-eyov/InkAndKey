@@ -12,6 +12,7 @@ import PollCard from '../components/PollCard';
 import BookRatingModal from '../components/BookRatingModal';
 import PreviousBooksSection from '../components/PreviousBooksSection';
 import CurrentBookInfo from '../components/CurrentBookInfo';
+import ClubHeaderCard from '../components/ClubHeaderCard';
 
 import GENRES from '../utils/genres';
 import {
@@ -2224,8 +2225,6 @@ function Club() {
 
   const previousBooks = club?.previousBooks || [];
 
-  const currentBookHasRatings = Number(currentBook?.ratingsCount) > 0;
-
   const userCompletedCurrentBook =
     userReadingProgress?.status === 'completed' &&
     userReadingProgress?.isCompleted;
@@ -2272,35 +2271,39 @@ function Club() {
           </div>
         )}
 
-        <section className="bg-white rounded-2xl border border-stone-200/60 shadow-sm overflow-hidden mb-10">
-          {hasClubCoverImage && (
-            <div className="relative h-56 md:h-72 bg-ink overflow-hidden">
-              <img
-                src={displayedClubCoverImage}
-                alt={`${club.name} club cover`}
-                className="w-full h-full object-cover"
-              />
+        <ClubHeaderCard
+          club={club}
+          currentBook={currentBook}
+          previousBooksCount={previousBooks.length}
+          membersCount={membersCount}
+          displayedClubCoverImage={displayedClubCoverImage}
+          coverImagePreview={coverImagePreview}
+          coverImageFile={coverImageFile}
+          coverImageUploading={coverImageUploading}
+          coverImageUploadError={coverImageUploadError}
+          coverImageUploadMessage={coverImageUploadMessage}
+          isGuest={isGuest}
+          isMember={isMember}
+          isCreator={isCreator}
+          onJoinClub={handleJoinClub}
+          onLeaveClub={handleLeaveClub}
+          onDeleteClub={handleDeleteClub}
+          onCoverImageSelect={handleCoverImageSelect}
+          onUploadClubCoverImage={handleCoverImageUpload}
+          onClearCoverImageSelection={clearSelectedCoverImage}
+        />
 
-              <div className="absolute inset-0 bg-gradient-to-t from-ink/55 via-ink/10 to-transparent" />
-
-              {coverImagePreview && (
-                <span className="absolute bottom-4 left-4 bg-white/90 border border-stone-200 text-ink text-xs font-medium rounded-full px-3 py-1 shadow-sm">
-                  Preview
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-0">
+        <section className="bg-white rounded-2xl border border-stone-200/60 shadow-sm overflow-hidden mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-0">
             <div className="bg-cream p-8 flex justify-center items-center border-b lg:border-b-0 lg:border-r border-stone-200/60">
               {hasCurrentBookCover ? (
                 <img
                   src={currentBookCover}
                   alt={`${currentBookTitle} cover`}
-                  className="w-44 h-64 object-cover rounded-xl shadow-sm"
+                  className="w-40 h-60 object-cover rounded-xl shadow-sm"
                 />
               ) : (
-                <div className="w-44 h-64 bg-ink rounded-xl shadow-sm flex items-center justify-center p-5 text-center">
+                <div className="w-40 h-60 bg-ink rounded-xl shadow-sm flex items-center justify-center p-5 text-center">
                   <span className="font-serif text-xl italic text-cream leading-tight">
                     {currentBook ? currentBookTitle : 'No active book'}
                   </span>
@@ -2308,22 +2311,32 @@ function Club() {
               )}
             </div>
 
-            <div className="p-8 md:p-10">
-              <div className="flex flex-wrap items-center gap-3 mb-4">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-accent bg-cream border border-stone-200 rounded-full px-3 py-1">
-                  Active Club
-                </span>
+            <div className="p-6 md:p-8">
+              <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5 mb-6">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent bg-cream border border-stone-200 rounded-full px-3 py-1 inline-flex mb-3">
+                    Current read
+                  </span>
 
-                <span className="text-xs text-stone-400">
-                  {membersCount} members
-                </span>
+                  <h2 className="font-serif text-3xl md:text-4xl text-ink">
+                    Reading together now
+                  </h2>
+
+                  <p className="text-sm text-stone-500 mt-1">
+                    Track your progress before joining chapter discussions.
+                  </p>
+                </div>
+
+                {isCreator && (
+                  <button
+                    type="button"
+                    onClick={handleToggleSetBookForm}
+                    className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition text-center"
+                  >
+                    {showSetBookForm ? 'Close book form' : 'Set new current book'}
+                  </button>
+                )}
               </div>
-
-              <h1 className="font-serif text-5xl mb-3">{club.name}</h1>
-
-              <p className="text-stone-500 max-w-3xl mb-6 leading-relaxed">
-                {club.description}
-              </p>
 
               <CurrentBookInfo
                 currentBook={currentBook}
@@ -2334,23 +2347,7 @@ function Club() {
                 renderDescriptionPreview={renderDescriptionPreview}
               />
 
-              {isGuest ? (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    to="/login"
-                    className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition text-center"
-                  >
-                    Sign in to join
-                  </Link>
-
-                  <Link
-                    to="/register"
-                    className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition text-center"
-                  >
-                    Create account
-                  </Link>
-                </div>
-              ) : (
+              {!isGuest && (
                 <div className="space-y-5">
                   {isMember && currentBook ? (
                     <div className="space-y-4">
@@ -2394,392 +2391,275 @@ function Club() {
                         : 'This club does not have an active book yet.'}
                     </div>
                   )}
-                  <div className="flex flex-col sm:flex-row flex-wrap gap-3">
-                    {!isMember && !isCreator && (
-                      <button
-                        type="button"
-                        onClick={handleJoinClub}
-                        className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
-                      >
-                        Join club
-                      </button>
+                </div>
+              )}
+
+              {isGuest && (
+                <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
+                  Sign in or create an account to join this club and track your reading progress.
+                </div>
+              )}
+
+              <div className="mt-6">
+                {isCreator && showSetBookForm && (
+                  <form
+                    onSubmit={handleSetCurrentBook}
+                    className="w-full bg-cream border border-stone-100 rounded-2xl p-5 space-y-5"
+                  >
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
+                        Creator tools
+                      </span>
+
+                      <h3 className="font-serif text-xl text-ink">
+                        Set new current book
+                      </h3>
+
+                      <p className="text-sm text-stone-500 mt-1">
+                        Add the next book your club is reading. The previous current book will move to the club history automatically.
+                      </p>
+                    </div>
+
+                    {setBookFormErrors.general && (
+                      <p className="text-sm text-red-600">
+                        {setBookFormErrors.general}
+                      </p>
                     )}
 
-                    {isMember && !isCreator && (
-                      <button
-                        type="button"
-                        onClick={handleLeaveClub}
-                        className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
-                      >
-                        Leave club
-                      </button>
-                    )}
-
-                    {isCreator && (
-                      <>
-                        <Link
-                          to={`/clubs/${club._id}/edit`}
-                          className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition text-center"
-                        >
-                          Edit club
-                        </Link>
-
-                        <button
-                          type="button"
-                          onClick={handleToggleSetBookForm}
-                          className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
-                        >
-                          {showSetBookForm ? 'Close book form' : 'Set new current book'}
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={handleDeleteClub}
-                          className="px-6 py-3 bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-full hover:bg-red-100 transition"
-                        >
-                          Delete club
-                        </button>
-                      </>
-                    )}
-
-                    {!isGuest && isMember && (
-                      <button
-                        type="button"
-                        onClick={handleStartDiscussion}
-                        className="px-6 py-3 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
-                      >
-                        Start a discussion
-                      </button>
-                    )}
-                  </div>
-
-                  {isCreator && (
-                    <div className="bg-cream border border-stone-100 rounded-2xl p-5 space-y-4">
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                    <div
+                      onFocus={() => setNewBookSuggestionsActive(true)}
+                      onBlur={handleNewBookFieldsBlur}
+                      className="bg-white border border-stone-200 rounded-2xl p-4 space-y-4"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
-                            Club cover
-                          </span>
-
-                          <h3 className="font-serif text-xl text-ink">
-                            {club.coverImage ? 'Change cover image' : 'Upload cover image'}
-                          </h3>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          <input
-                            id="club-cover-image"
-                            type="file"
-                            accept="image/*"
-                            onChange={handleCoverImageSelect}
-                            className="sr-only"
-                          />
-
-                          <label
-                            htmlFor="club-cover-image"
-                            className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition text-center cursor-pointer"
-                          >
-                            Choose image
+                          <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                            Book title
                           </label>
 
-                          <button
-                            type="button"
-                            onClick={handleCoverImageUpload}
-                            disabled={!coverImageFile || coverImageUploading}
-                            className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {coverImageUploading ? 'Uploading...' : 'Save cover'}
-                          </button>
+                          <input
+                            type="text"
+                            name="title"
+                            value={newBookData.title}
+                            onChange={handleNewBookChange}
+                            className={`w-full p-3 bg-cream border rounded-xl focus:outline-none text-sm ${setBookFormErrors.title
+                              ? 'border-red-500 focus:border-red-500'
+                              : 'border-stone-200 focus:border-accent'
+                              }`}
+                          />
 
-                          {coverImageFile && (
-                            <button
-                              type="button"
-                              onClick={clearSelectedCoverImage}
-                              disabled={coverImageUploading}
-                              className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Cancel
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {coverImageFile && (
-                        <p className="text-xs text-stone-500 break-all">
-                          Selected: {coverImageFile.name}
-                        </p>
-                      )}
-
-                      {coverImageUploadError && (
-                        <p className="text-sm text-red-600">
-                          {coverImageUploadError}
-                        </p>
-                      )}
-
-                      {coverImageUploadMessage && (
-                        <p className="text-sm text-green-700">
-                          {coverImageUploadMessage}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div>
-                    {isCreator && showSetBookForm && (
-                      <form
-                        onSubmit={handleSetCurrentBook}
-                        className="w-full bg-cream border border-stone-100 rounded-2xl p-5 space-y-5"
-                      >
-                        <div>
-                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-1">
-                            Creator tools
-                          </span>
-
-                          <h3 className="font-serif text-xl text-ink">
-                            Set new current book
-                          </h3>
-
-                          <p className="text-sm text-stone-500 mt-1">
-                            Add the next book your club is reading. The previous current book will move to the club history automatically.
-                          </p>
-                        </div>
-                        {setBookFormErrors.general && (
-                          <p className="text-sm text-red-600">
-                            {setBookFormErrors.general}
-                          </p>
-                        )}
-
-                        <div
-                          onFocus={() => setNewBookSuggestionsActive(true)}
-                          onBlur={handleNewBookFieldsBlur}
-                          className="bg-white border border-stone-200 rounded-2xl p-4 space-y-4"
-                        >
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                Book title
-                              </label>
-                              <input
-                                type="text"
-                                name="title"
-                                value={newBookData.title}
-                                onChange={handleNewBookChange}
-                                className={`w-full p-3 bg-cream border rounded-xl focus:outline-none text-sm ${setBookFormErrors.title
-                                  ? 'border-red-500 focus:border-red-500'
-                                  : 'border-stone-200 focus:border-accent'
-                                  }`}
-                              />
-                              {setBookFormErrors.title && (
-                                <p className="text-xs text-red-600 mt-2">
-                                  {setBookFormErrors.title}
-                                </p>
-                              )}
-                            </div>
-
-                            <div>
-                              <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                Author
-                              </label>
-                              <input
-                                type="text"
-                                name="author"
-                                value={newBookData.author}
-                                onChange={handleNewBookChange}
-                                className={`w-full p-3 bg-cream border rounded-xl focus:outline-none text-sm ${setBookFormErrors.author
-                                  ? 'border-red-500 focus:border-red-500'
-                                  : 'border-stone-200 focus:border-accent'
-                                  }`}
-                              />
-                              {setBookFormErrors.author && (
-                                <p className="text-xs text-red-600 mt-2">
-                                  {setBookFormErrors.author}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {googleBooksLoading && (
-                            <p className="text-xs text-stone-400">
-                              Searching Google Books...
+                          {setBookFormErrors.title && (
+                            <p className="text-xs text-red-600 mt-2">
+                              {setBookFormErrors.title}
                             </p>
-                          )}
-
-                          {googleBooksError && (
-                            <p className="text-sm text-red-600">{googleBooksError}</p>
-                          )}
-
-                          {newBookSuggestionsActive && googleBookResults.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              {googleBookResults.slice(0, 6).map((book) =>
-                                renderGoogleBookSuggestion(
-                                  book,
-                                  `new-book-suggestion-${book.googleBooksId || book.title}`,
-                                  () => handleSelectGoogleBook(book),
-                                  { selectLabel: 'Choose this book' }
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                              Total chapters
-                            </label>
-                            <input
-                              type="number"
-                              min="1"
-                              name="totalChapters"
-                              value={newBookData.totalChapters}
-                              onChange={handleNewBookChange}
-                              className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${setBookFormErrors.totalChapters
-                                ? 'border-red-500 focus:border-red-500'
-                                : 'border-stone-200 focus:border-accent'
-                                }`}
-                            />
-                            {setBookFormErrors.totalChapters && (
-                              <p className="text-xs text-red-600 mt-2">
-                                {setBookFormErrors.totalChapters}
-                              </p>
-                            )}
-                          </div>
-
-                          <div>
-                            <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                              Cover image URL
-                            </label>
-                            <input
-                              type="text"
-                              name="coverImage"
-                              value={newBookData.coverImage}
-                              onChange={handleNewBookChange}
-                              placeholder="Optional"
-                              className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                            />
-
-                            <label className="mt-3 block">
-                              <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                Upload cover image
-                              </span>
-
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={handleNewBookCoverUpload}
-                                disabled={newBookCoverUploadLoading}
-                                className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-cream file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
-                              />
-                            </label>
-
-                            {newBookCoverUploadLoading && (
-                              <p className="text-xs text-stone-400 mt-2">
-                                Uploading cover...
-                              </p>
-                            )}
-
-                            {newBookCoverUploadError && (
-                              <p className="text-xs text-red-600 mt-2">
-                                {newBookCoverUploadError}
-                              </p>
-                            )}
-                          </div>
-                          {newBookData.coverImage && (
-                            <div className="md:col-span-2 bg-white border border-stone-200 rounded-xl p-4">
-                              <p className="text-xs uppercase tracking-wider text-stone-500 mb-3">
-                                Cover preview
-                              </p>
-
-                              <div className="flex gap-4 items-start">
-                                <img
-                                  src={newBookData.coverImage}
-                                  alt={`${newBookData.title || 'Selected book'} cover`}
-                                  className="w-24 h-36 object-cover rounded-xl shadow-sm"
-                                />
-
-                                <div className="text-sm text-stone-500">
-                                  <p className="font-serif text-xl text-ink mb-1">
-                                    {newBookData.title || 'Selected book'}
-                                  </p>
-
-                                  {newBookData.author && <p>by {newBookData.author}</p>}
-
-                                  {newBookData.pageCount && (
-                                    <p className="mt-2">{newBookData.pageCount} pages</p>
-                                  )}
-
-                                  {newBookData.publishedDate && (
-                                    <p>Published: {newBookData.publishedDate}</p>
-                                  )}
-
-                                  {renderDescriptionPreview(
-                                    newBookData.description,
-                                    'new-book-selected-preview',
-                                    { className: 'mt-3' }
-                                  )}
-                                </div>
-                              </div>
-                            </div>
                           )}
                         </div>
 
                         <div>
                           <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                            Description
+                            Author
                           </label>
-                          <textarea
-                            name="description"
-                            value={newBookData.description}
+
+                          <input
+                            type="text"
+                            name="author"
+                            value={newBookData.author}
                             onChange={handleNewBookChange}
-                            rows="3"
-                            className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
+                            className={`w-full p-3 bg-cream border rounded-xl focus:outline-none text-sm ${setBookFormErrors.author
+                              ? 'border-red-500 focus:border-red-500'
+                              : 'border-stone-200 focus:border-accent'
+                              }`}
                           />
-                        </div>
 
-                        <div>
-                          <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
-                            Genres
+                          {setBookFormErrors.author && (
+                            <p className="text-xs text-red-600 mt-2">
+                              {setBookFormErrors.author}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {googleBooksLoading && (
+                        <p className="text-xs text-stone-400">
+                          Searching Google Books...
+                        </p>
+                      )}
+
+                      {googleBooksError && (
+                        <p className="text-sm text-red-600">{googleBooksError}</p>
+                      )}
+
+                      {newBookSuggestionsActive && googleBookResults.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {googleBookResults.slice(0, 6).map((book) =>
+                            renderGoogleBookSuggestion(
+                              book,
+                              `new-book-suggestion-${book.googleBooksId || book.title}`,
+                              () => handleSelectGoogleBook(book),
+                              { selectLabel: 'Choose this book' }
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                          Total chapters
+                        </label>
+
+                        <input
+                          type="number"
+                          min="1"
+                          name="totalChapters"
+                          value={newBookData.totalChapters}
+                          onChange={handleNewBookChange}
+                          className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${setBookFormErrors.totalChapters
+                            ? 'border-red-500 focus:border-red-500'
+                            : 'border-stone-200 focus:border-accent'
+                            }`}
+                        />
+
+                        {setBookFormErrors.totalChapters && (
+                          <p className="text-xs text-red-600 mt-2">
+                            {setBookFormErrors.totalChapters}
                           </p>
+                        )}
+                      </div>
 
-                          <div className="flex flex-wrap gap-2">
-                            {GENRES.map((genre) => (
-                              <button
-                                key={genre}
-                                type="button"
-                                onClick={() => handleNewBookGenreToggle(genre)}
-                                className={`px-3 py-1.5 rounded-full text-xs border transition ${newBookData.genres.includes(genre)
-                                  ? 'bg-accent border-accent text-white'
-                                  : 'bg-white border-stone-200 text-stone-600 hover:border-accent hover:text-accent'
-                                  }`}
-                              >
-                                {genre}
-                              </button>
-                            ))}
+                      <div>
+                        <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                          Cover image URL
+                        </label>
+
+                        <input
+                          type="text"
+                          name="coverImage"
+                          value={newBookData.coverImage}
+                          onChange={handleNewBookChange}
+                          placeholder="Optional"
+                          className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
+                        />
+
+                        <label className="mt-3 block">
+                          <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                            Upload cover image
+                          </span>
+
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleNewBookCoverUpload}
+                            disabled={newBookCoverUploadLoading}
+                            className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-cream file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
+                          />
+                        </label>
+
+                        {newBookCoverUploadLoading && (
+                          <p className="text-xs text-stone-400 mt-2">
+                            Uploading cover...
+                          </p>
+                        )}
+
+                        {newBookCoverUploadError && (
+                          <p className="text-sm text-red-600 mt-2">
+                            {newBookCoverUploadError}
+                          </p>
+                        )}
+
+                        {newBookData.coverImage && (
+                          <div className="mt-4 bg-cream border border-stone-100 rounded-xl p-3">
+                            <div className="flex gap-3">
+                              <img
+                                src={newBookData.coverImage}
+                                alt={`${newBookData.title || 'Selected book'} cover preview`}
+                                className="w-20 h-28 object-cover rounded-lg shadow-sm"
+                              />
+
+                              <div className="text-sm text-stone-500">
+                                <p className="font-serif text-xl text-ink mb-1">
+                                  {newBookData.title || 'Selected book'}
+                                </p>
+
+                                {newBookData.author && <p>by {newBookData.author}</p>}
+
+                                {newBookData.pageCount && (
+                                  <p className="mt-2">{newBookData.pageCount} pages</p>
+                                )}
+
+                                {newBookData.publishedDate && (
+                                  <p>Published: {newBookData.publishedDate}</p>
+                                )}
+
+                                {renderDescriptionPreview(
+                                  newBookData.description,
+                                  'new-book-selected-preview',
+                                  { className: 'mt-3' }
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
+                        )}
+                      </div>
+                    </div>
 
-                        <div className="flex justify-end gap-3">
+                    <div>
+                      <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
+                        Description
+                      </label>
+
+                      <textarea
+                        name="description"
+                        value={newBookData.description}
+                        onChange={handleNewBookChange}
+                        rows="3"
+                        className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
+                        Genres
+                      </p>
+
+                      <div className="flex flex-wrap gap-2">
+                        {GENRES.map((genre) => (
                           <button
+                            key={genre}
                             type="button"
-                            onClick={handleCloseSetBookForm}
-                            className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+                            onClick={() => handleNewBookGenreToggle(genre)}
+                            className={`px-3 py-1.5 rounded-full text-xs border transition ${newBookData.genres.includes(genre)
+                              ? 'bg-accent border-accent text-white'
+                              : 'bg-white border-stone-200 text-stone-600 hover:border-accent hover:text-accent'
+                              }`}
                           >
-                            Cancel
+                            {genre}
                           </button>
+                        ))}
+                      </div>
+                    </div>
 
-                          <button
-                            type="submit"
-                            disabled={settingCurrentBook || newBookCoverUploadLoading}
-                            className="px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {settingCurrentBook ? 'Saving...' : 'Create and set current book'}
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
-                </div>
-              )}
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={handleCloseSetBookForm}
+                        className="px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="submit"
+                        disabled={settingCurrentBook || newBookCoverUploadLoading}
+                        className="px-6 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {settingCurrentBook ? 'Saving...' : 'Create and set current book'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             </div>
           </div>
         </section>
@@ -2791,10 +2671,14 @@ function Club() {
           <div>
             <div className="flex items-end justify-between gap-4 border-b border-stone-200 pb-5 mb-6">
               <div>
-                <h2 className="font-serif text-3xl mb-1">Discussions</h2>
+                <h2 className="font-serif text-3xl mb-1">
+                  {currentBook ? `Discussions for ${currentBookTitle}` : 'Discussions'}
+                </h2>
 
                 <p className="text-sm text-stone-500">
-                  Spoiler-aware threads based on reading progress.
+                  {currentBook
+                    ? 'Spoiler-aware threads for the current book, unlocked by your reading progress.'
+                    : 'Discussions will appear here once the club has an active book.'}
                 </p>
               </div>
 
