@@ -6,8 +6,7 @@ import api from '../services/api';
 import { fetchAllClubs, fetchUserClubs } from '../store/clubsSlice';
 
 import CurrentReadingSection from '../components/CurrentReadingSection';
-import ThreadCard from '../components/ThreadCard';
-import AddThreadForm from '../components/AddThreadForm';
+import DiscussionsSection from '../components/DiscussionsSection';
 import PollCard from '../components/PollCard';
 import BookRatingModal from '../components/BookRatingModal';
 import PreviousBooksSection from '../components/PreviousBooksSection';
@@ -24,7 +23,7 @@ import {
   getApiErrorMessage,
   createInitialPollData,
   createEmptyPollOption,
-  mapCommentsToThreads,
+  mapCommentsToDiscussion,
 } from '../utils/clubPageUtils';
 
 function Club() {
@@ -34,10 +33,11 @@ function Club() {
   const { user } = useAuth();
 
   const isGuest = !user;
-  const [showAddThreadForm, setShowAddThreadForm] = useState(false);
+
   const [showSetBookForm, setShowSetBookForm] = useState(false);
-  const [threads, setThreads] = useState([]);
-  const [threadsLoading, setThreadsLoading] = useState(false);
+  const [showAddCommentForm, setShowAddCommentForm] = useState(false);
+  const [discussionComments, setDiscussionComments] = useState([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
 
   const [showCreatePollForm, setShowCreatePollForm] = useState(false);
   const [creatingPoll, setCreatingPoll] = useState(false);
@@ -331,7 +331,7 @@ function Club() {
           clubCreatorId.toString() === currentUserId?.toString();
 
         if (clubData.currentBook?._id) {
-          await fetchThreads(clubData.currentBook._id, !user || !userIsMember);
+          await fetchComments(clubData.currentBook._id, !user || !userIsMember);
         }
 
         if (user) {
@@ -530,11 +530,11 @@ function Club() {
   // For guests:
   // The backend should return only spoiler-free threads/reviews.
 
-  const fetchThreads = async (bookId, shouldUsePublicRoute = false) => {
+  const fetchComments = async (bookId, shouldUsePublicRoute = false) => {
     if (!bookId) return;
 
     try {
-      setThreadsLoading(true);
+      setCommentsLoading(true);
 
       const endpoint = shouldUsePublicRoute ? '/comments/public' : '/comments';
 
@@ -545,11 +545,11 @@ function Club() {
         },
       });
 
-      setThreads(mapCommentsToThreads(data.data || []));
+      setDiscussionComments(mapCommentsToDiscussion(data.data || []));
     } catch (err) {
-      console.log('FETCH THREADS ERROR:', err.response?.data || err);
+      console.log('FETCH COMMENTS ERROR:', err.response?.data || err);
     } finally {
-      setThreadsLoading(false);
+      setCommentsLoading(false);
     }
   };
 
@@ -1247,10 +1247,10 @@ function Club() {
       setPoll(updatedPoll);
       setPollMessage('The winning book is now the current book.');
 
-      setThreads([]);
+      setDiscussionComments([]);
 
       if (updatedClub.currentBook?._id) {
-        await fetchThreads(updatedClub.currentBook._id, false);
+        await fetchComments(updatedClub.currentBook._id, false);
       }
 
       refreshClubLists();
@@ -1474,7 +1474,7 @@ function Club() {
       }));
 
       if (updatedClub.currentBook?._id) {
-        await fetchThreads(updatedClub.currentBook._id, false);
+        await fetchComments(updatedClub.currentBook._id, false);
       }
 
       refreshClubLists();
@@ -1503,7 +1503,7 @@ function Club() {
       }));
 
       if (updatedClub.currentBook?._id) {
-        await fetchThreads(updatedClub.currentBook._id, true);
+        await fetchComments(updatedClub.currentBook._id, true);
       }
 
       refreshClubLists();
@@ -1779,7 +1779,7 @@ function Club() {
       setThreads([]);
 
       if (updatedClub.currentBook?._id) {
-        await fetchThreads(updatedClub.currentBook._id, false);
+        await fetchComments(updatedClub.currentBook._id, false);
       }
 
       refreshClubLists();
@@ -1830,30 +1830,27 @@ function Club() {
 
   const handleStartDiscussion = () => {
     if (isGuest) return;
-
     // Opens the new discussion form on this page.
-    // SERVER TODO:
-    // The actual thread creation happens in handleSubmitThread.
-    setShowAddThreadForm(true);
+    setShowAddCommentForm(true);
   };
 
-  const handleSubmitThread = async (threadData) => {
+  const handleCreateComment = async (commentData) => {
     if (!currentBook || !isMember) return;
 
     try {
       await api.post('/comments', {
         club: clubId,
         book: currentBook._id,
-        title: threadData.title,
-        text: threadData.body,
-        chapterNumber: threadData.chapterNumber,
-        isSpoilerFreeReview: threadData.spoilerFree,
+        title: commentData.title,
+        text: commentData.body,
+        chapterNumber: commentData.chapterNumber,
+        isSpoilerFreeReview: commentData.spoilerFree,
         parentComment: null,
       });
 
-      setShowAddThreadForm(false);
+      setShowAddCommentForm(false);
 
-      await fetchThreads(currentBook._id, false);
+      await fetchComments(currentBook._id, false);
     } catch (err) {
       console.log('CREATE THREAD ERROR:', err.response?.data || err);
 
@@ -1864,7 +1861,7 @@ function Club() {
     }
   };
 
-  const handleSubmitReply = async (thread, replyText) => {
+  const handleCreateReply = async (comment, replyText) => {
     if (!currentBook || !isMember) return;
 
     try {
@@ -1872,12 +1869,12 @@ function Club() {
         club: clubId,
         book: currentBook._id,
         text: replyText,
-        chapterNumber: thread.chapterNumber,
-        isSpoilerFreeReview: thread.spoilerFree,
-        parentComment: thread._id,
+        chapterNumber: comment.chapterNumber,
+        isSpoilerFreeReview: comment.spoilerFree,
+        parentComment: comment._id,
       });
 
-      await fetchThreads(currentBook._id, false);
+      await fetchComments(currentBook._id, false);
     } catch (err) {
       console.log('CREATE REPLY ERROR:', err.response?.data || err);
 
@@ -1894,7 +1891,7 @@ function Club() {
     try {
       await api.post(`/comments/${commentId}/like`);
 
-      await fetchThreads(currentBook._id, false);
+      await fetchComments(currentBook._id, false);
     } catch (err) {
       console.log('TOGGLE LIKE ERROR:', err.response?.data || err);
 
@@ -2092,25 +2089,6 @@ function Club() {
   const pollOptionUploadInProgress = Object.values(
     pollOptionCoverUploadLoading
   ).some(Boolean);
-
-  const visibleThreads = threads.map((thread) => {
-    if (isGuest) {
-      return {
-        ...thread,
-        isLocked: !thread.spoilerFree,
-        lockedReason: 'Members only — sign in to unlock chapter discussions',
-      };
-    }
-
-    const isAheadOfProgress =
-      thread.chapterNumber > userCurrentChapter && !thread.spoilerFree;
-
-    return {
-      ...thread,
-      isLocked: isAheadOfProgress,
-      lockedReason: `Locked — reach chapter ${thread.chapterNumber} to unlock`,
-    };
-  });
 
   const renderAnnounceWinnerForm = () => {
     if (!poll) return null;
@@ -2343,64 +2321,22 @@ function Club() {
           className={`grid grid-cols-1 gap-10 ${isGuest ? 'lg:grid-cols-[1fr_320px]' : 'lg:grid-cols-[1fr_340px]'
             }`}
         >
-          <div>
-            <div className="flex items-end justify-between gap-4 border-b border-stone-200 pb-5 mb-6">
-              <div>
-                <h2 className="font-serif text-3xl mb-1">
-                  {currentBook ? `Discussions for ${currentBookTitle}` : 'Discussions'}
-                </h2>
-
-                <p className="text-sm text-stone-500">
-                  {currentBook
-                    ? 'Spoiler-aware threads for the current book, unlocked by your reading progress.'
-                    : 'Discussions will appear here once the club has an active book.'}
-                </p>
-              </div>
-
-              {!isGuest && isMember && (
-                <button
-                  type="button"
-                  onClick={handleStartDiscussion}
-                  className="hidden sm:inline-block px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
-                >
-                  New thread
-                </button>
-              )}
-            </div>
-            {showAddThreadForm && !isGuest && currentBook && (
-              <AddThreadForm
-                totalChapters={totalChapters}
-                onCancel={() => setShowAddThreadForm(false)}
-                onSubmitThread={handleSubmitThread}
-              />
-            )}
-            {threadsLoading ? (
-              <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
-                <p className="font-serif text-stone-500 italic text-lg">
-                  Loading discussions...
-                </p>
-              </div>
-            ) : visibleThreads.length > 0 ? (
-              <div className="space-y-4">
-                {visibleThreads.map((thread) => (
-                  <ThreadCard
-                    key={thread._id}
-                    thread={thread}
-                    isGuest={isGuest}
-                    canLike={isMember}
-                    onSubmitReply={handleSubmitReply}
-                    onToggleLike={handleToggleLike}
-                  />
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
-                <p className="text-stone-500 text-sm">
-                  No discussions yet.
-                </p>
-              </div>
-            )}
-          </div>
+          <DiscussionsSection
+            currentBook={currentBook}
+            currentBookTitle={currentBookTitle}
+            totalChapters={totalChapters}
+            isGuest={isGuest}
+            isMember={isMember}
+            userCurrentChapter={userCurrentChapter}
+            showAddCommentForm={showAddCommentForm}
+            comments={discussionComments}
+            commentsLoading={commentsLoading}
+            onStartDiscussion={handleStartDiscussion}
+            onCancelComment={() => setShowAddCommentForm(false)}
+            onCreateComment={handleCreateComment}
+            onCreateReply={handleCreateReply}
+            onToggleLike={handleToggleLike}
+          />
 
           {isGuest ? (
             <aside>

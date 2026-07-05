@@ -69,7 +69,7 @@ export const getCommentUserId = (comment) => {
   return commentUser._id || '';
 };
 
-export const mapCommentsToThreads = (comments = []) => {
+export const mapCommentsToDiscussion = (comments = []) => {
   const topLevelComments = comments.filter((comment) => !comment.parentComment);
   const replies = comments.filter((comment) => comment.parentComment);
 
