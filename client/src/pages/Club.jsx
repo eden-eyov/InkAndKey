@@ -5,15 +5,14 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { fetchAllClubs, fetchUserClubs } from '../store/clubsSlice';
 
+import CurrentReadingSection from '../components/CurrentReadingSection';
 import ThreadCard from '../components/ThreadCard';
 import AddThreadForm from '../components/AddThreadForm';
-import ProgressTracker from '../components/ProgressTracker';
 import PollCard from '../components/PollCard';
 import BookRatingModal from '../components/BookRatingModal';
 import PreviousBooksSection from '../components/PreviousBooksSection';
-import CurrentBookInfo from '../components/CurrentBookInfo';
 import ClubHeaderCard from '../components/ClubHeaderCard';
-import SetCurrentBookModal from '../components/SetCurrentBookModal';
+
 
 import {
   BOOK_SUGGESTION_MIN_QUERY_LENGTH,
@@ -2296,138 +2295,49 @@ function Club() {
           onClearCoverImageSelection={clearSelectedCoverImage}
         />
 
-        <section className="bg-white rounded-2xl border border-stone-200/60 shadow-sm overflow-hidden mb-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-0">
-            <div className="bg-cream p-8 flex justify-center items-center border-b lg:border-b-0 lg:border-r border-stone-200/60">
-              {hasCurrentBookCover ? (
-                <img
-                  src={currentBookCover}
-                  alt={`${currentBookTitle} cover`}
-                  className="w-40 h-60 object-cover rounded-xl shadow-sm"
-                />
-              ) : (
-                <div className="w-40 h-60 bg-ink rounded-xl shadow-sm flex items-center justify-center p-5 text-center">
-                  <span className="font-serif text-xl italic text-cream leading-tight">
-                    {currentBook ? currentBookTitle : 'No active book'}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className="p-6 md:p-8">
-              <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-5 mb-6">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent bg-cream border border-stone-200 rounded-full px-3 py-1 inline-flex mb-3">
-                    Current read
-                  </span>
-
-                  <h2 className="font-serif text-3xl md:text-4xl text-ink">
-                    Reading together now
-                  </h2>
-
-                  <p className="text-sm text-stone-500 mt-1">
-                    Track your progress before joining chapter discussions.
-                  </p>
-                </div>
-
-                {isCreator && (
-                  <button
-                    type="button"
-                    onClick={handleToggleSetBookForm}
-                    className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition text-center"
-                  >
-                    {showSetBookForm ? 'Close book form' : 'Set new current book'}
-                  </button>
-                )}
-              </div>
-
-              <CurrentBookInfo
-                currentBook={currentBook}
-                userReadingProgress={userReadingProgress}
-                userCanRateCurrentBook={userCanRateCurrentBook}
-                userRatedCurrentBook={userRatedCurrentBook}
-                onOpenRatingModal={handleOpenCurrentBookRatingModal}
-                renderDescriptionPreview={renderDescriptionPreview}
-              />
-
-              {!isGuest && (
-                <div className="space-y-5">
-                  {isMember && currentBook ? (
-                    <div className="space-y-4">
-                      {hasMarkedCurrentBookAsDnf ? (
-                        <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
-                          You marked this book as DNF. It now appears in your previous books.
-                        </div>
-                      ) : (
-                        <>
-                          <ProgressTracker
-                            currentChapter={userCurrentChapter}
-                            totalChapters={totalChapters}
-                            onUpdateProgress={handleUpdateProgress}
-                          />
-
-                          {dnfError && (
-                            <p className="text-sm text-red-500">{dnfError}</p>
-                          )}
-
-                          {dnfMessage && (
-                            <p className="text-sm text-accent">{dnfMessage}</p>
-                          )}
-
-                          {canMarkCurrentBookAsDnf && (
-                            <button
-                              type="button"
-                              onClick={handleMarkCurrentBookAsDnf}
-                              disabled={dnfLoading}
-                              className="px-4 py-2 border border-stone-200 text-stone-500 text-xs font-bold uppercase tracking-widest rounded-full hover:border-red-300 hover:text-red-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {dnfLoading ? 'Marking...' : 'Mark as DNF'}
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
-                      {currentBook
-                        ? 'Join this club to track your reading progress.'
-                        : 'This club does not have an active book yet.'}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {isGuest && (
-                <div className="bg-cream border border-stone-100 rounded-xl p-4 text-sm text-stone-500">
-                  Sign in or create an account to join this club and track your reading progress.
-                </div>
-              )}
-
-              <SetCurrentBookModal
-                isOpen={isCreator && showSetBookForm}
-                newBookData={newBookData}
-                setBookFormErrors={setBookFormErrors}
-                googleBooksLoading={googleBooksLoading}
-                googleBooksError={googleBooksError}
-                googleBookResults={googleBookResults}
-                newBookSuggestionsActive={newBookSuggestionsActive}
-                settingCurrentBook={settingCurrentBook}
-                newBookCoverUploadLoading={newBookCoverUploadLoading}
-                newBookCoverUploadError={newBookCoverUploadError}
-                onSubmit={handleSetCurrentBook}
-                onClose={handleCloseSetBookForm}
-                onNewBookChange={handleNewBookChange}
-                onNewBookFieldsFocus={() => setNewBookSuggestionsActive(true)}
-                onNewBookFieldsBlur={handleNewBookFieldsBlur}
-                onSelectGoogleBook={handleSelectGoogleBook}
-                onNewBookCoverUpload={handleNewBookCoverUpload}
-                onNewBookGenreToggle={handleNewBookGenreToggle}
-                renderGoogleBookSuggestion={renderGoogleBookSuggestion}
-                renderDescriptionPreview={renderDescriptionPreview}
-              />
-            </div>
-          </div>
-        </section>
+        <CurrentReadingSection
+          currentBook={currentBook}
+          currentBookTitle={currentBookTitle}
+          currentBookCover={currentBookCover}
+          hasCurrentBookCover={hasCurrentBookCover}
+          isGuest={isGuest}
+          isMember={isMember}
+          isCreator={isCreator}
+          showSetBookForm={showSetBookForm}
+          onToggleSetBookForm={handleToggleSetBookForm}
+          userReadingProgress={userReadingProgress}
+          userCanRateCurrentBook={userCanRateCurrentBook}
+          userRatedCurrentBook={userRatedCurrentBook}
+          onOpenRatingModal={handleOpenCurrentBookRatingModal}
+          hasMarkedCurrentBookAsDnf={hasMarkedCurrentBookAsDnf}
+          userCurrentChapter={userCurrentChapter}
+          totalChapters={totalChapters}
+          onUpdateProgress={handleUpdateProgress}
+          dnfError={dnfError}
+          dnfMessage={dnfMessage}
+          canMarkCurrentBookAsDnf={canMarkCurrentBookAsDnf}
+          dnfLoading={dnfLoading}
+          onMarkCurrentBookAsDnf={handleMarkCurrentBookAsDnf}
+          newBookData={newBookData}
+          setBookFormErrors={setBookFormErrors}
+          googleBooksLoading={googleBooksLoading}
+          googleBooksError={googleBooksError}
+          googleBookResults={googleBookResults}
+          newBookSuggestionsActive={newBookSuggestionsActive}
+          settingCurrentBook={settingCurrentBook}
+          newBookCoverUploadLoading={newBookCoverUploadLoading}
+          newBookCoverUploadError={newBookCoverUploadError}
+          onSetCurrentBook={handleSetCurrentBook}
+          onCloseSetBookForm={handleCloseSetBookForm}
+          onNewBookChange={handleNewBookChange}
+          onNewBookFieldsFocus={() => setNewBookSuggestionsActive(true)}
+          onNewBookFieldsBlur={handleNewBookFieldsBlur}
+          onSelectGoogleBook={handleSelectGoogleBook}
+          onNewBookCoverUpload={handleNewBookCoverUpload}
+          onNewBookGenreToggle={handleNewBookGenreToggle}
+          renderGoogleBookSuggestion={renderGoogleBookSuggestion}
+          renderDescriptionPreview={renderDescriptionPreview}
+        />
 
         <section
           className={`grid grid-cols-1 gap-10 ${isGuest ? 'lg:grid-cols-[1fr_320px]' : 'lg:grid-cols-[1fr_340px]'

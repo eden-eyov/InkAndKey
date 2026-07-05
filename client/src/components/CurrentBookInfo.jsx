@@ -20,9 +20,11 @@ function CurrentBookInfo({
         {currentBookTitle}
       </h2>
 
-      <p className="text-sm text-stone-500">
-        {currentBookAuthor && `by ${currentBookAuthor}`}
-      </p>
+      {currentBookAuthor && (
+        <p className="text-sm text-stone-500">
+          by {currentBookAuthor}
+        </p>
+      )}
 
       {renderDescriptionPreview(
         currentBook?.description,
