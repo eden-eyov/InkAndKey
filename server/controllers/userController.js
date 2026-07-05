@@ -207,7 +207,7 @@ const getUserCurrentlyReading = async (req, res, next) => {
 
     const isOwnProfile = req.user._id.toString() === req.params.id.toString();
 
-//need to change to a cleaner query that checks for status instead of isCompleted, because now books that are already in db dont have a status value.
+    //need to change to a cleaner query that checks for status instead of isCompleted, because now books that are already in db dont have a status value.
     const progressList = await ReadingProgress.find({
       user: req.params.id,
       $or: [
@@ -249,7 +249,7 @@ const getUserCompletedBooks = async (req, res, next) => {
         message: 'User not found',
       });
     }
-//need to change to a cleaner query that checks for status instead of isCompleted, because now books that are already in db dont have a status value.
+    //need to change to a cleaner query that checks for status instead of isCompleted, because now books that are already in db dont have a status value.
     const completedBooks = await ReadingProgress.find({
       user: req.params.id,
       $or: [
@@ -259,8 +259,10 @@ const getUserCompletedBooks = async (req, res, next) => {
     })
 
       .populate('club', 'name image')
-      .populate('book', 'title author coverImage totalChapters description')
-      .sort({ updatedAt: -1 });
+      .populate(
+        'book',
+        'title author coverImage totalChapters description averageRating ratingsCount'
+      ).sort({ updatedAt: -1 });
 
     res.status(200).json({
       success: true,

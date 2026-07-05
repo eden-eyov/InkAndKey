@@ -7,8 +7,8 @@ const populateClub = (clubId) =>
   Club.findById(clubId)
     .populate('creator', 'username email profileImage')
     .populate('members', 'username profileImage')
-    .populate('currentBook', 'title author coverImage totalChapters description')
-    .populate('previousBooks', 'title author coverImage totalChapters description');
+    .populate('currentBook', 'title author coverImage totalChapters description averageRating ratingsCount')
+    .populate('previousBooks', 'title author coverImage totalChapters description averageRating ratingsCount');
 
 const uploadBufferToCloudinary = (buffer, options) => {
   return new Promise((resolve, reject) => {
@@ -61,8 +61,8 @@ const getAllClubs = async (req, res, next) => {
     let clubs = await Club.find(filter)
       .populate('creator', 'username email profileImage')
       .populate('members', 'username profileImage')
-      .populate('currentBook', 'title author coverImage totalChapters description')
-      .populate('previousBooks', 'title author coverImage totalChapters description')
+      .populate('currentBook', 'title author coverImage totalChapters description averageRating ratingsCount')
+      .populate('previousBooks', 'title author coverImage totalChapters description averageRating ratingsCount')
       .sort({ createdAt: -1 });
 
     if (creator) {
@@ -107,7 +107,7 @@ const getMyClubs = async (req, res, next) => {
     })
       .populate('creator', 'username email profileImage')
       .populate('members', 'username profileImage')
-      .populate('currentBook', 'title author coverImage totalChapters description')
+      .populate('currentBook', 'title author coverImage totalChapters description averageRating ratingsCount')
       .sort({ updatedAt: -1 });
 
     const dashboardClubs = await Promise.all(
@@ -163,8 +163,8 @@ const getClubById = async (req, res, next) => {
     const club = await Club.findById(req.params.id)
       .populate('creator', 'username email profileImage')
       .populate('members', 'username profileImage')
-      .populate('currentBook', 'title author coverImage totalChapters description')
-      .populate('previousBooks', 'title author coverImage totalChapters description');
+      .populate('currentBook', 'title author coverImage totalChapters description averageRating ratingsCount')
+      .populate('previousBooks', 'title author coverImage totalChapters description averageRating ratingsCount');
 
     if (!club) {
       return res.status(404).json({
@@ -488,8 +488,8 @@ const setCurrentBook = async (req, res, next) => {
     const updatedClub = await Club.findById(club._id)
       .populate('creator', 'username email profileImage')
       .populate('members', 'username profileImage')
-      .populate('currentBook', 'title author coverImage totalChapters description')
-      .populate('previousBooks', 'title author coverImage totalChapters description');
+      .populate('currentBook', 'title author coverImage totalChapters description averageRating ratingsCount')
+      .populate('previousBooks', 'title author coverImage totalChapters description averageRating ratingsCount');
 
     res.status(200).json({
       success: true,

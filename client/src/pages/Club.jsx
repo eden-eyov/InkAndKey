@@ -9,7 +9,7 @@ import ThreadCard from '../components/ThreadCard';
 import AddThreadForm from '../components/AddThreadForm';
 import ProgressTracker from '../components/ProgressTracker';
 import PollCard from '../components/PollCard';
-import BookCard from '../components/BookCard';
+import BookRatingModal from '../components/BookRatingModal';
 
 import GENRES from '../utils/genres';
 
@@ -129,6 +129,22 @@ function Club() {
   const [dnfError, setDnfError] = useState('');
   const [dnfMessage, setDnfMessage] = useState('');
 
+  const [showCurrentBookRatingModal, setShowCurrentBookRatingModal] =
+    useState(false);
+
+  const [completedProgressForRating, setCompletedProgressForRating] =
+    useState(null);
+
+  const [currentBookRatingLoading, setCurrentBookRatingLoading] =
+    useState(false);
+
+  const [currentBookRatingError, setCurrentBookRatingError] =
+    useState('');
+
+  const [ratingLoadingId, setRatingLoadingId] = useState('');
+  const [ratingError, setRatingError] = useState('');
+  const [ratingMessage, setRatingMessage] = useState('');
+
   const [settingCurrentBook, setSettingCurrentBook] = useState(false);
   const emptyNewBookData = {
     title: '',
@@ -164,6 +180,8 @@ function Club() {
   const [coverImageUploading, setCoverImageUploading] = useState(false);
   const [coverImageUploadError, setCoverImageUploadError] = useState('');
   const [coverImageUploadMessage, setCoverImageUploadMessage] = useState('');
+
+
   const newPollDataRef = useRef(newPollData);
   const newBookDataRef = useRef(newBookData);
   const showCreatePollFormRef = useRef(showCreatePollForm);
@@ -297,6 +315,39 @@ function Club() {
             };
           }
         }
+
+        if (user && clubData.previousBooks?.length > 0) {
+          try {
+            const previousBooksWithProgress = await Promise.all(
+              clubData.previousBooks.map(async (book) => {
+                const progressResponse = await api.get('/reading-progress', {
+                  params: {
+                    club: clubId,
+                    book: book._id,
+                  },
+                });
+
+                const progress = progressResponse.data.data?.[0] || null;
+
+                return {
+                  ...book,
+                  userReadingProgress: progress,
+                };
+              })
+            );
+
+            clubData = {
+              ...clubData,
+              previousBooks: previousBooksWithProgress,
+            };
+          } catch (previousProgressError) {
+            console.log(
+              'FETCH PREVIOUS BOOK PROGRESS ERROR:',
+              previousProgressError.response?.data || previousProgressError
+            );
+          }
+        }
+
         const currentUserId = user?.id || user?._id;
 
         const userIsMember = clubData.members?.some((member) => {
@@ -1320,6 +1371,7 @@ function Club() {
     try {
       setDnfError('');
       setDnfMessage('');
+      setCurrentBookRatingError('');
 
       const { data } = await api.post('/reading-progress', {
         club: clubId,
@@ -1327,11 +1379,33 @@ function Club() {
         currentChapter: newChapter,
       });
 
+      const updatedProgress = data.data;
+      const updatedBook = updatedProgress.book;
+
       setClub((prevClub) => ({
         ...prevClub,
-        userCurrentChapter: data.data.currentChapter,
-        userReadingProgress: data.data,
+        userCurrentChapter: updatedProgress.currentChapter,
+        userReadingProgress: updatedProgress,
+        currentBook: {
+          ...prevClub.currentBook,
+          averageRating:
+            updatedBook?.averageRating ?? prevClub.currentBook?.averageRating,
+          ratingsCount:
+            updatedBook?.ratingsCount ?? prevClub.currentBook?.ratingsCount,
+        },
       }));
+
+      const shouldOpenRatingModal =
+        updatedProgress.isCompleted &&
+        updatedProgress.status === 'completed' &&
+        !updatedProgress.rating;
+
+      if (shouldOpenRatingModal) {
+        setCompletedProgressForRating(updatedProgress);
+        setShowCurrentBookRatingModal(true);
+      }
+
+      refreshClubLists();
     } catch (err) {
       console.log('UPDATE PROGRESS ERROR:', err.response?.data || err);
 
@@ -1340,6 +1414,58 @@ function Club() {
         'Failed to update reading progress. Please try again.'
       );
     }
+  };
+
+  const handleRateCurrentBook = async (rating) => {
+    if (!completedProgressForRating?._id) return;
+
+    try {
+      setCurrentBookRatingLoading(true);
+      setCurrentBookRatingError('');
+
+      const { data } = await api.patch(
+        `/reading-progress/${completedProgressForRating._id}/rating`,
+        { rating }
+      );
+
+      const updatedProgress = data.data;
+      const updatedBook = updatedProgress.book;
+
+      setClub((prevClub) => ({
+        ...prevClub,
+        userReadingProgress: updatedProgress,
+        currentBook: {
+          ...prevClub.currentBook,
+          averageRating:
+            updatedBook?.averageRating ?? prevClub.currentBook?.averageRating,
+          ratingsCount:
+            updatedBook?.ratingsCount ?? prevClub.currentBook?.ratingsCount,
+        },
+      }));
+
+      setShowCurrentBookRatingModal(false);
+      setCompletedProgressForRating(null);
+      setCurrentBookRatingError('');
+
+      refreshClubLists();
+    } catch (err) {
+      console.log('CURRENT BOOK RATING ERROR:', err.response?.data || err);
+
+      setCurrentBookRatingError(
+        err.response?.data?.message ||
+        'Failed to save rating. Please try again.'
+      );
+    } finally {
+      setCurrentBookRatingLoading(false);
+    }
+  };
+
+  const handleCloseCurrentBookRatingModal = () => {
+    if (currentBookRatingLoading) return;
+
+    setShowCurrentBookRatingModal(false);
+    setCompletedProgressForRating(null);
+    setCurrentBookRatingError('');
   };
 
   const handleMarkCurrentBookAsDnf = async () => {
@@ -1377,6 +1503,55 @@ function Club() {
       );
     } finally {
       setDnfLoading(false);
+    }
+  };
+
+  const handleRatePreviousBook = async (book, rating) => {
+    const progressId = book?.userReadingProgress?._id;
+
+    if (!progressId || ratingLoadingId) return;
+
+    try {
+      setRatingLoadingId(progressId);
+      setRatingError('');
+      setRatingMessage('');
+
+      const { data } = await api.patch(`/reading-progress/${progressId}/rating`, {
+        rating,
+      });
+
+      const updatedProgress = data.data;
+      const updatedBook = updatedProgress.book;
+
+      setClub((prevClub) => ({
+        ...prevClub,
+        previousBooks: prevClub.previousBooks.map((previousBook) => {
+          if (previousBook._id !== book._id) {
+            return previousBook;
+          }
+
+          return {
+            ...previousBook,
+            averageRating:
+              updatedBook?.averageRating ?? previousBook.averageRating,
+            ratingsCount:
+              updatedBook?.ratingsCount ?? previousBook.ratingsCount,
+            userReadingProgress: updatedProgress,
+          };
+        }),
+      }));
+
+      setRatingMessage('Book rating saved.');
+      refreshClubLists();
+    } catch (err) {
+      console.log('CLUB PREVIOUS BOOK RATING ERROR:', err.response?.data || err);
+
+      setRatingError(
+        err.response?.data?.message ||
+        'Failed to save rating. Please try again.'
+      );
+    } finally {
+      setRatingLoadingId('');
     }
   };
 
@@ -2148,6 +2323,22 @@ function Club() {
 
   const previousBooks = club?.previousBooks || [];
 
+  const currentBookHasRatings = Number(currentBook?.ratingsCount) > 0;
+
+  const userCompletedCurrentBook =
+    userReadingProgress?.status === 'completed' &&
+    userReadingProgress?.isCompleted;
+
+  const userCanRateCurrentBook =
+    isMember &&
+    userCompletedCurrentBook &&
+    !userReadingProgress?.rating;
+
+  const userRatedCurrentBook =
+    isMember &&
+    userCompletedCurrentBook &&
+    Boolean(userReadingProgress?.rating);
+
   return (
     <main className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-16">
       <div className="max-w-7xl mx-auto">
@@ -2244,6 +2435,41 @@ function Club() {
                   currentBook?.description,
                   'current-book-description',
                   { className: 'mt-3 max-w-3xl' }
+                )}
+
+                {currentBook && (
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {currentBookHasRatings ? (
+                      <span className="px-3 py-1 rounded-full bg-white border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-accent">
+                        Avg {currentBook.averageRating}/5 · {currentBook.ratingsCount}{' '}
+                        {currentBook.ratingsCount === 1 ? 'rating' : 'ratings'}
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 rounded-full bg-white border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                        No ratings yet
+                      </span>
+                    )}
+
+                    {userRatedCurrentBook && (
+                      <span className="px-3 py-1 rounded-full bg-white border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-accent">
+                        Your rating: {userReadingProgress.rating}/5
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {userCanRateCurrentBook && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCompletedProgressForRating(userReadingProgress);
+                      setCurrentBookRatingError('');
+                      setShowCurrentBookRatingModal(true);
+                    }}
+                    className="mt-4 inline-flex px-4 py-2 rounded-full bg-accent text-white text-xs font-bold uppercase tracking-widest hover:bg-ink transition"
+                  >
+                    Rate this book
+                  </button>
                 )}
               </div>
 
@@ -3125,17 +3351,168 @@ function Club() {
           </div>
 
           {previousBooks.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {previousBooks.map((book) => (
-                <BookCard
-                  key={book._id}
-                  book={{
-                    ...book,
-                    coverUrl: book.coverImage,
-                  }}
-                  actionLabel="View club"
-                />
-              ))}
+            <div className="space-y-4">
+              {(ratingError || ratingMessage) && (
+                <div className="bg-white rounded-2xl border border-stone-200/60 shadow-sm p-4">
+                  {ratingError && (
+                    <p className="text-sm text-red-500">{ratingError}</p>
+                  )}
+
+                  {ratingMessage && (
+                    <p className="text-sm text-accent">{ratingMessage}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {previousBooks.map((book) => {
+                  const progress = book.userReadingProgress;
+                  const userCompletedThisBook =
+                    progress?.status === 'completed' && progress?.isCompleted;
+                  const userRating = progress?.rating || null;
+                  const canRate = isMember && userCompletedThisBook;
+                  const isSavingRating = ratingLoadingId === progress?._id;
+
+                  return (
+                    <article
+                      key={book._id}
+                      className="bg-white rounded-2xl border border-stone-200/70 shadow-sm hover:shadow-md hover:border-accent/70 transition overflow-hidden"
+                    >
+                      <div className="flex gap-5 p-5">
+                        <div className="shrink-0">
+                          {book.coverImage ? (
+                            <img
+                              src={book.coverImage}
+                              alt={`${book.title} cover`}
+                              className="w-24 h-36 object-cover rounded-xl shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-24 h-36 bg-ink rounded-xl shadow-sm flex items-center justify-center p-3 text-center">
+                              <span className="font-serif text-base italic text-cream leading-tight">
+                                {book.title}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col justify-between min-w-0 flex-1">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 block mb-2">
+                              Previous club book
+                            </span>
+
+                            <h3 className="font-serif text-2xl text-ink mb-1 leading-tight">
+                              {book.title || 'Untitled book'}
+                            </h3>
+
+                            {book.author && (
+                              <p className="text-sm text-stone-500 mb-3">
+                                by {book.author}
+                              </p>
+                            )}
+
+                            {book.description && (
+                              <p className="text-sm text-stone-500 leading-relaxed line-clamp-3 mb-4">
+                                {book.description}
+                              </p>
+                            )}
+
+                            <div className="flex flex-wrap gap-2 mb-4">
+                              {book.totalChapters ? (
+                                <span className="px-3 py-1 rounded-full bg-cream border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                                  {book.totalChapters} chapters
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 rounded-full bg-cream border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500">
+                                  Book
+                                </span>
+                              )}
+
+                              {Number(book.ratingsCount) > 0 ? (
+                                <span className="px-3 py-1 rounded-full bg-cream border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-accent">
+                                  Avg {book.averageRating}/5 · {book.ratingsCount}{' '}
+                                  {book.ratingsCount === 1 ? 'rating' : 'ratings'}
+                                </span>
+                              ) : (
+                                <span className="px-3 py-1 rounded-full bg-cream border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                  No ratings yet
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-stone-100">
+                            {user ? (
+                              <>
+                                {canRate ? (
+                                  <>
+                                    <div className="flex items-center gap-1 mb-2">
+                                      {[1, 2, 3, 4, 5].map((ratingValue) => {
+                                        const isSelected =
+                                          Number(userRating) >= ratingValue;
+
+                                        return (
+                                          <button
+                                            key={ratingValue}
+                                            type="button"
+                                            onClick={() =>
+                                              handleRatePreviousBook(book, ratingValue)
+                                            }
+                                            disabled={isSavingRating}
+                                            className={`text-xl leading-none transition ${isSelected
+                                              ? 'text-accent'
+                                              : 'text-stone-300'
+                                              } ${isSavingRating
+                                                ? 'cursor-not-allowed opacity-60'
+                                                : 'hover:text-accent cursor-pointer'
+                                              }`}
+                                            aria-label={`Rate ${book.title || 'book'} ${ratingValue} out of 5`}
+                                            title={`Rate ${ratingValue}/5`}
+                                          >
+                                            ★
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                      {isSavingRating
+                                        ? 'Saving rating...'
+                                        : userRating
+                                          ? `Your rating: ${userRating}/5`
+                                          : 'Add your rating'}
+                                    </p>
+                                  </>
+                                ) : progress?.status === 'dnf' ? (
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                    You marked this book as DNF
+                                  </p>
+                                ) : progress ? (
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                    Finish the book to rate it
+                                  </p>
+                                ) : isMember ? (
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                    No reading progress for this book
+                                  </p>
+                                ) : (
+                                  <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                    Join the club to track and rate books
+                                  </p>
+                                )}
+                              </>
+                            ) : (
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                                Log in to rate completed books
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
@@ -3145,7 +3522,18 @@ function Club() {
             </div>
           )}
         </section>
-
+        <BookRatingModal
+          isOpen={showCurrentBookRatingModal}
+          bookTitle={
+            completedProgressForRating?.book?.title ||
+            currentBook?.title ||
+            'this book'
+          }
+          loading={currentBookRatingLoading}
+          error={currentBookRatingError}
+          onRate={handleRateCurrentBook}
+          onClose={handleCloseCurrentBookRatingModal}
+        />
       </div>
     </main>
   );

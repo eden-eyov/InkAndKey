@@ -28,6 +28,8 @@ function Profile() {
   const [progressActionMessage, setProgressActionMessage] = useState('');
   const [dnfLoadingId, setDnfLoadingId] = useState('');
 
+  const [ratingLoadingId, setRatingLoadingId] = useState('');
+
   const profileImageInputRef = useRef(null);
 
   const isOwnProfile = useMemo(() => {
@@ -211,6 +213,31 @@ function Profile() {
       );
     } finally {
       setDnfLoadingId('');
+    }
+  };
+
+  const handleRateCompletedBook = async (progress, rating) => {
+    if (!progress?._id || ratingLoadingId) return;
+
+    setRatingLoadingId(progress._id);
+    setProgressActionError('');
+    setProgressActionMessage('');
+
+    try {
+      await api.patch(`/reading-progress/${progress._id}/rating`, {
+        rating,
+      });
+
+      setProgressActionMessage('Book rating saved.');
+      await fetchProfileData();
+    } catch (err) {
+      console.log('PROFILE RATING ERROR:', err.response?.data || err);
+      setProgressActionError(
+        err.response?.data?.message ||
+        'Failed to save rating. Please try again.'
+      );
+    } finally {
+      setRatingLoadingId('');
     }
   };
 
@@ -550,17 +577,68 @@ function Profile() {
                         <p className="text-sm text-stone-500 mb-2">
                           {progress.book?.author}
                         </p>
-                        <p className="text-xs text-stone-400 mb-3">
+                        <p className="text-xs text-stone-400 mb-2">
                           Tracked with {progress.club?.name || 'a book club'}
                         </p>
+                        {Number(progress.book?.ratingsCount) > 0 && (
+                          <p className="text-xs text-stone-400 mb-2">
+                            Average rating: {progress.book.averageRating}/5 · {progress.book.ratingsCount}{' '}
+                            {progress.book.ratingsCount === 1 ? 'rating' : 'ratings'}
+                          </p>
+                        )}
                         <span className="inline-block mb-2 px-3 py-1 rounded-full bg-cream border border-stone-200 text-[10px] font-bold uppercase tracking-widest text-stone-500">
                           {progress.status === 'dnf' ? 'DNF' : 'Completed'}
                         </span>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                          {progress.rating
-                            ? `Rating: ${progress.rating}/5`
-                            : 'No rating'}
-                        </span>
+                        <div className="mt-2">
+                          {progress.status === 'completed' ? (
+                            <>
+                              <div className="flex items-center gap-1 mb-1">
+                                {[1, 2, 3, 4, 5].map((ratingValue) => {
+                                  const isSelected = Number(progress.rating) >= ratingValue;
+                                  const canRate = isOwnProfile && ratingLoadingId !== progress._id;
+
+                                  return (
+                                    <button
+                                      key={ratingValue}
+                                      type="button"
+                                      onClick={() => handleRateCompletedBook(progress, ratingValue)}
+                                      disabled={!isOwnProfile || ratingLoadingId === progress._id}
+                                      className={`text-lg leading-none transition ${isSelected ? 'text-accent' : 'text-stone-300'
+                                        } ${canRate
+                                          ? 'hover:text-accent cursor-pointer'
+                                          : 'cursor-default'
+                                        }`}
+                                      aria-label={`Rate ${progress.book?.title || 'book'} ${ratingValue} out of 5`}
+                                      title={
+                                        isOwnProfile
+                                          ? `Rate ${ratingValue}/5`
+                                          : progress.rating
+                                            ? `Rating: ${progress.rating}/5`
+                                            : 'No rating yet'
+                                      }
+                                    >
+                                      ★
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                {ratingLoadingId === progress._id
+                                  ? 'Saving rating...'
+                                  : progress.rating
+                                    ? `Your rating: ${progress.rating}/5`
+                                    : isOwnProfile
+                                      ? 'Add your rating'
+                                      : 'No rating'}
+                              </p>
+                            </>
+                          ) : (
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-stone-400">
+                              Not rated
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}
