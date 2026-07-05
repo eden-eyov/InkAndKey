@@ -4,6 +4,7 @@ import { useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { fetchAllClubs, fetchUserClubs } from '../store/clubsSlice';
+import useSetCurrentBook from '../hooks/useSetCurrentBook';
 
 import CurrentReadingSection from '../components/CurrentReadingSection';
 import DiscussionsSection from '../components/DiscussionsSection';
@@ -17,7 +18,6 @@ import {
   BOOK_SUGGESTION_MIN_QUERY_LENGTH,
   BOOK_SUGGESTION_DEBOUNCE_MS,
   DESCRIPTION_PREVIEW_LENGTH,
-  emptySetBookFormErrors,
   emptyCreatePollFormErrors,
   buildBookSuggestionQuery,
   getApiErrorMessage,
@@ -34,7 +34,6 @@ function Club() {
 
   const isGuest = !user;
 
-  const [showSetBookForm, setShowSetBookForm] = useState(false);
   const [showAddCommentForm, setShowAddCommentForm] = useState(false);
   const [discussionComments, setDiscussionComments] = useState([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
@@ -102,46 +101,6 @@ function Club() {
   const [ratingError, setRatingError] = useState('');
   const [ratingMessage, setRatingMessage] = useState('');
 
-  const [settingCurrentBook, setSettingCurrentBook] = useState(false);
-  const createEmptyNewBookData = () => ({
-    title: '',
-    author: '',
-    totalChapters: '',
-    coverImage: '',
-    coverImagePublicId: '',
-    description: '',
-    genres: [],
-    googleBooksId: '',
-    pageCount: '',
-    publishedDate: '',
-  });
-  const emptyNewBookData = {
-    title: '',
-    author: '',
-    totalChapters: '',
-    description: '',
-    coverImage: '',
-    coverImagePublicId: '',
-    genres: [],
-    googleBooksId: '',
-    pageCount: null,
-    publishedDate: '',
-    language: '',
-    infoLink: '',
-  };
-
-  const [newBookData, setNewBookData] = useState(createEmptyNewBookData); const [googleBookResults, setGoogleBookResults] = useState([]);
-  const [googleBooksLoading, setGoogleBooksLoading] = useState(false);
-  const [googleBooksError, setGoogleBooksError] = useState('');
-  const [newBookSuggestionsActive, setNewBookSuggestionsActive] = useState(false);
-  const [suppressedNewBookSearchQuery, setSuppressedNewBookSearchQuery] =
-    useState('');
-  const [setBookFormErrors, setSetBookFormErrors] = useState(
-    emptySetBookFormErrors
-  );
-  const [newBookCoverUploadLoading, setNewBookCoverUploadLoading] =
-    useState(false);
-  const [newBookCoverUploadError, setNewBookCoverUploadError] = useState('');
   const [expandedDescriptions, setExpandedDescriptions] = useState({});
   const [coverImageFile, setCoverImageFile] = useState(null);
   const [coverImagePreview, setCoverImagePreview] = useState('');
@@ -151,11 +110,8 @@ function Club() {
 
 
   const newPollDataRef = useRef(newPollData);
-  const newBookDataRef = useRef(newBookData);
   const showCreatePollFormRef = useRef(showCreatePollForm);
-  const showSetBookFormRef = useRef(showSetBookForm);
   const createPollFormSessionRef = useRef(0);
-  const bookFormSessionRef = useRef(0);
 
   const refreshClubLists = () => {
     dispatch(fetchAllClubs());
@@ -213,28 +169,8 @@ function Club() {
   }, [newPollData]);
 
   useEffect(() => {
-    newBookDataRef.current = newBookData;
-  }, [newBookData]);
-
-  useEffect(() => {
     showCreatePollFormRef.current = showCreatePollForm;
   }, [showCreatePollForm]);
-
-  useEffect(() => {
-    showSetBookFormRef.current = showSetBookForm;
-  }, [showSetBookForm]);
-
-  useEffect(() => {
-    return () => {
-      if (showSetBookFormRef.current && newBookDataRef.current.coverImagePublicId) {
-        void cleanupUploadedBookCover(newBookDataRef.current.coverImagePublicId);
-      }
-
-      if (showCreatePollFormRef.current) {
-        void cleanupPollOptionUploads(newPollDataRef.current.options);
-      }
-    };
-  }, []);
 
   useEffect(() => {
     return () => {
@@ -447,76 +383,6 @@ function Club() {
     setPollBookSearchError({});
     setCreatePollFormErrors(emptyCreatePollFormErrors);
   }, [showCreatePollForm]);
-
-  useEffect(() => {
-    if (!showSetBookForm || !newBookSuggestionsActive) {
-      return;
-    }
-
-    const query = buildBookSuggestionQuery(newBookData);
-
-    if (
-      query.length < BOOK_SUGGESTION_MIN_QUERY_LENGTH ||
-      query === suppressedNewBookSearchQuery
-    ) {
-      setGoogleBookResults([]);
-      setGoogleBooksError('');
-      setGoogleBooksLoading(false);
-      return;
-    }
-
-    let isCurrent = true;
-
-    const timer = setTimeout(async () => {
-      try {
-        setGoogleBooksLoading(true);
-        setGoogleBooksError('');
-
-        const { data } = await api.get('/books/google-search', {
-          params: { query },
-        });
-
-        if (!isCurrent) return;
-
-        setGoogleBookResults(data.data || []);
-      } catch (err) {
-        if (!isCurrent) return;
-
-        console.log('GOOGLE BOOKS SEARCH ERROR:', err.response?.data || err);
-
-        setGoogleBooksError(
-          err.response?.data?.message ||
-          'Failed to search Google Books. Please try again.'
-        );
-      } finally {
-        if (isCurrent) {
-          setGoogleBooksLoading(false);
-        }
-      }
-    }, BOOK_SUGGESTION_DEBOUNCE_MS);
-
-    return () => {
-      isCurrent = false;
-      clearTimeout(timer);
-    };
-  }, [
-    newBookData.author,
-    newBookData.title,
-    newBookSuggestionsActive,
-    showSetBookForm,
-    suppressedNewBookSearchQuery,
-  ]);
-
-  useEffect(() => {
-    if (showSetBookForm) return;
-
-    setNewBookSuggestionsActive(false);
-    setSuppressedNewBookSearchQuery('');
-    setGoogleBookResults([]);
-    setGoogleBooksError('');
-    setGoogleBooksLoading(false);
-    setSetBookFormErrors(emptySetBookFormErrors);
-  }, [showSetBookForm]);
 
   // TEMPORARY DESIGN TEST ONLY:
   // These demo threads are used only while the backend is not ready.
@@ -1007,14 +873,6 @@ function Club() {
     setActivePollBookOptionIndex((prev) => (prev === index ? null : prev));
   };
 
-  const handleNewBookFieldsBlur = (e) => {
-    if (e.currentTarget.contains(e.relatedTarget)) {
-      return;
-    }
-
-    setNewBookSuggestionsActive(false);
-  };
-
   const handlePollOptionCoverUpload = async (index, e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -1101,66 +959,6 @@ function Club() {
     }
   };
 
-  const handleNewBookCoverUpload = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-
-    if (!file) return;
-
-    const uploadSession = bookFormSessionRef.current;
-    const previousCoverImage = newBookData.coverImage || '';
-    const previousPublicId = newBookData.coverImagePublicId || '';
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-      setNewBookCoverUploadLoading(true);
-      setNewBookCoverUploadError('');
-
-      const { data } = await api.post('/uploads/image', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      const uploadedImage = data.data;
-      const latestBookData = newBookDataRef.current;
-      const uploadCanStillApply =
-        showSetBookFormRef.current &&
-        uploadSession === bookFormSessionRef.current &&
-        (latestBookData.coverImage || '') === previousCoverImage &&
-        (latestBookData.coverImagePublicId || '') === previousPublicId;
-
-      if (!uploadCanStillApply) {
-        if (uploadedImage.publicId) {
-          await cleanupUploadedBookCover(uploadedImage.publicId);
-        }
-
-        return;
-      }
-
-      setNewBookData((prev) => ({
-        ...prev,
-        coverImage: uploadedImage.url || '',
-        coverImagePublicId: uploadedImage.publicId || '',
-      }));
-
-      if (
-        previousPublicId &&
-        previousPublicId !== uploadedImage.publicId
-      ) {
-        void cleanupUploadedBookCover(previousPublicId);
-      }
-    } catch (err) {
-      console.log('NEW BOOK COVER UPLOAD ERROR:', err.response?.data || err);
-
-      setNewBookCoverUploadError(
-        err.response?.data?.message ||
-        'Failed to upload cover image. Please try again.'
-      );
-    } finally {
-      setNewBookCoverUploadLoading(false);
-    }
-  };
-
   const handleCloseCreatePollForm = async () => {
     createPollFormSessionRef.current += 1;
     showCreatePollFormRef.current = false;
@@ -1188,30 +986,6 @@ function Club() {
     createPollFormSessionRef.current += 1;
     showCreatePollFormRef.current = true;
     setShowCreatePollForm(true);
-  };
-
-  const handleCloseSetBookForm = () => {
-    setShowSetBookForm(false);
-
-    setNewBookData(createEmptyNewBookData());
-    setSetBookFormErrors(emptySetBookFormErrors);
-
-    setGoogleBookResults([]);
-    setGoogleBooksError('');
-    setNewBookSuggestionsActive(false);
-
-    setNewBookCoverUploadError('');
-  };
-
-  const handleToggleSetBookForm = async () => {
-    if (showSetBookForm) {
-      await handleCloseSetBookForm();
-      return;
-    }
-
-    bookFormSessionRef.current += 1;
-    showSetBookFormRef.current = true;
-    setShowSetBookForm(true);
   };
 
   const handleSetWinnerBookAsCurrent = async () => {
@@ -1619,215 +1393,6 @@ function Club() {
     }
   };
 
-  const handleNewBookChange = (e) => {
-    const { name, value } = e.target;
-
-    if (name === 'title' || name === 'author') {
-      setNewBookSuggestionsActive(true);
-      setSuppressedNewBookSearchQuery('');
-    }
-
-    const shouldClearUploadedCover =
-      name === 'coverImage' &&
-      newBookData.coverImagePublicId &&
-      value !== newBookData.coverImage;
-
-    if (shouldClearUploadedCover) {
-      void cleanupUploadedBookCover(newBookData.coverImagePublicId);
-    }
-
-    if (name === 'coverImage') {
-      setNewBookCoverUploadError('');
-    }
-
-    setSetBookFormErrors((prev) => ({
-      ...prev,
-      general: '',
-      [name]: '',
-    }));
-
-    setNewBookData((prev) => ({
-      ...prev,
-      [name]: value,
-      ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
-    }));
-  };
-
-  const handleNewBookGenreToggle = (genre) => {
-    setNewBookData((prev) => {
-      const alreadySelected = prev.genres.includes(genre);
-
-      return {
-        ...prev,
-        genres: alreadySelected
-          ? prev.genres.filter((item) => item !== genre)
-          : [...prev.genres, genre],
-      };
-    });
-  };
-
-  const handleSelectGoogleBook = (book) => {
-    const selectedQuery = buildBookSuggestionQuery(book);
-    const previousPublicId = newBookData.coverImagePublicId;
-
-    if (previousPublicId) {
-      void cleanupUploadedBookCover(previousPublicId);
-    }
-
-    setNewBookData((prev) => ({
-      ...prev,
-      title: book.title || '',
-      author: book.author || '',
-      description: book.description || '',
-      coverImage: book.coverImage || '',
-      coverImagePublicId: '',
-      googleBooksId: book.googleBooksId || '',
-      pageCount: book.pageCount || null,
-      publishedDate: book.publishedDate || '',
-      language: book.language || '',
-      infoLink: book.infoLink || '',
-    }));
-
-    setSuppressedNewBookSearchQuery(selectedQuery);
-    setNewBookSuggestionsActive(false);
-    setGoogleBookResults([]);
-    setGoogleBooksError('');
-    setNewBookCoverUploadError('');
-    setSetBookFormErrors((prev) => ({
-      ...prev,
-      general: '',
-      title: '',
-      author: '',
-    }));
-  };
-
-  const handleSetCurrentBook = async (e) => {
-    e.preventDefault();
-
-    if (!isCreator) return;
-
-    if (newBookCoverUploadLoading) {
-      setNewBookCoverUploadError(
-        'Please wait for the cover upload to finish before saving.'
-      );
-      return;
-    }
-
-    const title = newBookData.title.trim();
-    const author = newBookData.author.trim();
-    const totalChapters = Number(newBookData.totalChapters);
-    const nextErrors = { ...emptySetBookFormErrors };
-
-    if (!title) {
-      nextErrors.title = 'Book title is required.';
-    }
-
-    if (!author) {
-      nextErrors.author = 'Author is required.';
-    }
-
-    if (!Number.isInteger(totalChapters) || totalChapters < 1) {
-      nextErrors.totalChapters =
-        'Total chapters is required and must be at least 1.';
-    }
-
-    if (
-      nextErrors.title ||
-      nextErrors.author ||
-      nextErrors.totalChapters
-    ) {
-      setSetBookFormErrors(nextErrors);
-      return;
-    }
-
-    try {
-      setSettingCurrentBook(true);
-      setSetBookFormErrors(emptySetBookFormErrors);
-
-      const createBookResponse = await api.post('/books', {
-        title,
-        author,
-        totalChapters,
-        description: newBookData.description.trim(),
-        coverImage: newBookData.coverImage.trim(),
-        coverImagePublicId: newBookData.coverImagePublicId,
-        genres: newBookData.genres,
-        googleBooksId: newBookData.googleBooksId,
-        pageCount: newBookData.pageCount,
-        publishedDate: newBookData.publishedDate,
-        language: newBookData.language,
-        infoLink: newBookData.infoLink,
-        club: clubId,
-      });
-
-      const createdBook = createBookResponse.data.data;
-
-      const setCurrentBookResponse = await api.patch(
-        `/clubs/${clubId}/current-book`,
-        {
-          book: createdBook._id,
-        }
-      );
-
-      const updatedClub = setCurrentBookResponse.data.data;
-
-      setClub({
-        ...updatedClub,
-        userCurrentChapter: 0,
-      });
-
-      setThreads([]);
-
-      if (updatedClub.currentBook?._id) {
-        await fetchComments(updatedClub.currentBook._id, false);
-      }
-
-      refreshClubLists();
-
-      bookFormSessionRef.current += 1;
-      showSetBookFormRef.current = false;
-      newBookDataRef.current = emptyNewBookData;
-      setNewBookData(emptyNewBookData);
-      setGoogleBookResults([]);
-      setGoogleBooksError('');
-      setSuppressedNewBookSearchQuery('');
-      setNewBookSuggestionsActive(false);
-      setSetBookFormErrors(emptySetBookFormErrors);
-      setNewBookCoverUploadError('');
-      setNewBookCoverUploadLoading(false);
-
-      setShowSetBookForm(false);
-    } catch (err) {
-      console.log('SET NEW CURRENT BOOK ERROR:', err.response?.data || err);
-
-      const errorMessage = getApiErrorMessage(
-        err,
-        'Failed to create and set current book. Please try again.'
-      );
-      const serverErrors = {
-        ...emptySetBookFormErrors,
-        general: errorMessage,
-      };
-
-      if (/title/i.test(errorMessage)) {
-        serverErrors.title = 'Book title is required.';
-      }
-
-      if (/author/i.test(errorMessage)) {
-        serverErrors.author = 'Author is required.';
-      }
-
-      if (/chapter/i.test(errorMessage)) {
-        serverErrors.totalChapters =
-          'Total chapters is required and must be at least 1.';
-      }
-
-      setSetBookFormErrors(serverErrors);
-    } finally {
-      setSettingCurrentBook(false);
-    }
-  };
-
   const handleStartDiscussion = () => {
     if (isGuest) return;
     // Opens the new discussion form on this page.
@@ -2008,6 +1573,23 @@ function Club() {
       </button>
     </div>
   );
+
+  const currentUserIdForSetBook = user?.id || user?._id;
+  const creatorIdForSetBook = club?.creator?._id || club?.creator;
+
+  const isCreatorForSetBook =
+    Boolean(currentUserIdForSetBook) &&
+    Boolean(creatorIdForSetBook) &&
+    creatorIdForSetBook.toString() === currentUserIdForSetBook.toString();
+
+  const setCurrentBookForm = useSetCurrentBook({
+    clubId,
+    isCreator: isCreatorForSetBook,
+    onClubUpdated: setClub,
+    onCommentsReset: () => setDiscussionComments([]),
+    onCommentsRefresh: fetchComments,
+    onClubListsRefresh: refreshClubLists,
+  });
 
   if (loading) {
     return (
@@ -2281,8 +1863,8 @@ function Club() {
           isGuest={isGuest}
           isMember={isMember}
           isCreator={isCreator}
-          showSetBookForm={showSetBookForm}
-          onToggleSetBookForm={handleToggleSetBookForm}
+          showSetBookForm={setCurrentBookForm.showSetBookForm}
+          onToggleSetBookForm={setCurrentBookForm.handleToggleSetBookForm}
           userReadingProgress={userReadingProgress}
           userCanRateCurrentBook={userCanRateCurrentBook}
           userRatedCurrentBook={userRatedCurrentBook}
@@ -2296,23 +1878,23 @@ function Club() {
           canMarkCurrentBookAsDnf={canMarkCurrentBookAsDnf}
           dnfLoading={dnfLoading}
           onMarkCurrentBookAsDnf={handleMarkCurrentBookAsDnf}
-          newBookData={newBookData}
-          setBookFormErrors={setBookFormErrors}
-          googleBooksLoading={googleBooksLoading}
-          googleBooksError={googleBooksError}
-          googleBookResults={googleBookResults}
-          newBookSuggestionsActive={newBookSuggestionsActive}
-          settingCurrentBook={settingCurrentBook}
-          newBookCoverUploadLoading={newBookCoverUploadLoading}
-          newBookCoverUploadError={newBookCoverUploadError}
-          onSetCurrentBook={handleSetCurrentBook}
-          onCloseSetBookForm={handleCloseSetBookForm}
-          onNewBookChange={handleNewBookChange}
-          onNewBookFieldsFocus={() => setNewBookSuggestionsActive(true)}
-          onNewBookFieldsBlur={handleNewBookFieldsBlur}
-          onSelectGoogleBook={handleSelectGoogleBook}
-          onNewBookCoverUpload={handleNewBookCoverUpload}
-          onNewBookGenreToggle={handleNewBookGenreToggle}
+          newBookData={setCurrentBookForm.newBookData}
+          setBookFormErrors={setCurrentBookForm.setBookFormErrors}
+          googleBooksLoading={setCurrentBookForm.googleBooksLoading}
+          googleBooksError={setCurrentBookForm.googleBooksError}
+          googleBookResults={setCurrentBookForm.googleBookResults}
+          newBookSuggestionsActive={setCurrentBookForm.newBookSuggestionsActive}
+          settingCurrentBook={setCurrentBookForm.settingCurrentBook}
+          newBookCoverUploadLoading={setCurrentBookForm.newBookCoverUploadLoading}
+          newBookCoverUploadError={setCurrentBookForm.newBookCoverUploadError}
+          onSetCurrentBook={setCurrentBookForm.handleSetCurrentBook}
+          onCloseSetBookForm={setCurrentBookForm.handleCloseSetBookForm}
+          onNewBookChange={setCurrentBookForm.handleNewBookChange}
+          onNewBookFieldsFocus={setCurrentBookForm.handleNewBookFieldsFocus}
+          onNewBookFieldsBlur={setCurrentBookForm.handleNewBookFieldsBlur}
+          onSelectGoogleBook={setCurrentBookForm.handleSelectGoogleBook}
+          onNewBookCoverUpload={setCurrentBookForm.handleNewBookCoverUpload}
+          onNewBookGenreToggle={setCurrentBookForm.handleNewBookGenreToggle}
           renderGoogleBookSuggestion={renderGoogleBookSuggestion}
           renderDescriptionPreview={renderDescriptionPreview}
         />
