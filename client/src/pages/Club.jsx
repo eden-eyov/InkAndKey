@@ -11,6 +11,7 @@ import PollCard from '../components/PollCard';
 import BookRatingModal from '../components/BookRatingModal';
 import PreviousBooksSection from '../components/PreviousBooksSection';
 import ClubHeaderCard from '../components/ClubHeaderCard';
+import CreatePollModal from '../components/CreatePollModal';
 
 
 import {
@@ -2421,263 +2422,6 @@ function Club() {
                         </button>
                       </div>
                     )}
-
-                    {isCreator && showCreatePollForm && (
-                      <form onSubmit={handleCreatePoll} className="mt-5 space-y-4 text-left">
-                        {createPollFormErrors.general && (
-                          <p className="text-sm text-red-600">
-                            {createPollFormErrors.general}
-                          </p>
-                        )}
-
-                        <div>
-                          <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                            Question
-                          </label>
-
-                          <input
-                            type="text"
-                            name="question"
-                            value={newPollData.question}
-                            onChange={handleNewPollChange}
-                            className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                            Closing date
-                          </label>
-
-                          <input
-                            type="datetime-local"
-                            name="closesAt"
-                            value={newPollData.closesAt}
-                            onChange={handleNewPollChange}
-                            className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${createPollFormErrors.closesAt
-                              ? 'border-red-500 focus:border-red-500'
-                              : 'border-stone-200 focus:border-accent'
-                              }`}
-                          />
-                          {createPollFormErrors.closesAt && (
-                            <p className="text-xs text-red-600 mt-2">
-                              {createPollFormErrors.closesAt}
-                            </p>
-                          )}
-                        </div>
-
-                        <div className="space-y-4">
-                          <p className="text-xs uppercase tracking-wider text-stone-500">
-                            Book options
-                          </p>
-
-                          {createPollFormErrors.options && (
-                            <p className="text-xs text-red-600">
-                              {createPollFormErrors.options}
-                            </p>
-                          )}
-
-                          {newPollData.options.map((option, index) => {
-                            const optionUploadKey = option._clientId || index;
-
-                            return (
-                              <div
-                                key={optionUploadKey}
-                                className="bg-white border border-stone-200 rounded-xl p-4 space-y-3"
-                              >
-                                <div className="flex items-center justify-between gap-3">
-                                  <h5 className="font-serif text-base text-ink">
-                                    Option {index + 1}
-                                  </h5>
-
-                                  {newPollData.options.length > 2 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemovePollOption(index)}
-                                      className="text-xs text-red-600 hover:underline"
-                                    >
-                                      Remove
-                                    </button>
-                                  )}
-                                </div>
-
-                                <div
-                                  onFocus={() => handlePollBookFieldsFocus(index)}
-                                  onBlur={(e) => handlePollBookFieldsBlur(e, index)}
-                                  className="space-y-3"
-                                >
-                                  <div>
-                                    <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                      Book title
-                                    </label>
-
-                                    <input
-                                      type="text"
-                                      value={option.title}
-                                      onChange={(e) =>
-                                        handlePollOptionChange(index, 'title', e.target.value)
-                                      }
-                                      className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                    />
-                                  </div>
-
-                                  <div>
-                                    <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                      Author
-                                    </label>
-
-                                    <input
-                                      type="text"
-                                      value={option.author}
-                                      onChange={(e) =>
-                                        handlePollOptionChange(index, 'author', e.target.value)
-                                      }
-                                      className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                    />
-                                  </div>
-
-                                  {activePollBookOptionIndex === index &&
-                                    pollBookSearchLoading[index] && (
-                                      <p className="text-xs text-stone-400">
-                                        Searching Google Books...
-                                      </p>
-                                    )}
-
-                                  {activePollBookOptionIndex === index &&
-                                    pollBookSearchError[index] && (
-                                      <p className="text-xs text-red-600">
-                                        {pollBookSearchError[index]}
-                                      </p>
-                                    )}
-
-                                  {activePollBookOptionIndex === index &&
-                                    pollBookSearchResults[index]?.length > 0 && (
-                                      <div className="space-y-2">
-                                        {pollBookSearchResults[index].slice(0, 4).map((book) =>
-                                          renderGoogleBookSuggestion(
-                                            book,
-                                            `poll-${index}-suggestion-${book.googleBooksId || book.title}`,
-                                            () => handleSelectPollGoogleBook(index, book),
-                                            { compact: true }
-                                          )
-                                        )}
-                                      </div>
-                                    )}
-                                </div>
-
-                                <div>
-                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                    Cover image URL
-                                  </label>
-
-                                  <input
-                                    type="text"
-                                    value={option.coverImage}
-                                    onChange={(e) =>
-                                      handlePollOptionChange(index, 'coverImage', e.target.value)
-                                    }
-                                    placeholder="Optional"
-                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
-                                  />
-
-                                  <label className="mt-3 block">
-                                    <span className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                      Upload cover image
-                                    </span>
-
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      onChange={(e) => handlePollOptionCoverUpload(index, e)}
-                                      disabled={pollOptionCoverUploadLoading[optionUploadKey]}
-                                      className="block w-full text-xs text-stone-500 file:mr-3 file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-white file:text-ink file:font-medium hover:file:text-accent disabled:opacity-50"
-                                    />
-                                  </label>
-
-                                  {pollOptionCoverUploadLoading[optionUploadKey] && (
-                                    <p className="text-xs text-stone-400 mt-2">
-                                      Uploading cover...
-                                    </p>
-                                  )}
-
-                                  {pollOptionCoverUploadError[optionUploadKey] && (
-                                    <p className="text-xs text-red-600 mt-2">
-                                      {pollOptionCoverUploadError[optionUploadKey]}
-                                    </p>
-                                  )}
-
-                                  {option.coverImage && (
-                                    <div className="bg-cream border border-stone-200 rounded-xl p-3">
-                                      <p className="text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                        Cover preview
-                                      </p>
-
-                                      <div className="flex gap-3 items-start">
-                                        <img
-                                          src={option.coverImage}
-                                          alt={`${option.title || 'Book option'} cover`}
-                                          className="w-14 h-20 object-cover rounded-lg shadow-sm"
-                                        />
-
-                                        <div className="min-w-0">
-                                          <p className="font-serif text-base text-ink leading-tight">
-                                            {option.title || 'Selected book'}
-                                          </p>
-
-                                          {option.author && (
-                                            <p className="text-xs text-stone-500">
-                                              by {option.author}
-                                            </p>
-                                          )}
-
-                                          {renderDescriptionPreview(
-                                            option.description,
-                                            `poll-option-${index}-selected-preview`,
-                                            { className: 'mt-2', limit: 180 }
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <label className="block text-xs uppercase tracking-wider text-stone-500 mb-2">
-                                    Description
-                                  </label>
-
-                                  <textarea
-                                    value={option.description}
-                                    onChange={(e) =>
-                                      handlePollOptionChange(index, 'description', e.target.value)
-                                    }
-                                    rows="2"
-                                    placeholder="Optional"
-                                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
-                                  />
-                                </div>
-                              </div>
-                            );
-                          })}
-
-                          <button
-                            type="button"
-                            onClick={handleAddPollOption}
-                            className="w-full px-5 py-2.5 bg-white border border-stone-200 text-ink text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
-                          >
-                            Add another option
-                          </button>
-                        </div>
-
-                        <button
-                          type="submit"
-                          disabled={creatingPoll || pollOptionUploadInProgress}
-                          className="w-full px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {creatingPoll ? 'Creating...' : 'Create poll'}
-                        </button>
-                      </form>
-                    )}
                   </div>
                 )}
 
@@ -2694,7 +2438,31 @@ function Club() {
             </aside>
           )}
         </section>
-
+        <CreatePollModal
+          isOpen={isCreator && showCreatePollForm}
+          newPollData={newPollData}
+          createPollFormErrors={createPollFormErrors}
+          creatingPoll={creatingPoll}
+          pollOptionUploadInProgress={pollOptionUploadInProgress}
+          activePollBookOptionIndex={activePollBookOptionIndex}
+          pollBookSearchResults={pollBookSearchResults}
+          pollBookSearchLoading={pollBookSearchLoading}
+          pollBookSearchError={pollBookSearchError}
+          pollOptionCoverUploadLoading={pollOptionCoverUploadLoading}
+          pollOptionCoverUploadError={pollOptionCoverUploadError}
+          onSubmit={handleCreatePoll}
+          onClose={handleCloseCreatePollForm}
+          onNewPollChange={handleNewPollChange}
+          onPollOptionChange={handlePollOptionChange}
+          onPollBookFieldsFocus={handlePollBookFieldsFocus}
+          onPollBookFieldsBlur={handlePollBookFieldsBlur}
+          onSelectPollGoogleBook={handleSelectPollGoogleBook}
+          onPollOptionCoverUpload={handlePollOptionCoverUpload}
+          onRemovePollOption={handleRemovePollOption}
+          onAddPollOption={handleAddPollOption}
+          renderGoogleBookSuggestion={renderGoogleBookSuggestion}
+          renderDescriptionPreview={renderDescriptionPreview}
+        />
         <PreviousBooksSection
           previousBooks={previousBooks}
           user={user}
