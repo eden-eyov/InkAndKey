@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
@@ -13,7 +13,6 @@ import BookRatingModal from '../components/BookRatingModal';
 import PreviousBooksSection from '../components/PreviousBooksSection';
 import ClubHeaderCard from '../components/ClubHeaderCard';
 import ClubPollsSection from '../components/ClubPollsSection';
-
 
 import {
   DESCRIPTION_PREVIEW_LENGTH,
@@ -70,19 +69,6 @@ function Club() {
       dispatch(fetchUserClubs());
     }
   };
-
-  const cleanupUploadedBookCover = async (publicId) => {
-    if (!publicId) return;
-
-    try {
-      await api.delete('/uploads/image', {
-        data: { publicId },
-      });
-    } catch (err) {
-      console.log('BOOK COVER CLEANUP ERROR:', err.response?.data || err);
-    }
-  };
-
 
   useEffect(() => {
     return () => {
@@ -171,13 +157,6 @@ function Club() {
           return memberId.toString() === currentUserId;
         });
 
-        const clubCreatorId = clubData.creator?._id || clubData.creator;
-
-        const userIsCreator =
-          Boolean(currentUserId) &&
-          Boolean(clubCreatorId) &&
-          clubCreatorId.toString() === currentUserId?.toString();
-
         if (clubData.currentBook?._id) {
           await fetchComments(clubData.currentBook._id, !user || !userIsMember);
         }
@@ -201,18 +180,6 @@ function Club() {
 
     fetchClub();
   }, [clubId, user]);
-
-  // TEMPORARY DESIGN TEST ONLY:
-  // These demo threads are used only while the backend is not ready.
-  // SERVER TODO:
-  // When the backend is ready, threads should come from an endpoint like:
-  // GET /clubs/:clubId/threads
-  //
-  // For logged-in users:
-  // The backend should return threads according to the user's reading progress.
-  //
-  // For guests:
-  // The backend should return only spoiler-free threads/reviews.
 
   const fetchComments = async (bookId, shouldUsePublicRoute = false) => {
     if (!bookId) return;
@@ -829,7 +796,6 @@ function Club() {
   const currentBook = club.currentBook;
 
   const currentBookTitle = currentBook?.title || 'No active book yet';
-  const currentBookAuthor = currentBook?.author || '';
   const currentBookCover = currentBook?.coverImage || '';
   const hasCurrentBookCover = Boolean(currentBookCover);
 
@@ -870,7 +836,6 @@ function Club() {
     creatorId.toString() === currentUserId.toString();
 
   const displayedClubCoverImage = coverImagePreview || club.coverImage || '';
-  const hasClubCoverImage = Boolean(displayedClubCoverImage);
   const canVoteInPoll = isMember || isCreator;
 
   const renderAnnounceWinnerForm = () => {
@@ -912,7 +877,7 @@ function Club() {
             min="1"
             name="totalChapters"
             value={clubPolls.winnerData.totalChapters}
-            onChange={handleWinnerDataChange}
+            onChange={clubPolls.handleWinnerDataChange}
             className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
           />
         </div>
@@ -926,7 +891,7 @@ function Club() {
             type="text"
             name="title"
             value={clubPolls.winnerData.title}
-            onChange={handleWinnerDataChange}
+            onChange={clubPolls.handleWinnerDataChange}
             className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
           />
         </div>
@@ -940,7 +905,7 @@ function Club() {
             type="text"
             name="author"
             value={clubPolls.winnerData.author}
-            onChange={handleWinnerDataChange}
+            onChange={clubPolls.handleWinnerDataChange}
             className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
           />
         </div>
@@ -954,7 +919,7 @@ function Club() {
             type="text"
             name="coverImage"
             value={clubPolls.winnerData.coverImage}
-            onChange={handleWinnerDataChange}
+            onChange={clubPolls.handleWinnerDataChange}
             placeholder="Optional"
             className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm"
           />
@@ -968,7 +933,7 @@ function Club() {
           <textarea
             name="description"
             value={clubPolls.winnerData.description}
-            onChange={handleWinnerDataChange}
+            onChange={clubPolls.handleWinnerDataChange}
             rows="3"
             placeholder="Optional"
             className="w-full p-3 bg-white border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
