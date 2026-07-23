@@ -1,81 +1,154 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-// import LoadingSpinner from '../components/LoadingSpinner';
-// import ErrorMessage from '../components/ErrorMessage';
 import { fetchUserClubs } from '../store/clubsSlice';
 import PollCard from '../components/PollCard';
+import ProgressTracker from '../components/ProgressTracker';
 
 function Dashboard() {
   const { user } = useAuth();
   const dispatch = useDispatch();
+
+  const currentUserId = user?._id || user?.id;
+
+  const [activeTab, setActiveTab] = useState('reading');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const [currentlyReading, setCurrentlyReading] = useState([]);
+  const [currentReadsLoading, setCurrentReadsLoading] = useState(false);
+  const [currentReadsError, setCurrentReadsError] = useState('');
+
+  const [progressActionError, setProgressActionError] = useState('');
+  const [progressActionMessage, setProgressActionMessage] = useState('');
+  const [dnfActionLoadingId, setDnfActionLoadingId] = useState('');
+
+  const [expandedRead, setExpandedRead] = useState({
+    id: null,
+    section: null,
+  });
+
   const [activePolls, setActivePolls] = useState([]);
+  const [activePollIndex, setActivePollIndex] = useState(0);
   const [activePollsLoading, setActivePollsLoading] = useState(false);
   const [activePollsError, setActivePollsError] = useState('');
+
   const [selectedPollOptions, setSelectedPollOptions] = useState({});
   const [pollActionLoadingId, setPollActionLoadingId] = useState('');
   const [pollMessages, setPollMessages] = useState({});
   const [pollErrors, setPollErrors] = useState({});
 
-  const { list: clubs, loading, error } = useSelector((state) => state.clubs);
+  const {
+    list: clubs,
+    loading: clubsLoading,
+    error: clubsError,
+  } = useSelector((state) => state.clubs);
 
   useEffect(() => {
     dispatch(fetchUserClubs());
   }, [dispatch]);
 
-  const fetchActivePolls = useCallback(async (showLoading = true) => {
-    if (!user) return;
+  const fetchCurrentReads = useCallback(async () => {
+    if (!currentUserId) return;
 
     try {
-      if (showLoading) {
-        setActivePollsLoading(true);
-      }
+      setCurrentReadsLoading(true);
+      setCurrentReadsError('');
 
-      setActivePollsError('');
+      const response = await api.get(
+        `/users/${currentUserId}/currently-reading`
+      );
 
-      const { data } = await api.get('/polls/my-active-polls');
-      const polls = Array.isArray(data.data) ? data.data : [];
-
-      setActivePolls(polls);
-      setSelectedPollOptions((prev) => {
-        const next = { ...prev };
-
-        polls.forEach((poll) => {
-          if (poll.userVoteOptionId) {
-            next[poll._id] = poll.userVoteOptionId;
-          }
-        });
-
-        return next;
-      });
+      setCurrentlyReading(response.data.data || []);
     } catch (err) {
-      console.log('FETCH ACTIVE POLLS ERROR:', err.response?.data || err);
+      console.log(
+        'DASHBOARD CURRENT READS ERROR:',
+        err.response?.data || err
+      );
 
-      setActivePolls([]);
-      setActivePollsError(
+      setCurrentlyReading([]);
+      setCurrentReadsError(
         err.response?.data?.message ||
-        'Could not load active polls right now.'
+        'Could not load your current books.'
       );
     } finally {
-      if (showLoading) {
-        setActivePollsLoading(false);
-      }
+      setCurrentReadsLoading(false);
     }
-  }, [user]);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    fetchCurrentReads();
+  }, [fetchCurrentReads]);
+
+  const fetchActivePolls = useCallback(
+    async (showLoading = true) => {
+      if (!user) return;
+
+      try {
+        if (showLoading) {
+          setActivePollsLoading(true);
+        }
+
+        setActivePollsError('');
+
+        const { data } = await api.get('/polls/my-active-polls');
+        const polls = Array.isArray(data.data) ? data.data : [];
+
+        setActivePolls(polls);
+
+        setActivePollIndex((currentIndex) => {
+          if (polls.length === 0) return 0;
+
+          return Math.min(currentIndex, polls.length - 1);
+        });
+
+        setSelectedPollOptions((previousOptions) => {
+          const nextOptions = { ...previousOptions };
+
+          polls.forEach((poll) => {
+            if (poll.userVoteOptionId) {
+              nextOptions[poll._id] = poll.userVoteOptionId;
+            }
+          });
+
+          return nextOptions;
+        });
+      } catch (err) {
+        console.log(
+          'FETCH ACTIVE POLLS ERROR:',
+          err.response?.data || err
+        );
+
+        setActivePolls([]);
+        setActivePollIndex(0);
+
+        setActivePollsError(
+          err.response?.data?.message ||
+          'Could not load active polls right now.'
+        );
+      } finally {
+        if (showLoading) {
+          setActivePollsLoading(false);
+        }
+      }
+    },
+    [user]
+  );
 
   useEffect(() => {
     fetchActivePolls();
   }, [fetchActivePolls]);
 
-  const getPollClubId = (poll) => poll.clubId || poll.club?._id || poll.club;
+  const getPollClubId = (poll) =>
+    poll.clubId || poll.club?._id || poll.club;
 
-  const getPollClubName = (poll) => poll.clubName || poll.club?.name || 'Your club';
+  const getPollClubName = (poll) =>
+    poll.clubName || poll.club?.name || 'Your club';
 
   const handleSelectPollOption = (pollId, optionId) => {
-    setSelectedPollOptions((prev) => ({
-      ...prev,
+    setSelectedPollOptions((previousOptions) => ({
+      ...previousOptions,
       [pollId]: optionId,
     }));
   };
@@ -88,12 +161,14 @@ function Dashboard() {
 
     try {
       setPollActionLoadingId(poll._id);
-      setPollErrors((prev) => ({
-        ...prev,
+
+      setPollErrors((previousErrors) => ({
+        ...previousErrors,
         [poll._id]: '',
       }));
-      setPollMessages((prev) => ({
-        ...prev,
+
+      setPollMessages((previousMessages) => ({
+        ...previousMessages,
         [poll._id]: '',
       }));
 
@@ -112,18 +187,24 @@ function Dashboard() {
         club: poll.club,
       };
 
-      setActivePolls((prev) =>
-        prev.map((item) => (item._id === poll._id ? updatedPoll : item))
+      setActivePolls((previousPolls) =>
+        previousPolls.map((item) =>
+          item._id === poll._id ? updatedPoll : item
+        )
       );
-      setPollMessages((prev) => ({
-        ...prev,
+
+      setPollMessages((previousMessages) => ({
+        ...previousMessages,
         [poll._id]: 'Your vote was submitted.',
       }));
     } catch (err) {
-      console.log('VOTE IN DASHBOARD POLL ERROR:', err.response?.data || err);
+      console.log(
+        'VOTE IN DASHBOARD POLL ERROR:',
+        err.response?.data || err
+      );
 
-      setPollErrors((prev) => ({
-        ...prev,
+      setPollErrors((previousErrors) => ({
+        ...previousErrors,
         [poll._id]:
           err.response?.data?.message ||
           'Failed to submit your vote. Please try again.',
@@ -133,151 +214,819 @@ function Dashboard() {
     }
   };
 
-  // if (loading) return <LoadingSpinner message="Loading your book clubs..." />;
-  if (loading) {
-  return (
-    <div className="min-h-screen bg-cream flex justify-center items-center">
-      <p className="font-serif text-stone-500 italic text-lg animate-pulse">
-        Loading your book clubs...
-      </p>
-    </div>
-  );
-}
-  // if (error) return <ErrorMessage message={error} />;
-if (error) {
-  return (
-    <div className="min-h-screen bg-cream flex justify-center items-center px-4">
-      <p className="font-serif text-stone-500 italic text-base">
-        {error || 'Something went wrong. Please try again later.'}
-      </p>
-    </div>
-  );
-}
-  return (
-    <div className="min-h-screen bg-cream font-sans text-ink pt-24 px-6 md:px-12 pb-12">
-      <div className="max-w-5xl mx-auto">
-        
-        <div className="space-y-12">
-          
-          {/* Top Header */}
-          <header className="border-b border-stone-200 pb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="font-serif text-4xl mb-2">Hello, {user?.username || 'reader'}</h1>
-              <p className="text-stone-500">Here is a glimpse of your current reading progress.</p>
-            </div>
-            <Link 
-              to="/clubs" 
-              className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition shadow-sm"
-            >
-              Discover new clubs
-            </Link>
-          </header>
+  const handlePreviousPoll = () => {
+    if (activePolls.length <= 1) return;
 
-          {/* Active Polls Section */}
-          <section>
-            <h2 className="font-serif text-2xl mb-6">Active polls in your clubs</h2>
+    setActivePollIndex((currentIndex) =>
+      currentIndex === 0
+        ? activePolls.length - 1
+        : currentIndex - 1
+    );
+  };
 
-            {activePollsLoading ? (
-              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
-                <p className="text-stone-500 italic">Loading active polls...</p>
-              </div>
-            ) : activePollsError ? (
-              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
-                <p className="text-stone-500">
-                  {activePollsError}
-                </p>
-              </div>
-            ) : activePolls.length === 0 ? (
-              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
-                <p className="text-stone-500">No active polls right now.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {activePolls.map((poll) => {
-                  const clubId = poll.clubId || poll.club?._id || poll.club;
-                  const clubName = poll.clubName || poll.club?.name || 'Your club';
+  const handleNextPoll = () => {
+    if (activePolls.length <= 1) return;
 
-                  return (
-                    <PollCard
-                      key={poll._id}
-                      poll={poll}
-                      className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm hover:border-accent transition space-y-5"
-                      clubName={clubName}
-                      clubLink={clubId ? `/clubs/${clubId}` : ''}
-                      canVote
-                      selectedOptionId={selectedPollOptions[poll._id] || ''}
-                      onSelectOption={(optionId) =>
-                        handleSelectPollOption(poll._id, optionId)
-                      }
-                      onVote={() => handleVoteInDashboardPoll(poll)}
-                      voteLoading={pollActionLoadingId === poll._id}
-                      error={pollErrors[poll._id]}
-                      message={pollMessages[poll._id]}
-                      onRefresh={() => fetchActivePolls(false)}
-                    />
-                  );
-                })}
-              </div>
-            )}
-          </section>
+    setActivePollIndex((currentIndex) =>
+      currentIndex === activePolls.length - 1
+        ? 0
+        : currentIndex + 1
+    );
+  };
 
-          {/* User's Book Clubs Section */}
-          <section>
-            <h2 className="font-serif text-2xl mb-6">My Clubs</h2>
-            
-            {clubs?.length === 0 ? (
-              <div className="bg-white p-8 text-center rounded-2xl border border-stone-200/60 shadow-sm">
-                <p className="text-stone-500 mb-4">You are not a member of any book clubs yet.</p>
-                <Link to="/clubs" className="text-accent hover:underline font-medium">Browse clubs to join</Link>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {clubs?.map((club) => {
-                  const totalChapters = club.totalChapters || 0;
-                  const userCurrentChapter = club.userCurrentChapter || 0;
+  const handleToggleRead = (progressId) => {
+    setExpandedRead((currentValue) => {
+      const isAlreadyOpen = currentValue.id === progressId;
 
-                  const progressPercent =
-                    totalChapters > 0
-                      ? Math.min(
-                          Math.round((userCurrentChapter / totalChapters) * 100),
-                          100
-                        )
-                      : 0;
+      if (isAlreadyOpen) {
+        return {
+          id: null,
+          section: null,
+        };
+      }
 
-                  return (
-                    <div key={club._id} className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm hover:border-accent transition group flex flex-col justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-accent mb-2 block">
-                          {club.currentBookTitle || 'No active book'}
-                        </span>
-                        <h3 className="font-serif text-xl mb-2 group-hover:text-accent transition">
-                          <Link to={`/clubs/${club._id}`}>{club.name}</Link>
-                        </h3>
-                        <p className="text-stone-500 text-sm line-clamp-2 mb-4">{club.description}</p>
-                      </div>
+      return {
+        id: progressId,
+        section: 'progress',
+      };
+    });
+  };
 
-                      <div className="mt-4 pt-4 border-t border-stone-100">
-                        <div className="flex justify-between text-xs text-stone-500 mb-2 font-medium">
-                          <span>Chapter {userCurrentChapter} of {totalChapters}</span>
-                          <span>{progressPercent}%</span>
-                        </div>
-                        <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden">
-                          <div 
-                            className="bg-accent h-full rounded-full transition-all duration-500" 
-                            style={{ width: `${progressPercent}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+  const handleChangeReadSection = (progressId, section) => {
+    setExpandedRead({
+      id: progressId,
+      section,
+    });
+  };
+
+  const handleUpdateProgress = async (progress, nextChapter) => {
+    if (!progress?.club?._id || !progress?.book?._id) return;
+
+    setProgressActionError('');
+    setProgressActionMessage('');
+
+    try {
+      await api.post('/reading-progress', {
+        club: progress.club._id,
+        book: progress.book._id,
+        currentChapter: nextChapter,
+      });
+
+      setProgressActionMessage('Reading progress updated.');
+
+      await Promise.all([
+        fetchCurrentReads(),
+        dispatch(fetchUserClubs()),
+      ]);
+    } catch (err) {
+      console.log(
+        'DASHBOARD PROGRESS UPDATE ERROR:',
+        err.response?.data || err
+      );
+
+      setProgressActionError(
+        err.response?.data?.message ||
+        'Failed to update reading progress. Please try again.'
+      );
+    }
+  };
+
+  const handleMarkAsDnf = async (progress) => {
+    if (!progress?._id) return;
+
+    const confirmed = window.confirm(
+      `Mark "${progress.book?.title || 'this book'}" as did not finish?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDnfActionLoadingId(progress._id);
+      setProgressActionError('');
+      setProgressActionMessage('');
+
+      await api.patch(`/reading-progress/${progress._id}/dnf`);
+
+      setProgressActionMessage(
+        `${progress.book?.title || 'The book'} was marked as DNF.`
+      );
+
+      setExpandedRead({
+        id: null,
+        section: null,
+      });
+
+      await Promise.all([
+        fetchCurrentReads(),
+        dispatch(fetchUserClubs()),
+      ]);
+    } catch (err) {
+      console.log(
+        'DASHBOARD DNF ERROR:',
+        err.response?.data || err
+      );
+
+      setProgressActionError(
+        err.response?.data?.message ||
+        'Failed to mark the book as DNF. Please try again.'
+      );
+    } finally {
+      setDnfActionLoadingId('');
+    }
+  };
+
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  const filteredClubs = useMemo(() => {
+    const clubList = Array.isArray(clubs) ? clubs : [];
+
+    if (!normalizedSearchQuery) {
+      return clubList;
+    }
+
+    return clubList.filter((club) => {
+      const searchableText = [
+        club.name,
+        club.description,
+        club.currentBookTitle,
+        club.currentBook?.title,
+        club.currentBook?.author,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    });
+  }, [clubs, normalizedSearchQuery]);
+
+  const filteredCurrentReads = useMemo(() => {
+    if (!normalizedSearchQuery) {
+      return currentlyReading;
+    }
+
+    return currentlyReading.filter((progress) => {
+      const searchableText = [
+        progress.book?.title,
+        progress.book?.author,
+        progress.club?.name,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return searchableText.includes(normalizedSearchQuery);
+    });
+  }, [currentlyReading, normalizedSearchQuery]);
+
+  const activePoll = activePolls[activePollIndex] || null;
+
+  const dashboardLoading = clubsLoading || currentReadsLoading;
+  const dashboardError = clubsError || currentReadsError;
+
+  if (dashboardLoading) {
+    return (
+      <main className="min-h-screen bg-cream flex items-center justify-center">
+        <p className="font-serif text-stone-500 italic text-lg animate-pulse">
+          Preparing your reading room...
+        </p>
+      </main>
+    );
+  }
+
+  if (dashboardError) {
+    return (
+      <main className="min-h-screen bg-cream flex items-center justify-center px-6">
+        <div className="max-w-lg rounded-2xl border border-stone-200/60 bg-white p-8 text-center shadow-sm">
+          <h1 className="font-serif text-3xl mb-3">
+            Your reading room is unavailable
+          </h1>
+
+          <p className="text-sm text-stone-500">
+            {dashboardError}
+          </p>
         </div>
+      </main>
+    );
+  }
 
+  return (
+    <main className="min-h-screen bg-cream font-sans text-ink pt-16 pb-16">
+      <div className="max-w-7xl mx-auto px-6 md:px-12">
+        {/* Hero */}
+        <section className="pt-10 pb-8">
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+            <div className="max-w-3xl">
+              <span className="text-[10px] font-bold uppercase tracking-[0.25em] text-accent">
+                Your personal reading space
+              </span>
+
+              <h1 className="font-serif text-5xl md:text-6xl mt-3 mb-3">
+                Reading Room
+              </h1>
+
+              <p className="text-stone-500 text-base md:text-lg leading-relaxed">
+                Welcome back, {user?.username || 'reader'}. Pick up the
+                thread of your current reads and conversations.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                to="/profile"
+                className="inline-flex items-center justify-center px-6 py-3 border border-stone-200 bg-white text-sm font-medium rounded-full hover:border-accent hover:text-accent transition"
+              >
+                View profile
+              </Link>
+
+              <Link
+                to="/clubs"
+                className="inline-flex items-center justify-center px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition shadow-sm"
+              >
+                Discover new clubs
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Stats — same visual language as Profile */}
+        <section className="bg-white rounded-2xl border border-stone-200/60 shadow-sm overflow-hidden mb-10">
+          <div className="grid grid-cols-1 sm:grid-cols-3">
+            <div className="p-6 text-center border-b sm:border-b-0 sm:border-r border-stone-100">
+              <h2 className="font-serif text-3xl text-accent mb-1">
+                {currentlyReading.length}
+              </h2>
+
+              <p className="text-xs uppercase tracking-widest text-stone-400 font-bold">
+                Current reads
+              </p>
+            </div>
+
+            <div className="p-6 text-center border-b sm:border-b-0 sm:border-r border-stone-100">
+              <h2 className="font-serif text-3xl text-accent mb-1">
+                {Array.isArray(clubs) ? clubs.length : 0}
+              </h2>
+
+              <p className="text-xs uppercase tracking-widest text-stone-400 font-bold">
+                Clubs
+              </p>
+            </div>
+
+            <div className="p-6 text-center">
+              <h2 className="font-serif text-3xl text-accent mb-1">
+                {activePolls.length}
+              </h2>
+
+              <p className="text-xs uppercase tracking-widest text-stone-400 font-bold">
+                Open polls
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_360px] gap-8 items-start">
+          {/* Main content */}
+          <div className="min-w-0">
+            <div className="flex items-end gap-2 border-b border-stone-200">
+              <button
+                type="button"
+                onClick={() => setActiveTab('reading')}
+                className={`relative rounded-t-2xl border border-b-0 px-6 py-3 text-sm font-medium transition ${activeTab === 'reading'
+                  ? 'bg-white border-stone-200 text-ink -mb-px'
+                  : 'bg-stone-100/60 border-transparent text-stone-500 hover:text-ink'
+                  }`}
+              >
+                Continue Reading
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('clubs')}
+                className={`relative rounded-t-2xl border border-b-0 px-6 py-3 text-sm font-medium transition ${activeTab === 'clubs'
+                  ? 'bg-white border-stone-200 text-ink -mb-px'
+                  : 'bg-stone-100/60 border-transparent text-stone-500 hover:text-ink'
+                  }`}
+              >
+                Clubs
+              </button>
+            </div>
+
+            <div className="rounded-b-2xl rounded-tr-2xl border border-t-0 border-stone-200 bg-white p-5 md:p-7 shadow-sm">
+              {activeTab === 'reading' ? (
+                <section>
+                  <div className="mb-6">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                      Continue reading
+                    </span>
+
+                    <h2 className="font-serif text-3xl mt-2 mb-1">
+                      Your current books
+                    </h2>
+
+                    <p className="text-sm text-stone-500">
+                      Update your progress and return to spoiler-safe
+                      conversations.
+                    </p>
+
+                    {progressActionError && (
+                      <p className="text-sm text-red-500 mt-3">
+                        {progressActionError}
+                      </p>
+                    )}
+
+                    {progressActionMessage && (
+                      <p className="text-sm text-accent mt-3">
+                        {progressActionMessage}
+                      </p>
+                    )}
+                  </div>
+
+                  {filteredCurrentReads.length === 0 ? (
+                    <div className="rounded-2xl border border-stone-200/60 bg-cream p-8 text-center">
+                      <p className="text-sm text-stone-500">
+                        {normalizedSearchQuery
+                          ? 'No current books match your search.'
+                          : 'You do not have any current reads yet.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredCurrentReads.map((progress) => {
+                        const bookTitle =
+                          progress.book?.title || 'Untitled book';
+
+                        const bookAuthor = progress.book?.author || '';
+                        const bookCover = progress.book?.coverImage || '';
+                        const totalChapters =
+                          Number(progress.book?.totalChapters) || 0;
+                        const currentChapter =
+                          Number(progress.currentChapter) || 0;
+                        const canMarkAsDnf =
+                          currentChapter > 0 &&
+                          !progress.isCompleted &&
+                          progress.status !== 'completed';
+                        const progressPercent =
+                          totalChapters > 0
+                            ? Math.min(
+                              Math.round(
+                                (currentChapter / totalChapters) * 100
+                              ),
+                              100
+                            )
+                            : 0;
+
+                        const isExpanded =
+                          expandedRead.id === progress._id;
+
+                        const showProgress =
+                          isExpanded &&
+                          expandedRead.section === 'progress';
+
+                        const showDiscussions =
+                          isExpanded &&
+                          expandedRead.section === 'discussions';
+
+                        return (
+                          <article
+                            key={progress._id}
+                            className="rounded-2xl border border-stone-200/60 bg-white shadow-sm overflow-hidden transition hover:border-accent"
+                          >
+                            <div className="p-5">
+                              <div className="flex flex-col md:flex-row gap-5">
+                                <div className="w-24 h-36 rounded-xl overflow-hidden bg-cream border border-stone-100 flex-shrink-0">
+                                  {bookCover ? (
+                                    <img
+                                      src={bookCover}
+                                      alt={`${bookTitle} cover`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full bg-ink flex items-center justify-center p-3 text-center">
+                                      <span className="font-serif text-sm italic text-cream leading-tight">
+                                        {bookTitle}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div className="flex-1 min-w-0">
+                                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                    Reading with{' '}
+                                    {progress.club?.name || 'a book club'}
+                                  </span>
+
+                                  <h3 className="font-serif text-2xl mt-2 mb-1">
+                                    {bookTitle}
+                                  </h3>
+
+                                  {bookAuthor && (
+                                    <p className="text-sm text-stone-500">
+                                      by {bookAuthor}
+                                    </p>
+                                  )}
+
+                                  <div className="mt-5">
+                                    <div className="flex justify-between gap-4 text-xs text-stone-500 mb-2">
+                                      <span>
+                                        Chapter {currentChapter} of{' '}
+                                        {totalChapters}
+                                      </span>
+
+                                      <span>{progressPercent}%</span>
+                                    </div>
+
+                                    <div className="w-full h-2 rounded-full overflow-hidden bg-stone-100">
+                                      <div
+                                        className="h-full rounded-full bg-accent transition-all duration-500"
+                                        style={{
+                                          width: `${progressPercent}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-3 mt-5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleRead(progress._id)}
+                                      className={`px-5 py-2.5 rounded-full text-sm font-medium transition ${isExpanded
+                                        ? 'bg-accent text-white'
+                                        : 'bg-ink text-white hover:opacity-90'
+                                        }`}
+                                    >
+                                      {isExpanded ? 'Close' : 'Open'}
+                                    </button>
+
+                                    {progress.club?._id && (
+                                      <Link
+                                        to={`/clubs/${progress.club._id}`}
+                                        className="text-sm font-medium text-accent hover:underline ml-auto"
+                                      >
+                                        View club
+                                      </Link>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            {isExpanded && (
+                              <div className="border-t border-stone-100 bg-cream/50">
+                                <div className="flex items-center gap-6 border-b border-stone-200 px-5 pt-4">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleChangeReadSection(
+                                        progress._id,
+                                        'progress'
+                                      )
+                                    }
+                                    className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'progress'
+                                      ? 'border-accent text-accent'
+                                      : 'border-transparent text-stone-500 hover:text-ink'
+                                      }`}
+                                  >
+                                    Progress
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleChangeReadSection(
+                                        progress._id,
+                                        'discussions'
+                                      )
+                                    }
+                                    className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'discussions'
+                                      ? 'border-accent text-accent'
+                                      : 'border-transparent text-stone-500 hover:text-ink'
+                                      }`}
+                                  >
+                                    Discussions
+                                  </button>
+                                </div>
+
+                                <div className="p-5">
+                                  {expandedRead.section === 'progress' && (
+                                    <div>
+                                      <ProgressTracker
+                                        currentChapter={currentChapter}
+                                        totalChapters={totalChapters}
+                                        onUpdateProgress={(nextChapter) =>
+                                          handleUpdateProgress(progress, nextChapter)
+                                        }
+                                      />
+
+                                      {canMarkAsDnf && (
+                                        <div className="mt-6 pt-5 border-t border-stone-200">
+                                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                                            <div>
+                                              <h5 className="text-sm font-medium text-ink">
+                                                Not planning to finish this book?
+                                              </h5>
+
+                                              <p className="text-xs text-stone-500 mt-1">
+                                                It will be moved out of your current reads and kept in
+                                                your reading history as DNF.
+                                              </p>
+                                            </div>
+
+                                            <button
+                                              type="button"
+                                              onClick={() => handleMarkAsDnf(progress)}
+                                              disabled={dnfActionLoadingId === progress._id}
+                                              className="inline-flex items-center justify-center rounded-full border border-red-200 px-5 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-400 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                              {dnfActionLoadingId === progress._id
+                                                ? 'Marking as DNF...'
+                                                : 'Mark as DNF'}
+                                            </button>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {expandedRead.section === 'discussions' && (
+                                    <div className="bg-white rounded-2xl border border-stone-200/60 p-6">
+                                      <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                        Recent discussions
+                                      </span>
+
+                                      <h4 className="font-serif text-2xl mt-2 mb-2">
+                                        Conversations about {bookTitle}
+                                      </h4>
+
+                                      <p className="text-sm text-stone-500 leading-relaxed">
+                                        Recent spoiler-safe discussions for this book will appear
+                                        here once we connect the comments feed.
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              ) : (
+                <section>
+                  <div className="mb-6">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                      Your communities
+                    </span>
+
+                    <h2 className="font-serif text-3xl mt-2 mb-1">
+                      My clubs
+                    </h2>
+
+                    <p className="text-sm text-stone-500">
+                      View your active book clubs and their current reads.
+                    </p>
+                  </div>
+
+                  {filteredClubs.length === 0 ? (
+                    <div className="rounded-2xl border border-stone-200/60 bg-cream p-8 text-center">
+                      <p className="text-sm text-stone-500">
+                        {normalizedSearchQuery
+                          ? 'No clubs match your search.'
+                          : 'You are not a member of any clubs yet.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {filteredClubs.map((club) => {
+                        const totalChapters =
+                          Number(
+                            club.totalChapters ||
+                            club.currentBook?.totalChapters
+                          ) || 0;
+
+                        const userCurrentChapter =
+                          Number(club.userCurrentChapter) || 0;
+
+                        const progressPercent =
+                          totalChapters > 0
+                            ? Math.min(
+                              Math.round(
+                                (userCurrentChapter / totalChapters) *
+                                100
+                              ),
+                              100
+                            )
+                            : 0;
+
+                        return (
+                          <article
+                            key={club._id}
+                            className="rounded-2xl border border-stone-200/60 bg-white p-5 shadow-sm transition hover:border-accent"
+                          >
+                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+                              <div className="min-w-0 flex-1">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                  Currently reading
+                                </span>
+
+                                <h3 className="font-serif text-2xl mt-2 mb-1">
+                                  {club.name}
+                                </h3>
+
+                                <p className="text-sm text-stone-500 mb-3">
+                                  {club.currentBookTitle ||
+                                    club.currentBook?.title ||
+                                    'No current book'}
+                                </p>
+
+                                {club.description && (
+                                  <p className="text-sm text-stone-500 leading-relaxed line-clamp-2">
+                                    {club.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="w-full lg:w-72">
+                                <div className="flex justify-between text-xs text-stone-500 mb-2">
+                                  <span>
+                                    Chapter {userCurrentChapter} of{' '}
+                                    {totalChapters}
+                                  </span>
+
+                                  <span>{progressPercent}%</span>
+                                </div>
+
+                                <div className="w-full h-2 rounded-full overflow-hidden bg-stone-100">
+                                  <div
+                                    className="h-full rounded-full bg-accent"
+                                    style={{
+                                      width: `${progressPercent}%`,
+                                    }}
+                                  />
+                                </div>
+
+                                <Link
+                                  to={`/clubs/${club._id}`}
+                                  className="inline-flex mt-4 text-sm font-medium text-accent hover:underline"
+                                >
+                                  Open club
+                                </Link>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </section>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <aside className="space-y-6 xl:sticky xl:top-24">
+            {/* Search */}
+            <section>
+              <label
+                htmlFor="dashboard-search"
+                className="block text-xs font-bold uppercase tracking-widest text-stone-400 mb-3"
+              >
+                Search Ink & Key
+              </label>
+
+              <div className="relative">
+                <input
+                  id="dashboard-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) =>
+                    setSearchQuery(event.target.value)
+                  }
+                  placeholder="Search clubs, books, or readers..."
+                  className="w-full rounded-2xl border border-stone-200 bg-white px-5 py-4 pr-12 text-sm shadow-sm outline-none transition placeholder:text-stone-400 focus:border-accent"
+                />
+
+                <span
+                  aria-hidden="true"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400"
+                >
+                  ⌕
+                </span>
+              </div>
+            </section>
+
+            {/* Poll */}
+            <section className="rounded-2xl border border-stone-200/60 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-4 mb-5">
+                <div>
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                    Active poll
+                  </span>
+
+                  <h2 className="font-serif text-2xl mt-1">
+                    Your clubs are voting
+                  </h2>
+                </div>
+
+                {activePolls.length > 0 && (
+                  <span className="text-xs text-stone-400 whitespace-nowrap">
+                    {activePollIndex + 1} / {activePolls.length}
+                  </span>
+                )}
+              </div>
+
+              {activePollsLoading ? (
+                <div className="rounded-xl bg-cream p-6 text-center">
+                  <p className="text-sm italic text-stone-500">
+                    Loading active polls...
+                  </p>
+                </div>
+              ) : activePollsError ? (
+                <div className="rounded-xl bg-cream p-6 text-center">
+                  <p className="text-sm text-stone-500">
+                    {activePollsError}
+                  </p>
+                </div>
+              ) : !activePoll ? (
+                <div className="rounded-xl bg-cream p-6 text-center">
+                  <p className="text-sm text-stone-500">
+                    No active polls right now.
+                  </p>
+                </div>
+              ) : (
+                <PollCard
+                  poll={activePoll}
+                  className="space-y-5"
+                  clubName={getPollClubName(activePoll)}
+                  clubLink={
+                    getPollClubId(activePoll)
+                      ? `/clubs/${getPollClubId(activePoll)}`
+                      : ''
+                  }
+                  canVote
+                  selectedOptionId={
+                    selectedPollOptions[activePoll._id] || ''
+                  }
+                  onSelectOption={(optionId) =>
+                    handleSelectPollOption(
+                      activePoll._id,
+                      optionId
+                    )
+                  }
+                  onVote={() =>
+                    handleVoteInDashboardPoll(activePoll)
+                  }
+                  voteLoading={
+                    pollActionLoadingId === activePoll._id
+                  }
+                  error={pollErrors[activePoll._id]}
+                  message={pollMessages[activePoll._id]}
+                  onRefresh={() => fetchActivePolls(false)}
+                />
+              )}
+
+              {activePolls.length > 1 && (
+                <div className="flex items-center justify-between mt-5 pt-5 border-t border-stone-100">
+                  <button
+                    type="button"
+                    onClick={handlePreviousPoll}
+                    className="w-10 h-10 rounded-full border border-stone-200 bg-cream text-lg transition hover:border-accent hover:text-accent"
+                    aria-label="Show previous poll"
+                  >
+                    ←
+                  </button>
+
+                  <div className="flex gap-2">
+                    {activePolls.map((poll, index) => (
+                      <button
+                        key={poll._id}
+                        type="button"
+                        onClick={() => setActivePollIndex(index)}
+                        className={`w-2.5 h-2.5 rounded-full transition ${index === activePollIndex
+                          ? 'bg-accent'
+                          : 'bg-stone-200 hover:bg-stone-300'
+                          }`}
+                        aria-label={`Show poll ${index + 1}`}
+                      />
+                    ))}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNextPoll}
+                    className="w-10 h-10 rounded-full border border-stone-200 bg-cream text-lg transition hover:border-accent hover:text-accent"
+                    aria-label="Show next poll"
+                  >
+                    →
+                  </button>
+                </div>
+              )}
+            </section>
+          </aside>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
 
