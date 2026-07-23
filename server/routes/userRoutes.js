@@ -5,6 +5,7 @@ const {
   searchUsers,
   updateMyProfileImage,
   getUserClubs,
+  getUserCreatedClubs,
   getUserCurrentlyReading,
   getUserCompletedBooks,
 } = require('../controllers/userController');
@@ -40,6 +41,13 @@ router.put(
   uploadImage.single('image'),
   updateMyProfileImage
 );
+
+/**
+ * Get clubs created by this user.
+ * Example:
+ * GET /api/users/USER_ID/created-clubs
+ */
+router.get('/:id/created-clubs', getUserCreatedClubs);
 
 /**
  * Get all clubs that this user is a member of.

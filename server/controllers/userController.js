@@ -188,6 +188,55 @@ const getUserClubs = async (req, res, next) => {
 };
 
 /**
+ * Get clubs created by a specific user.
+ *
+ * Own profile:
+ * - Return all clubs created by the user.
+ *
+ * Another user's profile:
+ * - Return only public clubs created by that user.
+ */
+const getUserCreatedClubs = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id).select('_id username');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const isOwnProfile =
+      req.user._id.toString() === req.params.id.toString();
+
+    const filter = {
+      creator: req.params.id,
+    };
+
+    if (!isOwnProfile) {
+      filter.isPublic = true;
+    }
+
+    const clubs = await Club.find(filter)
+      .populate('creator', 'username profileImage')
+      .populate(
+        'currentBook',
+        'title author coverImage totalChapters description'
+      )
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: clubs.length,
+      data: clubs,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * Get books the user is currently reading.
  * This uses ReadingProgress because reading status belongs to:
  * user + club + book
@@ -279,6 +328,7 @@ module.exports = {
   searchUsers,
   updateMyProfileImage,
   getUserClubs,
+  getUserCreatedClubs,
   getUserCurrentlyReading,
   getUserCompletedBooks,
 };
