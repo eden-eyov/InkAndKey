@@ -6,6 +6,9 @@ const ReadingProgress = require('../models/ReadingProgress');
 const {
     safelyDeleteManagedBookCover,
 } = require('../utils/cloudinaryImages');
+const {
+    finalizeOldBookProgress,
+} = require('../utils/currentBookTransition');
 /**
  * Builds a clean poll response for the frontend.
  *
@@ -761,7 +764,9 @@ const setWinnerBookAsCurrent = async (req, res, next) => {
             });
         }
 
-        const currentBookId = club.currentBook ? club.currentBook.toString() : null;
+        const currentBookId = club.currentBook
+            ? club.currentBook.toString()
+            : null;
         const winnerBookId = winnerBook._id.toString();
 
         /**
@@ -770,6 +775,11 @@ const setWinnerBookAsCurrent = async (req, res, next) => {
          * and not already stored there.
          */
         if (currentBookId && currentBookId !== winnerBookId) {
+            await finalizeOldBookProgress({
+                clubId: club._id,
+                oldBookId: club.currentBook,
+            });
+            
             const alreadyInPreviousBooks = club.previousBooks.some(
                 (previousBookId) => previousBookId.toString() === currentBookId
             );

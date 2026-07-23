@@ -3,6 +3,10 @@ const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
 const cloudinary = require('../config/cloudinary');
 
+const {
+  finalizeOldBookProgress,
+} = require('../utils/currentBookTransition');
+
 const populateClub = (clubId) =>
   Club.findById(clubId)
     .populate('creator', 'username email profileImage')
@@ -431,10 +435,17 @@ const setCurrentBook = async (req, res, next) => {
       });
     }
 
-    const currentBookId = club.currentBook ? club.currentBook.toString() : null;
+    const currentBookId = club.currentBook
+      ? club.currentBook.toString()
+      : null;
     const newBookId = book._id.toString();
 
     if (currentBookId && currentBookId !== newBookId) {
+      await finalizeOldBookProgress({
+        clubId: club._id,
+        oldBookId: club.currentBook,
+      });
+      
       const alreadyInPreviousBooks = club.previousBooks.some(
         (previousBookId) => previousBookId.toString() === currentBookId
       );
