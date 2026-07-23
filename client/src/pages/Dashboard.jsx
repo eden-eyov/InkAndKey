@@ -6,6 +6,9 @@ import api from '../services/api';
 import { fetchUserClubs } from '../store/clubsSlice';
 import PollCard from '../components/PollCard';
 import ProgressTracker from '../components/ProgressTracker';
+import ThreadCard from '../components/ThreadCard';
+import AddThreadForm from '../components/AddThreadForm';
+import { mapCommentsToDiscussion } from '../utils/clubPageUtils';
 
 function Dashboard() {
   const { user } = useAuth();
@@ -28,6 +31,12 @@ function Dashboard() {
     id: null,
     section: null,
   });
+
+  const [discussionsByProgressId, setDiscussionsByProgressId] = useState({});
+  const [discussionsLoadingId, setDiscussionsLoadingId] = useState('');
+  const [discussionsErrors, setDiscussionsErrors] = useState({});
+  const [newDiscussionProgressId, setNewDiscussionProgressId] =
+    useState('');
 
   const [activePolls, setActivePolls] = useState([]);
   const [activePollIndex, setActivePollIndex] = useState(0);
@@ -252,11 +261,184 @@ function Dashboard() {
     });
   };
 
-  const handleChangeReadSection = (progressId, section) => {
+  const fetchDiscussionsForProgress = async (
+    progress,
+    {
+      forceRefresh = false,
+      showLoading = true,
+    } = {}
+  ) => {
+    const progressId = progress?._id;
+    const clubId = progress?.club?._id;
+    const bookId = progress?.book?._id;
+
+    if (!progressId || !clubId || !bookId) return;
+
+    if (!forceRefresh && discussionsByProgressId[progressId]) {
+      return;
+    }
+
+    try {
+      if (showLoading) {
+        setDiscussionsLoadingId(progressId);
+      }
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progressId]: '',
+      }));
+
+      const { data } = await api.get('/comments', {
+        params: {
+          club: clubId,
+          book: bookId,
+        },
+      });
+
+      setDiscussionsByProgressId((previousDiscussions) => ({
+        ...previousDiscussions,
+        [progressId]: mapCommentsToDiscussion(data.data || []),
+      }));
+    } catch (err) {
+      console.log(
+        'DASHBOARD DISCUSSIONS ERROR:',
+        err.response?.data || err
+      );
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progressId]:
+          err.response?.data?.message ||
+          'Could not load discussions for this book.',
+      }));
+    } finally {
+      if (showLoading) {
+        setDiscussionsLoadingId('');
+      }
+    }
+  };
+
+  const handleCreateDashboardDiscussion = async (
+    progress,
+    discussionData
+  ) => {
+    const clubId = progress?.club?._id;
+    const bookId = progress?.book?._id;
+
+    if (!clubId || !bookId) return;
+
+    try {
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]: '',
+      }));
+
+      await api.post('/comments', {
+        club: clubId,
+        book: bookId,
+        title: discussionData.title,
+        text: discussionData.body,
+        chapterNumber: discussionData.chapterNumber,
+        isSpoilerFreeReview: discussionData.spoilerFree,
+        parentComment: null,
+      });
+
+      setNewDiscussionProgressId('');
+
+      await fetchDiscussionsForProgress(progress, {
+        forceRefresh: true,
+        showLoading: false,
+      });
+    } catch (err) {
+      console.log(
+        'CREATE DASHBOARD DISCUSSION ERROR:',
+        err.response?.data || err
+      );
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]:
+          err.response?.data?.message ||
+          'Failed to publish the discussion.',
+      }));
+    }
+  };
+
+  const handleCreateDiscussionReply = async (
+    progress,
+    thread,
+    replyText
+  ) => {
+    const clubId = progress?.club?._id;
+    const bookId = progress?.book?._id;
+
+    if (!clubId || !bookId) return;
+
+    try {
+      await api.post('/comments', {
+        club: clubId,
+        book: bookId,
+        text: replyText,
+        chapterNumber: thread.chapterNumber,
+        isSpoilerFreeReview: thread.spoilerFree,
+        parentComment: thread._id,
+      });
+
+      await fetchDiscussionsForProgress(progress, {
+        forceRefresh: true,
+        showLoading: false,
+      });
+    } catch (err) {
+      console.log(
+        'DASHBOARD DISCUSSION REPLY ERROR:',
+        err.response?.data || err
+      );
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]:
+          err.response?.data?.message ||
+          'Failed to publish your reply.',
+      }));
+
+      throw err;
+    }
+  };
+
+  const handleToggleDiscussionLike = async (progress, commentId) => {
+    if (!progress?.book?._id || !progress?.club?._id) return;
+
+    try {
+      await api.post(`/comments/${commentId}/like`);
+
+      await fetchDiscussionsForProgress(progress, {
+        forceRefresh: true,
+        showLoading: false,
+      });
+    } catch (err) {
+      console.log(
+        'DASHBOARD DISCUSSION LIKE ERROR:',
+        err.response?.data || err
+      );
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]:
+          err.response?.data?.message ||
+          'Failed to update the like.',
+      }));
+    }
+  };
+
+  const handleChangeReadSection = async (progress, section) => {
     setExpandedRead({
-      id: progressId,
+      id: progress._id,
       section,
     });
+
+    if (section === 'discussions') {
+      await fetchDiscussionsForProgress(progress);
+    }
   };
 
   const handleUpdateProgress = async (progress, nextChapter) => {
@@ -274,10 +456,22 @@ function Dashboard() {
 
       setProgressActionMessage('Reading progress updated.');
 
-      await Promise.all([
+      const refreshTasks = [
         fetchCurrentReads(),
         dispatch(fetchUserClubs()),
-      ]);
+      ];
+
+      if (discussionsByProgressId[progress._id]) {
+        refreshTasks.push(
+          fetchDiscussionsForProgress(progress, {
+            forceRefresh: true,
+            showLoading: false,
+          })
+        );
+      }
+
+      await Promise.all(refreshTasks);
+
     } catch (err) {
       console.log(
         'DASHBOARD PROGRESS UPDATE ERROR:',
@@ -586,6 +780,20 @@ function Dashboard() {
                           isExpanded &&
                           expandedRead.section === 'discussions';
 
+                        const dashboardClub = (Array.isArray(clubs) ? clubs : []).find(
+                          (club) =>
+                            club._id?.toString() === progress.club?._id?.toString()
+                        );
+
+                        const clubCurrentBookId =
+                          dashboardClub?.currentBook?._id ||
+                          dashboardClub?.currentBook;
+
+                        const isStillCurrentClubBook =
+                          Boolean(clubCurrentBookId) &&
+                          clubCurrentBookId.toString() ===
+                          progress.book?._id?.toString();
+
                         return (
                           <article
                             key={progress._id}
@@ -676,10 +884,7 @@ function Dashboard() {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleChangeReadSection(
-                                        progress._id,
-                                        'progress'
-                                      )
+                                      handleChangeReadSection(progress, 'progress')
                                     }
                                     className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'progress'
                                       ? 'border-accent text-accent'
@@ -692,10 +897,7 @@ function Dashboard() {
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      handleChangeReadSection(
-                                        progress._id,
-                                        'discussions'
-                                      )
+                                      handleChangeReadSection(progress, 'discussions')
                                     }
                                     className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'discussions'
                                       ? 'border-accent text-accent'
@@ -748,19 +950,121 @@ function Dashboard() {
                                   )}
 
                                   {expandedRead.section === 'discussions' && (
-                                    <div className="bg-white rounded-2xl border border-stone-200/60 p-6">
-                                      <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                                        Recent discussions
-                                      </span>
+                                    <div>
+                                      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+                                        <div>
+                                          <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                            Recent discussions
+                                          </span>
 
-                                      <h4 className="font-serif text-2xl mt-2 mb-2">
-                                        Conversations about {bookTitle}
-                                      </h4>
+                                          <h4 className="font-serif text-2xl mt-2">
+                                            Conversations about {bookTitle}
+                                          </h4>
+                                          {newDiscussionProgressId === progress._id && (
+                                            <AddThreadForm
+                                              totalChapters={totalChapters}
+                                              onCancel={() => setNewDiscussionProgressId('')}
+                                              onSubmitThread={(discussionData) =>
+                                                handleCreateDashboardDiscussion(
+                                                  progress,
+                                                  discussionData
+                                                )
+                                              }
+                                            />
+                                          )}
+                                        </div>
 
-                                      <p className="text-sm text-stone-500 leading-relaxed">
-                                        Recent spoiler-safe discussions for this book will appear
-                                        here once we connect the comments feed.
-                                      </p>
+                                        {progress.club?._id && (
+                                          <div className="flex flex-wrap items-center gap-4">
+                                            <button type="button"
+                                              onClick={() =>
+                                                setNewDiscussionProgressId((currentId) =>
+                                                  currentId === progress._id ? '' : progress._id
+                                                )
+                                              }
+                                              className="text-sm font-medium text-ink hover:text-accent transition">{newDiscussionProgressId === progress._id
+                                                ? 'Cancel'
+                                                : 'New discussion'}
+                                            </button>
+
+                                            {isStillCurrentClubBook && progress.club?._id && (
+                                              <Link
+                                                to={`/clubs/${progress.club._id}`}
+                                                className="text-sm font-medium text-accent hover:underline"
+                                              >
+                                                View all discussions
+                                              </Link>
+                                            )}
+
+                                            {!isStillCurrentClubBook && (
+                                              <span className="text-xs text-stone-400">
+                                                This is a previous club read.
+                                              </span>
+                                            )}
+                                          </div>
+
+
+                                        )}
+
+                                      </div>
+
+                                      {discussionsLoadingId === progress._id ? (
+                                        <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
+                                          <p className="text-sm italic text-stone-500">
+                                            Loading discussions...
+                                          </p>
+                                        </div>
+                                      ) : discussionsErrors[progress._id] ? (
+                                        <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
+                                          <p className="text-sm text-red-600">
+                                            {discussionsErrors[progress._id]}
+                                          </p>
+                                        </div>
+                                      ) : (
+                                        (() => {
+                                          const discussions =
+                                            discussionsByProgressId[progress._id] || [];
+
+                                          const recentDiscussions = [...discussions]
+                                            .reverse()
+                                            .slice(0, 3);
+
+                                          if (recentDiscussions.length === 0) {
+                                            return (
+                                              <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
+                                                <p className="text-sm text-stone-500">
+                                                  No discussions yet.
+                                                </p>
+                                              </div>
+                                            );
+                                          }
+
+                                          return (
+                                            <div className="space-y-4">
+                                              {recentDiscussions.map((thread) => (
+                                                <ThreadCard
+                                                  key={thread._id}
+                                                  thread={thread}
+                                                  canLike
+                                                  onSubmitReply={(selectedThread, replyText) =>
+                                                    handleCreateDiscussionReply(
+                                                      progress,
+                                                      selectedThread,
+                                                      replyText
+                                                    )
+                                                  }
+                                                  onToggleLike={(commentId) =>
+                                                    handleToggleDiscussionLike(
+                                                      progress,
+                                                      commentId
+                                                    )
+                                                  }
+                                                />
+                                              ))}
+                                            </div>
+                                          );
+                                        })()
+                                      )}
                                     </div>
                                   )}
                                 </div>
