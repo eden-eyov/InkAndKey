@@ -24,6 +24,9 @@ function Profile() {
 
   const [ratingLoadingId, setRatingLoadingId] = useState('');
 
+  const [ratingActionError, setRatingActionError] = useState('');
+  const [ratingActionMessage, setRatingActionMessage] = useState('');
+
   const profileImageInputRef = useRef(null);
 
   const isOwnProfile = useMemo(() => {
@@ -160,19 +163,20 @@ function Profile() {
     if (!progress?._id || ratingLoadingId) return;
 
     setRatingLoadingId(progress._id);
-    setProgressActionError('');
-    setProgressActionMessage('');
+    setRatingActionError('');
+    setRatingActionMessage('');
 
     try {
       await api.patch(`/reading-progress/${progress._id}/rating`, {
         rating,
       });
 
-      setProgressActionMessage('Book rating saved.');
+      setRatingActionMessage('Book rating saved.');
       await fetchProfileData();
     } catch (err) {
       console.log('PROFILE RATING ERROR:', err.response?.data || err);
-      setProgressActionError(
+
+      setRatingActionError(
         err.response?.data?.message ||
         'Failed to save rating. Please try again.'
       );
@@ -405,6 +409,17 @@ function Profile() {
                 <p className="text-sm text-stone-500">
                   Books this reader has completed or marked as DNF.
                 </p>
+                {ratingActionError && (
+                  <p className="mt-3 text-sm text-red-500">
+                    {ratingActionError}
+                  </p>
+                )}
+
+                {ratingActionMessage && (
+                  <p className="mt-3 text-sm text-accent">
+                    {ratingActionMessage}
+                  </p>
+                )}
               </div>
 
               {completedBooks.length > 0 ? (
