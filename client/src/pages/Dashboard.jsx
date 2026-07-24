@@ -18,6 +18,9 @@ function Dashboard() {
 
   const [activeTab, setActiveTab] = useState('reading');
   const [searchQuery, setSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [userSearchLoading, setUserSearchLoading] = useState(false);
+  const [userSearchError, setUserSearchError] = useState('');
 
   const [currentlyReading, setCurrentlyReading] = useState([]);
   const [currentReadsLoading, setCurrentReadsLoading] = useState(false);
@@ -556,6 +559,64 @@ function Dashboard() {
   };
 
   const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+
+  useEffect(() => {
+    const trimmedQuery = searchQuery.trim();
+
+    if (trimmedQuery.length < 2) {
+      setUserSearchResults([]);
+      setUserSearchError('');
+      setUserSearchLoading(false);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        setUserSearchLoading(true);
+        setUserSearchError('');
+
+        const response = await api.get('/users/search', {
+          params: {
+            username: trimmedQuery,
+          },
+          signal: controller.signal,
+        });
+
+        setUserSearchResults(
+          Array.isArray(response.data.data) ? response.data.data : []
+        );
+      } catch (err) {
+        if (
+          err.name === 'CanceledError' ||
+          err.code === 'ERR_CANCELED'
+        ) {
+          return;
+        }
+
+        console.log(
+          'DASHBOARD USER SEARCH ERROR:',
+          err.response?.data || err
+        );
+
+        setUserSearchResults([]);
+        setUserSearchError(
+          err.response?.data?.message ||
+          'Could not search for readers.'
+        );
+      } finally {
+        if (!controller.signal.aborted) {
+          setUserSearchLoading(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [searchQuery]);
 
   const filteredClubs = useMemo(() => {
     const clubList = Array.isArray(clubs) ? clubs : [];
@@ -1257,6 +1318,83 @@ function Dashboard() {
                   ⌕
                 </span>
               </div>
+
+              {searchQuery.trim().length >= 2 && (
+                <div className="mt-3 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+                  <div className="border-b border-stone-100 px-4 py-3">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                      Readers
+                    </span>
+                  </div>
+
+                  {userSearchLoading ? (
+                    <div className="px-4 py-5 text-center">
+                      <p className="text-sm italic text-stone-500">
+                        Searching readers...
+                      </p>
+                    </div>
+                  ) : userSearchError ? (
+                    <div className="px-4 py-5">
+                      <p className="text-sm text-red-500">
+                        {userSearchError}
+                      </p>
+                    </div>
+                  ) : userSearchResults.length === 0 ? (
+                    <div className="px-4 py-5 text-center">
+                      <p className="text-sm text-stone-500">
+                        No readers found.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-stone-100">
+                      {userSearchResults.map((reader) => {
+                        const readerInitials = reader.username
+                          ?.split(' ')
+                          .map((part) => part[0])
+                          .join('')
+                          .slice(0, 2)
+                          .toUpperCase();
+
+                        return (
+                          <Link
+                            key={reader._id}
+                            to={`/users/${reader._id}`}
+                            className="flex items-center gap-3 px-4 py-3 transition hover:bg-cream"
+                          >
+                            <div className="h-10 w-10 flex-shrink-0 overflow-hidden rounded-full border border-stone-200 bg-cream">
+                              {reader.profileImage ? (
+                                <img
+                                  src={reader.profileImage}
+                                  alt={`${reader.username} profile`}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center">
+                                  <span className="font-serif text-sm text-stone-400">
+                                    {readerInitials || '?'}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-ink">
+                                {reader.username}
+                              </p>
+
+                              {reader.favoriteGenres?.length > 0 && (
+                                <p className="truncate text-xs text-stone-400">
+                                  {reader.favoriteGenres.slice(0, 3).join(' · ')}
+                                </p>
+                              )}
+                            </div>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
 
             {/* Poll */}
