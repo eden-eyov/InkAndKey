@@ -190,11 +190,7 @@ const getUserClubs = async (req, res, next) => {
 /**
  * Get clubs created by a specific user.
  *
- * Own profile:
- * - Return all clubs created by the user.
- *
- * Another user's profile:
- * - Return only public clubs created by that user.
+ * Return all clubs created by the user.
  */
 const getUserCreatedClubs = async (req, res, next) => {
   try {
@@ -213,10 +209,6 @@ const getUserCreatedClubs = async (req, res, next) => {
     const filter = {
       creator: req.params.id,
     };
-
-    if (!isOwnProfile) {
-      filter.isPublic = true;
-    }
 
     const clubs = await Club.find(filter)
       .populate('creator', 'username profileImage')

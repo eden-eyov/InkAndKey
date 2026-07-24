@@ -52,7 +52,7 @@ const getAllClubs = async (req, res, next) => {
   try {
     const { search, genre, creator } = req.query;
 
-    const filter = { isPublic: true };
+    const filter = {};
 
     if (search) {
       filter.name = { $regex: search, $options: 'i' };

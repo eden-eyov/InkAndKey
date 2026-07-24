@@ -19,7 +19,6 @@ function ClubEditor() {
     name: '',
     description: '',
     genres: [],
-    isPublic: true,
   });
 
   const [club, setClub] = useState(null);
@@ -75,7 +74,6 @@ function ClubEditor() {
           name: clubData.name || '',
           description: clubData.description || '',
           genres: clubData.genres || [],
-          isPublic: clubData.isPublic ?? true,
         });
       } catch (err) {
         console.log('FETCH CLUB FOR EDIT ERROR:', err.response?.data || err);
@@ -217,7 +215,6 @@ function ClubEditor() {
         name: formData.name.trim(),
         description: formData.description.trim(),
         genres: formData.genres,
-        isPublic: formData.isPublic,
       };
 
       if (isEditMode) {
@@ -481,26 +478,6 @@ function ClubEditor() {
               })}
             </div>
           </div>
-
-          <label className="flex items-center gap-3 bg-cream border border-stone-100 rounded-xl p-4 cursor-pointer">
-            <input
-              type="checkbox"
-              name="isPublic"
-              checked={formData.isPublic}
-              onChange={handleChange}
-              className="w-4 h-4 accent-stone-900"
-            />
-
-            <span>
-              <span className="block text-sm font-medium text-ink">
-                Public club
-              </span>
-
-              <span className="block text-xs text-stone-500">
-                Public clubs can be discovered by guests and other readers.
-              </span>
-            </span>
-          </label>
 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-stone-100">
             <div className="flex flex-col sm:flex-row gap-3">

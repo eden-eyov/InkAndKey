@@ -9,7 +9,6 @@ const GENRES = require('../utils/genres');
  * current book - FK
  * previous books
  * genres
- * is public - currently always true
  */
 const clubSchema = new mongoose.Schema(
   {
@@ -75,10 +74,6 @@ const clubSchema = new mongoose.Schema(
         default: [],
     },
 
-    isPublic: {
-      type: Boolean,
-      default: true,
-    },
   },
   {
     timestamps: true,

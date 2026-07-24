@@ -19,7 +19,6 @@ const createClubSchema = Joi.object({
 
   genres: Joi.array().items(Joi.string().valid(...GENRES)).default([]),
 
-  isPublic: Joi.boolean().default(true),
 });
 
 const updateClubSchema = Joi.object({
@@ -36,7 +35,6 @@ const updateClubSchema = Joi.object({
 
   genres: Joi.array().items(Joi.string().valid(...GENRES)),
 
-  isPublic: Joi.boolean(),
 }).min(1).messages({
   'object.min': 'At least one field is required for update',
 });
