@@ -16,6 +16,7 @@ const createEmptyNewBookData = () => ({
   description: '',
   coverImage: '',
   coverImagePublicId: '',
+  coverImageDeleteToken: '',
   genres: [],
   googleBooksId: '',
   pageCount: null,
@@ -56,12 +57,15 @@ function useSetCurrentBook({
   const showSetBookFormRef = useRef(showSetBookForm);
   const bookFormSessionRef = useRef(0);
 
-  const cleanupUploadedBookCover = async (publicId) => {
-    if (!publicId) return;
+  const cleanupUploadedBookCover = async (publicId, deleteToken) => {
+    if (!publicId || !deleteToken) return;
 
     try {
       await api.delete('/uploads/image', {
-        data: { publicId },
+        data: {
+          publicId,
+          deleteToken,
+        },
       });
     } catch (err) {
       console.log('BOOK COVER CLEANUP ERROR:', err.response?.data || err);
@@ -94,11 +98,17 @@ function useSetCurrentBook({
 
   useEffect(() => {
     return () => {
+      const currentBookData = newBookDataRef.current;
+
       if (
         showSetBookFormRef.current &&
-        newBookDataRef.current.coverImagePublicId
+        currentBookData.coverImagePublicId &&
+        currentBookData.coverImageDeleteToken
       ) {
-        void cleanupUploadedBookCover(newBookDataRef.current.coverImagePublicId);
+        void cleanupUploadedBookCover(
+          currentBookData.coverImagePublicId,
+          currentBookData.coverImageDeleteToken
+        );
       }
     };
   }, []);
@@ -198,17 +208,25 @@ function useSetCurrentBook({
       value !== newBookData.coverImage;
 
     if (shouldClearUploadedCover) {
-      void cleanupUploadedBookCover(newBookData.coverImagePublicId);
+      void cleanupUploadedBookCover(
+        newBookData.coverImagePublicId,
+        newBookData.coverImageDeleteToken
+      );
     }
 
     if (name === 'coverImage') {
       setNewBookCoverUploadError('');
     }
 
-    setSetBookFormErrors((prev) => ({
+    setNewBookData((prev) => ({
       ...prev,
-      general: '',
-      [name]: '',
+      [name]: value,
+      ...(shouldClearUploadedCover
+        ? {
+          coverImagePublicId: '',
+          coverImageDeleteToken: '',
+        }
+        : {}),
     }));
 
     setNewBookData((prev) => ({
@@ -234,9 +252,13 @@ function useSetCurrentBook({
   const handleSelectGoogleBook = (book) => {
     const selectedQuery = buildBookSuggestionQuery(book);
     const previousPublicId = newBookData.coverImagePublicId;
+    const previousDeleteToken = newBookData.coverImageDeleteToken;
 
-    if (previousPublicId) {
-      void cleanupUploadedBookCover(previousPublicId);
+    if (previousPublicId && previousDeleteToken) {
+      void cleanupUploadedBookCover(
+        previousPublicId,
+        previousDeleteToken
+      );
     }
 
     setNewBookData((prev) => ({
@@ -246,6 +268,7 @@ function useSetCurrentBook({
       description: book.description || '',
       coverImage: book.coverImage || '',
       coverImagePublicId: '',
+      coverImageDeleteToken: '',
       googleBooksId: book.googleBooksId || '',
       pageCount: book.pageCount || null,
       publishedDate: book.publishedDate || '',
@@ -275,6 +298,8 @@ function useSetCurrentBook({
     const uploadSession = bookFormSessionRef.current;
     const previousCoverImage = newBookData.coverImage || '';
     const previousPublicId = newBookData.coverImagePublicId || '';
+    const previousDeleteToken =
+      newBookData.coverImageDeleteToken || '';
     const formData = new FormData();
 
     formData.append('image', file);
@@ -294,11 +319,16 @@ function useSetCurrentBook({
         showSetBookFormRef.current &&
         uploadSession === bookFormSessionRef.current &&
         (latestBookData.coverImage || '') === previousCoverImage &&
-        (latestBookData.coverImagePublicId || '') === previousPublicId;
+        (latestBookData.coverImagePublicId || '') === previousPublicId &&
+        (latestBookData.coverImageDeleteToken || '') ===
+        previousDeleteToken;
 
       if (!uploadCanStillApply) {
-        if (uploadedImage.publicId) {
-          await cleanupUploadedBookCover(uploadedImage.publicId);
+        if (uploadedImage.publicId && uploadedImage.deleteToken) {
+          await cleanupUploadedBookCover(
+            uploadedImage.publicId,
+            uploadedImage.deleteToken
+          );
         }
 
         return;
@@ -308,20 +338,25 @@ function useSetCurrentBook({
         ...prev,
         coverImage: uploadedImage.url || '',
         coverImagePublicId: uploadedImage.publicId || '',
+        coverImageDeleteToken: uploadedImage.deleteToken || '',
       }));
 
       if (
         previousPublicId &&
+        previousDeleteToken &&
         previousPublicId !== uploadedImage.publicId
       ) {
-        void cleanupUploadedBookCover(previousPublicId);
+        void cleanupUploadedBookCover(
+          previousPublicId,
+          previousDeleteToken
+        );
       }
     } catch (err) {
       console.log('NEW BOOK COVER UPLOAD ERROR:', err.response?.data || err);
 
       setNewBookCoverUploadError(
         err.response?.data?.message ||
-          'Failed to upload cover image. Please try again.'
+        'Failed to upload cover image. Please try again.'
       );
     } finally {
       setNewBookCoverUploadLoading(false);
@@ -333,8 +368,16 @@ function useSetCurrentBook({
     showSetBookFormRef.current = false;
     setShowSetBookForm(false);
 
-    if (newBookDataRef.current.coverImagePublicId) {
-      await cleanupUploadedBookCover(newBookDataRef.current.coverImagePublicId);
+    const currentBookData = newBookDataRef.current;
+
+    if (
+      currentBookData.coverImagePublicId &&
+      currentBookData.coverImageDeleteToken
+    ) {
+      await cleanupUploadedBookCover(
+        currentBookData.coverImagePublicId,
+        currentBookData.coverImageDeleteToken
+      );
     }
 
     resetBookFormState();
