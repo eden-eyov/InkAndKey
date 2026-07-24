@@ -367,7 +367,8 @@ function Dashboard() {
   const handleCreateDiscussionReply = async (
     progress,
     thread,
-    replyText
+    replyText,
+    chapterNumber
   ) => {
     const clubId = progress?.club?._id;
     const bookId = progress?.book?._id;
@@ -379,8 +380,7 @@ function Dashboard() {
         club: clubId,
         book: bookId,
         text: replyText,
-        chapterNumber: thread.chapterNumber,
-        isSpoilerFreeReview: thread.spoilerFree,
+        chapterNumber,
         parentComment: thread._id,
       });
 
@@ -426,6 +426,32 @@ function Dashboard() {
         [progress._id]:
           err.response?.data?.message ||
           'Failed to update the like.',
+      }));
+    }
+  };
+
+  const handleDeleteDiscussionComment = async (
+    progress,
+    commentId
+  ) => {
+    try {
+      await api.delete(`/comments/${commentId}`);
+
+      await fetchDiscussionsForProgress(progress, {
+        forceRefresh: true,
+        showLoading: false,
+      });
+    } catch (err) {
+      console.log(
+        'DELETE DASHBOARD COMMENT ERROR:',
+        err.response?.data || err
+      );
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]:
+          err.response?.data?.message ||
+          'Failed to delete comment.',
       }));
     }
   };
@@ -1045,16 +1071,29 @@ function Dashboard() {
                                                 <ThreadCard
                                                   key={thread._id}
                                                   thread={thread}
+                                                  totalChapters={totalChapters}
+                                                  currentUserId={currentUserId}
                                                   canLike
-                                                  onSubmitReply={(selectedThread, replyText) =>
+                                                  onSubmitReply={(
+                                                    selectedThread,
+                                                    replyText,
+                                                    chapterNumber
+                                                  ) =>
                                                     handleCreateDiscussionReply(
                                                       progress,
                                                       selectedThread,
-                                                      replyText
+                                                      replyText,
+                                                      chapterNumber
                                                     )
                                                   }
                                                   onToggleLike={(commentId) =>
                                                     handleToggleDiscussionLike(
+                                                      progress,
+                                                      commentId
+                                                    )
+                                                  }
+                                                  onDeleteComment={(commentId) =>
+                                                    handleDeleteDiscussionComment(
                                                       progress,
                                                       commentId
                                                     )

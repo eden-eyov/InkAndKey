@@ -91,6 +91,7 @@ export const mapCommentsToDiscussion = (comments = []) => {
       spoilerFree: comment.isSpoilerFreeReview,
       authorId: getCommentUserId(comment),
       authorName: comment.user?.username || 'Reader',
+      isDeleted: Boolean(comment.isDeleted),
       isLocked: comment.isLocked,
       lockedReason: comment.isLocked
         ? `Locked — reach chapter ${comment.unlockChapter} to unlock`
@@ -101,8 +102,15 @@ export const mapCommentsToDiscussion = (comments = []) => {
       replies: commentReplies.map((reply) => ({
         _id: reply._id,
         body: reply.text || '',
+        chapterNumber: reply.chapterNumber,
+        isLocked: Boolean(reply.isLocked),
+        unlockChapter: reply.unlockChapter,
+        lockedReason: reply.isLocked
+          ? `Locked — reach chapter ${reply.unlockChapter} to unlock`
+          : '',
         authorId: getCommentUserId(reply),
         authorName: reply.user?.username || 'Reader',
+        isDeleted: Boolean(reply.isDeleted),
         likesCount: reply.likesCount || 0,
         isLikedByMe: Boolean(reply.isLikedByMe),
       })),

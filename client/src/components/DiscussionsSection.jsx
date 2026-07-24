@@ -7,6 +7,7 @@ function DiscussionsSection({
   totalChapters,
   isGuest,
   isMember,
+  currentUserId,
   userCurrentChapter,
   showAddCommentForm,
   comments = [],
@@ -16,6 +17,7 @@ function DiscussionsSection({
   onCreateComment,
   onCreateReply,
   onToggleLike,
+  onDeleteComment,
 }) {
   const visibleComments = comments.map((comment) => {
     if (isGuest) {
@@ -84,10 +86,13 @@ function DiscussionsSection({
             <ThreadCard
               key={comment._id}
               thread={comment}
+              totalChapters={totalChapters}
               isGuest={isGuest}
               canLike={isMember}
+              currentUserId={currentUserId}
               onSubmitReply={onCreateReply}
               onToggleLike={onToggleLike}
+              onDeleteComment={onDeleteComment}
             />
           ))}
         </div>

@@ -64,6 +64,9 @@ const createComment = async (req, res, next) => {
       parentComment,
     } = req.body;
 
+    let effectiveChapterNumber = chapterNumber;
+    let effectiveIsSpoilerFreeReview = isSpoilerFreeReview ?? false;
+
     const userId = req.user._id;
 
     const club = await Club.findById(clubId);
@@ -102,13 +105,6 @@ const createComment = async (req, res, next) => {
       });
     }
 
-    if (chapterNumber > book.totalChapters) {
-      return res.status(400).json({
-        success: false,
-        message: `Chapter number cannot be greater than total chapters (${book.totalChapters})`,
-      });
-    }
-
     if (parentComment) {
       const parent = await Comment.findById(parentComment);
 
@@ -116,6 +112,12 @@ const createComment = async (req, res, next) => {
         return res.status(404).json({
           success: false,
           message: 'Parent comment not found',
+        });
+      }
+      if (parent.isDeleted) {
+        return res.status(400).json({
+          success: false,
+          message: 'You cannot reply to a deleted comment',
         });
       }
 
@@ -128,7 +130,29 @@ const createComment = async (req, res, next) => {
           message: 'Parent comment must belong to the same club and book',
         });
       }
+
+      effectiveChapterNumber =
+        chapterNumber ?? parent.chapterNumber;
+
+      if (effectiveChapterNumber < parent.chapterNumber) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `A reply cannot be assigned to a chapter earlier than its parent comment ` +
+            `(chapter ${parent.chapterNumber})`,
+        });
+      }
+
+      effectiveIsSpoilerFreeReview = false;
     }
+
+    if (effectiveChapterNumber > book.totalChapters) {
+      return res.status(400).json({
+        success: false,
+        message: `Chapter number cannot be greater than total chapters (${book.totalChapters})`,
+      });
+    }
+
 
     const comment = await Comment.create({
       club: clubId,
@@ -136,8 +160,8 @@ const createComment = async (req, res, next) => {
       user: userId,
       title,
       text,
-      chapterNumber,
-      isSpoilerFreeReview,
+      chapterNumber: effectiveChapterNumber,
+      isSpoilerFreeReview: effectiveIsSpoilerFreeReview,
       parentComment,
     });
 
@@ -268,6 +292,7 @@ const getPublicSpoilerFreeComments = async (req, res, next) => {
       club: clubId,
       book: bookId,
       isSpoilerFreeReview: true,
+      parentComment: null,
     })
       .populate('user', 'username profileImage')
       .populate('club', 'name')
@@ -368,6 +393,39 @@ const updateComment = async (req, res, next) => {
       });
     }
 
+    let parent = null;
+
+    if (comment.parentComment) {
+      parent = await Comment.findById(comment.parentComment);
+
+      if (!parent) {
+        return res.status(409).json({
+          success: false,
+          message: 'The parent comment no longer exists',
+        });
+      }
+
+      if (isSpoilerFreeReview !== undefined) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'A reply cannot be marked or updated as a spoiler-free review',
+        });
+      }
+
+      if (
+        chapterNumber !== undefined &&
+        chapterNumber < parent.chapterNumber
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            `A reply cannot be assigned to a chapter earlier than its parent comment ` +
+            `(chapter ${parent.chapterNumber})`,
+        });
+      }
+    }
+
     const book = await Book.findById(comment.book);
 
     if (!book) {
@@ -394,6 +452,10 @@ const updateComment = async (req, res, next) => {
 
     if (isSpoilerFreeReview !== undefined) {
       comment.isSpoilerFreeReview = isSpoilerFreeReview;
+    }
+
+    if (comment.parentComment) {
+      comment.isSpoilerFreeReview = false;
     }
 
     await comment.save();

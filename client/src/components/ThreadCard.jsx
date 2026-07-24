@@ -22,14 +22,23 @@ function AuthorLink({ userId, name }) {
 
 function ThreadCard({
   thread,
+  totalChapters = 0,
   isGuest = false,
   canLike = false,
+  currentUserId,
   onSubmitReply,
   onToggleLike,
+  onDeleteComment,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [replyChapter, setReplyChapter] = useState(
+    Number(thread.chapterNumber) || 0
+  );
+  const [replySubmitting, setReplySubmitting] = useState(false);
   const [likingId, setLikingId] = useState(null);
+
+  const [deletingId, setDeletingId] = useState(null);
 
   const canOpenThread = !thread.isLocked;
 
@@ -42,15 +51,35 @@ function ThreadCard({
     e.preventDefault();
 
     const trimmedReply = replyText.trim();
+    const selectedChapter = Number(replyChapter);
 
-    if (!trimmedReply) return;
-    if (!onSubmitReply) return;
+    if (!trimmedReply || !onSubmitReply || replySubmitting) {
+      return;
+    }
+
+    if (
+      !Number.isInteger(selectedChapter) ||
+      selectedChapter < parentChapter ||
+      selectedChapter > bookTotalChapters
+    ) {
+      return;
+    }
 
     try {
-      await onSubmitReply(thread, trimmedReply);
+      setReplySubmitting(true);
+
+      await onSubmitReply(
+        thread,
+        trimmedReply,
+        selectedChapter
+      );
+
       setReplyText('');
+      setReplyChapter(parentChapter);
     } catch (error) {
       console.log('SUBMIT REPLY ERROR:', error);
+    } finally {
+      setReplySubmitting(false);
     }
   };
 
@@ -64,6 +93,47 @@ function ThreadCard({
       setLikingId(null);
     }
   };
+
+  const handleDeleteClick = async (commentId) => {
+    if (!onDeleteComment) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to delete this comment?'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeletingId(commentId);
+
+      await onDeleteComment(commentId);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const parentChapter = Number(thread.chapterNumber) || 0;
+  const bookTotalChapters = Number(totalChapters) || parentChapter;
+
+  const canDeleteThread =
+    Boolean(currentUserId) &&
+    Boolean(thread.authorId) &&
+    currentUserId.toString() === thread.authorId.toString();
+
+  const canReply =
+    !thread.isDeleted &&
+    !thread.isLocked &&
+    !isGuest;
+
+  const replyChapterOptions = Array.from(
+    {
+      length: Math.max(
+        bookTotalChapters - parentChapter + 1,
+        1
+      ),
+    },
+    (_, index) => parentChapter + index
+  );
 
   return (
     <article
@@ -120,23 +190,40 @@ function ThreadCard({
             </span>
           </div>
         </button>
+        {canDeleteThread && !thread.isDeleted && (
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => handleDeleteClick(thread._id)}
+              disabled={deletingId === thread._id}
+              className="text-xs font-medium text-stone-400 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {deletingId === thread._id ? 'Deleting...' : 'Delete discussion'}
+            </button>
+          </div>
+        )}
         {!thread.isLocked && canLike && (
           <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-4">
             <button
               type="button"
               onClick={() => handleLikeClick(thread._id)}
               disabled={likingId === thread._id}
-              className={`text-sm font-medium transition ${thread.isLikedByMe
+              aria-pressed={thread.isLikedByMe}
+              className={`inline-flex items-center gap-2 text-sm font-medium transition ${thread.isLikedByMe
                 ? 'text-accent'
                 : 'text-stone-400 hover:text-accent'
                 } disabled:opacity-50`}
             >
-              {thread.isLikedByMe ? 'Liked' : 'Like'}
-            </button>
+              <span aria-hidden="true" className="text-lg leading-none">
+                {thread.isLikedByMe ? '♥' : '♡'}
+              </span>
 
-            <span className="text-xs text-stone-400">
-              {thread.likesCount || 0} likes
-            </span>
+              <span>{thread.likesCount || 0}</span>
+
+              <span className="sr-only">
+                {thread.isLikedByMe ? 'Unlike discussion' : 'Like discussion'}
+              </span>
+            </button>
           </div>
         )}
 
@@ -149,32 +236,84 @@ function ThreadCard({
                 {thread.replies.map((reply) => (
                   <div
                     key={reply._id}
-                    className="bg-cream border border-stone-100 rounded-xl p-4"
+                    className="relative overflow-hidden bg-cream border border-stone-100 rounded-xl p-4"
                   >
-                    <p className="text-sm text-stone-600 leading-relaxed mb-2">
-                      {reply.body}
-                    </p>
+                    <div
+                      className={
+                        reply.isLocked
+                          ? 'blur-sm select-none pointer-events-none'
+                          : ''
+                      }
+                    >
+                      <div className="flex flex-wrap items-center gap-2 mb-3">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 bg-white border border-stone-200 rounded-full px-3 py-1">
+                          Chapter {reply.chapterNumber}
+                        </span>
 
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="text-xs text-stone-400">
-                        Posted by{' '}
-                        <AuthorLink userId={reply.authorId} name={reply.authorName} />
-                      </span>
+                        {reply.isLocked && (
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 bg-stone-100 rounded-full px-3 py-1">
+                            Locked
+                          </span>
+                        )}
+                      </div>
 
-                      {canLike && (
-                        <button
-                          type="button"
-                          onClick={() => handleLikeClick(reply._id)}
-                          disabled={likingId === reply._id}
-                          className={`text-xs font-medium transition ${reply.isLikedByMe
-                            ? 'text-accent'
-                            : 'text-stone-400 hover:text-accent'
-                            } disabled:opacity-50`}
-                        >
-                          {reply.isLikedByMe ? 'Liked' : 'Like'} · {reply.likesCount || 0}
-                        </button>
-                      )}
+                      <p className="text-sm text-stone-600 leading-relaxed mb-2">
+                        {reply.body}
+                      </p>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-stone-400">
+                          Posted by{' '}
+                          <AuthorLink
+                            userId={reply.authorId}
+                            name={reply.authorName}
+                          />
+                        </span>
+
+                        {canLike && !reply.isLocked && (
+                          <button
+                            type="button"
+                            onClick={() => handleLikeClick(reply._id)}
+                            disabled={likingId === reply._id}
+                            aria-pressed={reply.isLikedByMe}
+                            className={`inline-flex items-center gap-1.5 text-xs font-medium transition ${reply.isLikedByMe
+                              ? 'text-accent'
+                              : 'text-stone-400 hover:text-accent'
+                              } disabled:opacity-50`}
+                          >
+                            <span aria-hidden="true" className="text-base leading-none">
+                              {reply.isLikedByMe ? '♥' : '♡'}
+                            </span>
+
+                            <span>{reply.likesCount || 0}</span>
+
+                            <span className="sr-only">
+                              {reply.isLikedByMe ? 'Unlike reply' : 'Like reply'}
+                            </span>
+                          </button>
+                        )}
+                      </div>
+                      {currentUserId?.toString() === reply.authorId?.toString() &&
+                        !reply.isDeleted && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClick(reply._id)}
+                              disabled={deletingId === reply._id}
+                              className="text-xs font-medium text-stone-400 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {deletingId === reply._id ? 'Deleting...' : 'Delete reply'}
+                            </button>
+                          </div>
+                        )}
                     </div>
+
+                    {reply.isLocked && (
+                      <LockedContent
+                        reason={reply.lockedReason}
+                        isGuest={isGuest}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -206,7 +345,7 @@ function ThreadCard({
                   </Link>
                 </div>
               </div>
-            ) : (
+            ) : canReply ? (
               <form onSubmit={handleSubmitReply} className="space-y-3">
                 <label
                   htmlFor={`reply-${thread._id}`}
@@ -224,14 +363,51 @@ function ThreadCard({
                   className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm resize-none"
                 />
 
+                <div>
+                  <label
+                    htmlFor={`reply-chapter-${thread._id}`}
+                    className="block text-xs uppercase tracking-wider text-stone-500 mb-1"
+                  >
+                    Chapter
+                  </label>
+
+                  <select
+                    id={`reply-chapter-${thread._id}`}
+                    value={replyChapter}
+                    onChange={(e) =>
+                      setReplyChapter(Number(e.target.value))
+                    }
+                    disabled={replySubmitting}
+                    className="w-full p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm disabled:opacity-60"
+                  >
+                    {replyChapterOptions.map((chapter) => (
+                      <option key={chapter} value={chapter}>
+                        {chapter === parentChapter
+                          ? `Chapter ${chapter} — same as discussion`
+                          : `Chapter ${chapter}`}
+                      </option>
+                    ))}
+                  </select>
+
+                  <p className="mt-1 text-xs text-stone-400">
+                    Choose a later chapter only if your reply discusses
+                    information revealed later in the book.
+                  </p>
+                </div>
+
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
+                  disabled={replySubmitting || !replyText.trim()}
+                  className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Post reply
+                  {replySubmitting ? 'Posting...' : 'Post reply'}
                 </button>
               </form>
-            )}
+            ) : thread.isDeleted ? (
+              <p className="text-sm italic text-stone-400">
+                This discussion was deleted and can no longer receive replies.
+              </p>
+            ) : null}
           </div>
         )}
       </div>

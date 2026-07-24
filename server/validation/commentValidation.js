@@ -26,18 +26,29 @@ const createCommentSchema = Joi.object({
     'any.required': 'Comment text is required',
   }),
 
-  chapterNumber: Joi.number().integer().min(0).required().messages({
-    'number.base': 'Chapter number must be a number',
-    'number.integer': 'Chapter number must be a whole number',
-    'number.min': 'Chapter number cannot be negative',
-    'any.required': 'Chapter number is required',
-  }),
-
-  isSpoilerFreeReview: Joi.boolean().default(false),
-
   parentComment: objectIdSchema.allow(null).default(null).messages({
     'string.hex': 'Parent comment id must be a valid MongoDB id',
     'string.length': 'Parent comment id must be a valid MongoDB id',
+  }),
+
+  chapterNumber: Joi.when('parentComment', {
+    is: Joi.string().hex().length(24).required(),
+    then: Joi.number().integer().min(0).optional(),
+    otherwise: Joi.number().integer().min(0).required(),
+  }).messages({
+    'number.base': 'Chapter number must be a number',
+    'number.integer': 'Chapter number must be a whole number',
+    'number.min': 'Chapter number cannot be negative',
+    'any.required': 'Chapter number is required for a new discussion',
+  }),
+
+  isSpoilerFreeReview: Joi.when('parentComment', {
+    is: Joi.string().hex().length(24).required(),
+    then: Joi.forbidden(),
+    otherwise: Joi.boolean().default(false),
+  }).messages({
+    'any.unknown':
+      'A reply cannot be marked as a spoiler-free review',
   }),
 });
 

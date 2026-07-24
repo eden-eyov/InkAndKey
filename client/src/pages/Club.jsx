@@ -181,13 +181,21 @@ function Club() {
     fetchClub();
   }, [clubId, user]);
 
-  const fetchComments = async (bookId, shouldUsePublicRoute = false) => {
+  const fetchComments = async (
+    bookId,
+    shouldUsePublicRoute = false,
+    showLoading = true
+  ) => {
     if (!bookId) return;
 
     try {
-      setCommentsLoading(true);
+      if (showLoading) {
+        setCommentsLoading(true);
+      }
 
-      const endpoint = shouldUsePublicRoute ? '/comments/public' : '/comments';
+      const endpoint = shouldUsePublicRoute
+        ? '/comments/public'
+        : '/comments';
 
       const { data } = await api.get(endpoint, {
         params: {
@@ -196,11 +204,18 @@ function Club() {
         },
       });
 
-      setDiscussionComments(mapCommentsToDiscussion(data.data || []));
+      setDiscussionComments(
+        mapCommentsToDiscussion(data.data || [])
+      );
     } catch (err) {
-      console.log('FETCH COMMENTS ERROR:', err.response?.data || err);
+      console.log(
+        'FETCH COMMENTS ERROR:',
+        err.response?.data || err
+      );
     } finally {
-      setCommentsLoading(false);
+      if (showLoading) {
+        setCommentsLoading(false);
+      }
     }
   };
 
@@ -243,6 +258,8 @@ function Club() {
         setCompletedProgressForRating(updatedProgress);
         setShowCurrentBookRatingModal(true);
       }
+
+      await fetchComments(currentBook._id, false);
 
       refreshClubLists();
     } catch (err) {
@@ -587,7 +604,11 @@ function Club() {
     }
   };
 
-  const handleCreateReply = async (comment, replyText) => {
+  const handleCreateReply = async (
+    comment,
+    replyText,
+    chapterNumber
+  ) => {
     if (!currentBook || !isMember) return;
 
     try {
@@ -595,19 +616,23 @@ function Club() {
         club: clubId,
         book: currentBook._id,
         text: replyText,
-        chapterNumber: comment.chapterNumber,
-        isSpoilerFreeReview: comment.spoilerFree,
+        chapterNumber,
         parentComment: comment._id,
       });
 
-      await fetchComments(currentBook._id, false);
+      await fetchComments(currentBook._id, false, false);
     } catch (err) {
-      console.log('CREATE REPLY ERROR:', err.response?.data || err);
+      console.log(
+        'CREATE REPLY ERROR:',
+        err.response?.data || err
+      );
 
       setError(
         err.response?.data?.message ||
         'Failed to publish reply. Please try again.'
       );
+
+      throw err;
     }
   };
 
@@ -617,13 +642,33 @@ function Club() {
     try {
       await api.post(`/comments/${commentId}/like`);
 
-      await fetchComments(currentBook._id, false);
+      await fetchComments(currentBook._id, false, false);
     } catch (err) {
       console.log('TOGGLE LIKE ERROR:', err.response?.data || err);
 
       setError(
         err.response?.data?.message ||
         'Failed to update like. Please try again.'
+      );
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    if (!currentBook || !isMember) return;
+
+    try {
+      await api.delete(`/comments/${commentId}`);
+
+      await fetchComments(currentBook._id, false, false);
+    } catch (err) {
+      console.log(
+        'DELETE COMMENT ERROR:',
+        err.response?.data || err
+      );
+
+      setError(
+        err.response?.data?.message ||
+        'Failed to delete comment. Please try again.'
       );
     }
   };
@@ -1075,6 +1120,7 @@ function Club() {
             totalChapters={totalChapters}
             isGuest={isGuest}
             isMember={isMember}
+            currentUserId={currentUserId}
             userCurrentChapter={userCurrentChapter}
             showAddCommentForm={showAddCommentForm}
             comments={discussionComments}
@@ -1084,6 +1130,7 @@ function Club() {
             onCreateComment={handleCreateComment}
             onCreateReply={handleCreateReply}
             onToggleLike={handleToggleLike}
+            onDeleteComment={handleDeleteComment}
           />
 
           {isGuest ? (
