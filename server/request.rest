@@ -1,66 +1,104 @@
+### ==================================================
+### Ink & Key API - REST Client collection
+### Fill these values locally before running protected requests.
+### Do not commit real passwords, access tokens, or resource IDs.
+### ==================================================
+
+@baseUrl = http://localhost:5000/api
+
+### Local test credentials
+@testPassword = YOUR_TEST_PASSWORD
+
+### Access tokens
+@primaryToken = YOUR_PRIMARY_USER_ACCESS_TOKEN
+@secondaryToken = YOUR_SECONDARY_USER_ACCESS_TOKEN
+@pollCreatorToken = YOUR_POLL_CREATOR_ACCESS_TOKEN
+
+### User IDs
+@primaryUserId = YOUR_PRIMARY_USER_ID
+@secondaryUserId = YOUR_SECONDARY_USER_ID
+@pollCreatorUserId = YOUR_POLL_CREATOR_USER_ID
+
+### Fantasy Readers test data
+@fantasyClubId = YOUR_FANTASY_CLUB_ID
+@fantasyBookId = YOUR_FANTASY_BOOK_ID
+@progressId = YOUR_PROGRESS_ID
+@commentId = YOUR_COMMENT_ID
+
+### Poll test data
+@pollClubId = YOUR_POLL_CLUB_ID
+@pollId = YOUR_POLL_ID
+@pollOptionId = YOUR_POLL_OPTION_ID
+
+### DNF and rating test data
+@dnfClubId = YOUR_DNF_CLUB_ID
+@dnfBookId = YOUR_DNF_BOOK_ID
+@dnfProgressId = YOUR_DNF_PROGRESS_ID
+
+
 ### Health check
-GET http://localhost:5000/api/health
+GET {{baseUrl}}/health
 
 ##auth checks:
 
 ### Register new user
-POST http://localhost:5000/api/auth/register
+POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
   "username": "maya",
   "email": "maya@example.com",
-  "password": "123456",
+  "password": "{{testPassword}}",
   "favoriteGenres": ["Fantasy", "Romance"],
   "favoriteBooks": ["Fourth Wing"]
 }
 ### Register second user
 ### This request creates another user so we can test club creation
 ### and later test joining/leaving clubs with different users.
-POST http://localhost:5000/api/auth/register
+POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
 {
   "username": "Noa Levi",
   "email": "noa@example.com",
-  "password": "123456",
+  "password": "{{testPassword}}",
   "favoriteGenres": ["Mystery", "Thriller"],
   "favoriteBooks": ["The Silent Patient"]
 }
 
 ### Login user
-POST http://localhost:5000/api/auth/login
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
   "email": "linoy@example.com",
-  "password": "123456"
+  "password": "{{testPassword}}"
 }
 ### Login second user
 ### This request logs in the second user.
 ### Copy the accessToken from the response and use it in the next request.
-POST http://localhost:5000/api/auth/login
+POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
 {
   "email": "maya@example.com",
-  "password": "123456"
+  "password": "{{testPassword}}"
 }
 
 ### Refresh access token
-POST http://localhost:5000/api/auth/refresh-token
+POST {{baseUrl}}/auth/refresh-token
 
 
 ### Logout
-POST http://localhost:5000/api/auth/logout
+POST {{baseUrl}}/auth/logout
 
 ### Get current user
-GET http://localhost:5000/api/auth/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODA5MTI5ODgsImV4cCI6MTc4MDkxMzg4OH0.PWmrbOqPSHz9ykgF4D4aUy3VZi2MgSrCFHp-54jm08w
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{primaryToken}}
 
 ### Update current user
-PATCH http://localhost:5000/api/auth/me
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODA5MTI5ODgsImV4cCI6MTc4MDkxMzg4OH0.PWmrbOqPSHz9ykgF4D4aUy3VZi2MgSrCFHp-54jm08w
+PATCH {{baseUrl}}/auth/me
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
@@ -77,8 +115,8 @@ Content-Type: application/json
 ### The server will take the logged-in user from the token and save them as:
 ### 1. creator - the user who created the club
 ### 2. first member - the creator is automatically added to members
-POST http://localhost:5000/api/clubs
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMDU0MTQsImV4cCI6MTc4MTAwNjMxNH0.GEr9SoA4ami3evjix9UhW8YjrurAgp9nzZ02ZPG62oE
+POST {{baseUrl}}/clubs
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
@@ -91,8 +129,8 @@ Content-Type: application/json
 ### Because the token belongs to Noa, the server will save Noa as:
 ### 1. the creator of the club
 ### 2. the first member of the club
-POST http://localhost:5000/api/clubs
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwMDc0OTQsImV4cCI6MTc4MTAwODM5NH0.7Ub50Pct_1bqW319m4bg08gwYEF8RbtiiQ8kA8PGOt0
+POST {{baseUrl}}/clubs
+Authorization: Bearer {{secondaryToken}}
 Content-Type: application/json
 
 {
@@ -101,25 +139,25 @@ Content-Type: application/json
   "genres": ["Mystery", "Thriller"]
 }
 ### Get all public clubs
-GET http://localhost:5000/api/clubs
+GET {{baseUrl}}/clubs
 
 ### Search clubs by club name
 ### This request searches public clubs by club name.
 ### It can return more than one club if several clubs match the same text.
-GET http://localhost:5000/api/clubs?search=fantasy
+GET {{baseUrl}}/clubs?search=fantasy
 
 ### Filter clubs by genre
 ### This request returns public clubs that include the selected genre.
-GET http://localhost:5000/api/clubs?genre=Fantasy
+GET {{baseUrl}}/clubs?genre=Fantasy
 
 ### Search clubs by creator name
 ### This request returns public clubs created by users whose name includes the search text.
-GET http://localhost:5000/api/clubs?creator=linoy
+GET {{baseUrl}}/clubs?creator=linoy
 
 ### Search clubs by name and genre together
 ### This request returns public clubs whose name includes the search text
 ### and whose genres include the selected genre.
-GET http://localhost:5000/api/clubs?search=fantasy&genre=Fantasy
+GET {{baseUrl}}/clubs?search=fantasy&genre=Fantasy
 
 ##books checks:
 
@@ -128,8 +166,8 @@ GET http://localhost:5000/api/clubs?search=fantasy&genre=Fantasy
 ### Only the creator of the club can add books to that club.
 ### Replace CLUB_ID_HERE with the id of the club.
 ### Replace ACCESS_TOKEN_HERE with the access token of the club creator.
-POST http://localhost:5000/api/books
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMTc3MjAsImV4cCI6MTc4MTAxODYyMH0.gsfXZ45u6R0Uyqsz6XOmSHWZwIT0zV9tDW4LVSsEB5M
+POST {{baseUrl}}/books
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
@@ -139,7 +177,7 @@ Content-Type: application/json
   "description": "A fantasy adventure about Bilbo Baggins and his unexpected journey.",
   "genres": ["Fantasy"],
   "totalChapters": 19,
-  "club": "6a27fc8c711fc4a5878cb4a6"
+  "club": "{{fantasyClubId}}"
 }
 
 ### Create another book for Fantasy Readers
@@ -147,8 +185,8 @@ Content-Type: application/json
 ### Only the creator of Fantasy Readers can add books to this club.
 ### Replace FANTASY_READERS_CLUB_ID with the id of Fantasy Readers.
 ### Replace MAYA_ACCESS_TOKEN_HERE with Maya's access token.
-POST http://localhost:5000/api/books
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMTc3MjAsImV4cCI6MTc4MTAxODYyMH0.gsfXZ45u6R0Uyqsz6XOmSHWZwIT0zV9tDW4LVSsEB5M
+POST {{baseUrl}}/books
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
@@ -158,7 +196,7 @@ Content-Type: application/json
   "description": "A young boy discovers he is a wizard and begins his first year at Hogwarts School of Witchcraft and Wizardry.",
   "genres": ["Fantasy"],
   "totalChapters": 17,
-  "club": "6a27fc8c711fc4a5878cb4a6"
+  "club": "{{fantasyClubId}}"
 }
 #########################################################################################################################
 ### Set current book for Fantasy Readers
@@ -168,30 +206,30 @@ Content-Type: application/json
 ### Replace FANTASY_READERS_CLUB_ID with the club id.
 ### Replace BOOK_ID_HERE with the id of a book that belongs to this club.
 ### Replace MAYA_ACCESS_TOKEN_HERE with Maya's access token.
-PATCH http://localhost:5000/api/clubs/6a27fc8c711fc4a5878cb4a6/current-book
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjU5NDAsImV4cCI6MTc4MTAyNjg0MH0.xVXSGVYVWWHgZ45JgroAkpXmNX5SUbBhum8s-TmfrLY
+PATCH {{baseUrl}}/clubs/{{fantasyClubId}}/current-book
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-  "book": "6a282d39271b5b5c1e2f53d8"
+  "book": "{{fantasyBookId}}"
 }
 
 
 ### Get all books
 ### This request returns all books from all clubs.
-GET http://localhost:5000/api/books
+GET {{baseUrl}}/books
 
 ### Get books by club
 ### This request returns only the books connected to a specific club.
-GET http://localhost:5000/api/books?club=6a27fc8c711fc4a5878cb4a6
+GET {{baseUrl}}/books?club={{fantasyClubId}}
 
 ### Search books by title or author
 ### This request searches books by title or author.
-GET http://localhost:5000/api/books?search=hobbit
+GET {{baseUrl}}/books?search=hobbit
 
 ### Filter books by genre
 ### This request returns books that include the selected genre.
-GET http://localhost:5000/api/books?genre=Fantasy
+GET {{baseUrl}}/books?genre=Fantasy
 
 ##reading Progress checks:
 
@@ -202,45 +240,45 @@ GET http://localhost:5000/api/books?genre=Fantasy
 ### Replace ACCESS_TOKEN_HERE with the user's access token.
 ### Replace CLUB_ID_HERE with the club id.
 ### Replace BOOK_ID_HERE with the book id.
-POST http://localhost:5000/api/reading-progress
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-  "club": "6a27fc8c711fc4a5878cb4a6",
-  "book": "6a282d39271b5b5c1e2f53d8",
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
   "currentChapter": 3
 }
 
 ### Get my reading progress
 ### This request returns all reading progress documents
 ### that belong to the logged-in user.
-GET http://localhost:5000/api/reading-progress
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+GET {{baseUrl}}/reading-progress
+Authorization: Bearer {{primaryToken}}
 
 ### Get my reading progress by club
 ### This request returns the logged-in user's reading progress
 ### only for one specific club.
-GET http://localhost:5000/api/reading-progress?club=6a27fc8c711fc4a5878cb4a6
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+GET {{baseUrl}}/reading-progress?club={{fantasyClubId}}
+Authorization: Bearer {{primaryToken}}
 
 ### Get my reading progress by book
 ### This request returns the logged-in user's reading progress
 ### only for one specific book.
-GET http://localhost:5000/api/reading-progress?book=6a282d39271b5b5c1e2f53d8
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+GET {{baseUrl}}/reading-progress?book={{fantasyBookId}}
+Authorization: Bearer {{primaryToken}}
 
 ### Complete a book and add rating
 ### This request updates the current chapter to the last chapter.
 ### The server should automatically set isCompleted to true.
 ### The rating is optional, but here we test saving a user rating too.
-POST http://localhost:5000/api/reading-progress
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-  "club": "6a27fc8c711fc4a5878cb4a6",
-  "book": "6a282d39271b5b5c1e2f53d8",
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
   "currentChapter": 17,
   "rating": 5
 }
@@ -248,13 +286,13 @@ Content-Type: application/json
 ### Try to update progress with chapter greater than total chapters
 ### This request should fail because the selected book has only 17 chapters.
 ### Expected result: 400 error.
-POST http://localhost:5000/api/reading-progress
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-  "club": "6a27fc8c711fc4a5878cb4a6",
-  "book": "6a282d39271b5b5c1e2f53d8",
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
   "currentChapter": 99
 }
 
@@ -262,8 +300,8 @@ Content-Type: application/json
 ### This request deletes one reading progress document.
 ### The user can delete only their own progress document.
 ### Replace PROGRESS_ID_HERE with the _id of the reading progress document.
-DELETE http://localhost:5000/api/reading-progress/6a2845ff2842c92fb3ba3402
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwMjM5MDUsImV4cCI6MTc4MTAyNDgwNX0._fjbRCvWVhygPYnU-_b-Pzi_rANjSew-9ADB0sljix0
+DELETE {{baseUrl}}/reading-progress/{{progressId}}
+Authorization: Bearer {{primaryToken}}
 
 ##Comments check:
 ### Create regular chapter comment
@@ -272,13 +310,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1N
 ### Replace ACCESS_TOKEN_HERE with a club member access token.
 ### Replace CLUB_ID_HERE with the club id.
 ### Replace BOOK_ID_HERE with the book id.
-POST http://localhost:5000/api/comments
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+POST {{baseUrl}}/comments
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-  "club": "6a27fc8c711fc4a5878cb4a6",
-  "book": "6a282d39271b5b5c1e2f53d8",
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
   "text": "I loved the way the story developed in this chapter.",
   "chapterNumber": 3,
   "isSpoilerFreeReview": false,
@@ -288,13 +326,13 @@ Content-Type: application/json
 ### Create locked future chapter comment
 ### This creates a comment for a later chapter.
 ### A user whose reading progress is lower than this chapter should receive it with text: null and isLocked: true.
-POST http://localhost:5000/api/comments
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+POST {{baseUrl}}/comments
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-  "club": "6a27fc8c711fc4a5878cb4a6",
-  "book": "6a282d39271b5b5c1e2f53d8",
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
   "text": "This comment talks about something important that happens much later.",
   "chapterNumber": 10,
   "isSpoilerFreeReview": false,
@@ -304,13 +342,13 @@ Content-Type: application/json
 ### Create spoiler-free public review
 ### This creates a comment/review that is safe for everyone, including guests.
 ### It should appear in the public comments endpoint.
-POST http://localhost:5000/api/comments
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+POST {{baseUrl}}/comments
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-"club": "6a27fc8c711fc4a5878cb4a6",
-  "book": "6a282d39271b5b5c1e2f53d8",
+"club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
   "text": "A beautifully written fantasy book with a cozy and adventurous atmosphere.",
   "chapterNumber": 0,
   "isSpoilerFreeReview": true,
@@ -321,25 +359,25 @@ Content-Type: application/json
 ### This returns all comments for the selected club and book.
 ### Comments from chapters the user has not reached should still appear,
 ### but with text: null and isLocked: true.
-GET http://localhost:5000/api/comments?club=6a27fc8c711fc4a5878cb4a6&book=6a282d39271b5b5c1e2f53d8
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+GET {{baseUrl}}/comments?club={{fantasyClubId}}&book={{fantasyBookId}}
+Authorization: Bearer {{primaryToken}}
 
 ### Get public spoiler-free comments
 ### This returns only spoiler-free comments.
 ### It does not require login and is safe for guests.
-GET http://localhost:5000/api/comments/public?club=6a27fc8c711fc4a5878cb4a6&book=6a282d39271b5b5c1e2f53d8
+GET {{baseUrl}}/comments/public?club={{fantasyClubId}}&book={{fantasyBookId}}
 
 ### Toggle like comment
 ### Run this request once to like the comment.
 ### Run it again to unlike the same comment.
-POST http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7/like
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+POST {{baseUrl}}/comments/{{commentId}}/like
+Authorization: Bearer {{primaryToken}}
 
 ### Update my comment
 ### Only the comment author can update the comment.
 
-PATCH http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+PATCH {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
@@ -350,8 +388,8 @@ Content-Type: application/json
 
 ### Delete comment without replies
 ### If this comment has no replies, it should be permanently deleted.
-DELETE http://localhost:5000/api/comments/6a29402ee9ff4f60a16943e7
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwODgxNDAsImV4cCI6MTc4MTA4OTA0MH0.EHXC5ZoWbb0WciB7KTWFJ-ZYWNMj-Xs1A4fBXJgb0Ac
+DELETE {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{primaryToken}}
 
 
 ##user checks:
@@ -360,49 +398,47 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1N
 ### This request searches users by username.
 ### It requires login.
 ### It does NOT return email, because this is user-search data.
-GET http://localhost:5000/api/users/search?username=maya
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwOTY2MjcsImV4cCI6MTc4MTA5NzUyN30.qgUh-Ztx0G2rt8zkOr4Kz1zR1ZvRux73eC1lOeWpE0U
+GET {{baseUrl}}/users/search?username=maya
+Authorization: Bearer {{primaryToken}}
 
 ### Get my own user profile
 ### This request returns the logged-in user's own profile.
 ### Because it is my own profile, the response should include email.
-GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwOTY2MjcsImV4cCI6MTc4MTA5NzUyN30.qgUh-Ztx0G2rt8zkOr4Kz1zR1ZvRux73eC1lOeWpE0U
+GET {{baseUrl}}/users/{{primaryUserId}}
+Authorization: Bearer {{primaryToken}}
 
 ### Get another user's profile
 ### This request returns another user's profile.
 ### Because it is not my own profile, the response should NOT include email.
-GET http://localhost:5000/api/users/6a280486b3c09d005a1b6f17
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODEwOTY2MjcsImV4cCI6MTc4MTA5NzUyN30.qgUh-Ztx0G2rt8zkOr4Kz1zR1ZvRux73eC1lOeWpE0U
+GET {{baseUrl}}/users/{{secondaryUserId}}
+Authorization: Bearer {{primaryToken}}
 
 
 ### Get user's clubs
 ### This request returns all clubs where the selected user is a member.
-GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261/clubs
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwOTY2NzUsImV4cCI6MTc4MTA5NzU3NX0.tX9SCwfTe2aONbWv62mwxQUxPYOCX5jRjkbeuA0rHSg
+GET {{baseUrl}}/users/{{primaryUserId}}/clubs
+Authorization: Bearer {{secondaryToken}}
 
 ### Get user's currently reading books
 ### This request returns ReadingProgress documents where isCompleted is false.
-GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261/currently-reading
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwOTY2NzUsImV4cCI6MTc4MTA5NzU3NX0.tX9SCwfTe2aONbWv62mwxQUxPYOCX5jRjkbeuA0rHSg
+GET {{baseUrl}}/users/{{primaryUserId}}/currently-reading
+Authorization: Bearer {{secondaryToken}}
 
 ### Get user's completed books
 ### This request returns ReadingProgress documents where isCompleted is true.
 ### It can include rating if the user rated the book.
-GET http://localhost:5000/api/users/6a254803d797fe4b9cbd4261/completed-books
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI4MDQ4NmIzYzA5ZDAwNWExYjZmMTciLCJpYXQiOjE3ODEwOTY2NzUsImV4cCI6MTc4MTA5NzU3NX0.tX9SCwfTe2aONbWv62mwxQUxPYOCX5jRjkbeuA0rHSg
+GET {{baseUrl}}/users/{{primaryUserId}}/completed-books
+Authorization: Bearer {{secondaryToken}}
 
 ### Try to get user profile without login
 ### This request should fail because user routes are protected.
 ### Expected result: 401 Unauthorized.
-GET http://localhost:5000/api/users/6a280486b3c09d005a1b6f17
-
-
+GET {{baseUrl}}/users/{{secondaryUserId}}
 
 
 ### Create next-read poll
-POST http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMTM4MjAsImV4cCI6MTc4MjExNDcyMH0.V9qOZ96xH9BGvX7uHLTQgXo8__Pd2avvFeJYVne0TF8
+POST {{baseUrl}}/clubs/{{pollClubId}}/polls
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -425,36 +461,36 @@ Content-Type: application/json
 }
 
 ### Get current poll
-GET http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/current
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMTM4MjAsImV4cCI6MTc4MjExNDcyMH0.V9qOZ96xH9BGvX7uHLTQgXo8__Pd2avvFeJYVne0TF8
+GET {{baseUrl}}/clubs/{{pollClubId}}/polls/current
+Authorization: Bearer {{pollCreatorToken}}
 
 ### Vote in poll
-POST http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/vote
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMTM4MjAsImV4cCI6MTc4MjExNDcyMH0.V9qOZ96xH9BGvX7uHLTQgXo8__Pd2avvFeJYVne0TF8
+POST {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/vote
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
-  "optionId": "6a38e63f911289957a923f82"
+  "optionId": "{{pollOptionId}}"
 }
 
 ### Announce poll winner
-POST http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/announce-winner
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMjU5OTEsImV4cCI6MTc4MjEyNjg5MX0.DFggZMds_C1tWKEEoCZkq7XSvfrBAGD5frxt6JtX7fA
+POST {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/announce-winner
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
-  "optionId": "6a38e63f911289957a923f82",
+  "optionId": "{{pollOptionId}}",
   "totalChapters": 36
 }
 
 ### Set winner book as current book
-PATCH http://localhost:5000/api/clubs/6a32e74bafb8950a6536e36a/polls/6a38e63f911289957a923f81/set-winner-current
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODIxMjU5OTEsImV4cCI6MTc4MjEyNjg5MX0.DFggZMds_C1tWKEEoCZkq7XSvfrBAGD5frxt6JtX7fA
+PATCH {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/set-winner-current
+Authorization: Bearer {{pollCreatorToken}}
 
 
 ### Upload profile image
-PUT http://localhost:5000/api/users/me/profile-image
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODI2NDE0OTIsImV4cCI6MTc4MjY0MjM5Mn0.aicaKobQaGBeXQNzHz3TV-bV_4-4stnMuB8O1cXs-08
+PUT {{baseUrl}}/users/me/profile-image
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: multipart/form-data; boundary=----LiveBookBoundary
 
 ------LiveBookBoundary
@@ -465,14 +501,9 @@ Content-Type: image/jpeg
 ------LiveBookBoundary--
 
 
-
-@baseUrl = http://localhost:5000
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTI1NDgwM2Q3OTdmZTRiOWNiZDQyNjEiLCJpYXQiOjE3ODI2NTM5MzMsImV4cCI6MTc4MjY1NDgzM30.dr21Uh8qgOEjlhnqB8zz8sKBRaIK1DIE-t-DrJPZAes
-@clubId = 6a27fc8c711fc4a5878cb4a6
-
 ### Upload club cover image
-PUT {{baseUrl}}/api/clubs/{{clubId}}/cover-image
-Authorization: Bearer {{token}}
+PUT {{baseUrl}}/clubs/{{fantasyClubId}}/cover-image
+Authorization: Bearer {{primaryToken}}
 Content-Type: multipart/form-data; boundary=LiveBookCoverBoundary
 
 --LiveBookCoverBoundary
@@ -483,11 +514,9 @@ Content-Type: image/jpeg
 --LiveBookCoverBoundary--
 
 ### Search Google Books
-GET http://localhost:5000/api/books/google-search?query=dune
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODI3MTc3NTgsImV4cCI6MTc4MjcxODY1OH0.Iq2qNtSzZRDoYyfBZYLYe545J5q3aQFYVYc55b0k84s
+GET {{baseUrl}}/books/google-search?query=dune
+Authorization: Bearer {{pollCreatorToken}}
 
-
-@baseUrl = http://localhost:5000/api
 
 ### 1. Login - get token
 # Replace email/password with one of your real users
@@ -496,80 +525,70 @@ Content-Type: application/json
 
 {
   "email": "linoy@example.com",
-  "password": "123456"
+  "password": "{{testPassword}}"
 }
 
 ###
 
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODMwODE1MTIsImV4cCI6MTc4MzA4MjQxMn0.mMP7cfFDgzpx5K0tfykVh41PnBPMcp410imRXzOOqb8
-
-@userId = 6a2e64941db2b912c15d72bd
-@clubId = 6a412f1ebfbf7ba79c5ec6b3
-@bookId = 6a42b2fe23cb90d2f340a01c
-@progressId = 6a42b4ab51e8d0115a4a54f2
 
 ### 2. Update reading progress - should return status: "reading"
 POST {{baseUrl}}/reading-progress
-Authorization: Bearer {{token}}
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
-  "club": "{{clubId}}",
-  "book": "{{bookId}}",
+  "club": "{{dnfClubId}}",
+  "book": "{{dnfBookId}}",
   "currentChapter": 3
 }
 
 ### 3. Get my reading progress list
 GET {{baseUrl}}/reading-progress
-Authorization: Bearer {{token}}
+Authorization: Bearer {{pollCreatorToken}}
 
 ### 4. Get user's currently reading books
 # After update progress, the book should appear here if status is "reading"
-GET {{baseUrl}}/users/{{userId}}/currently-reading
-Authorization: Bearer {{token}}
+GET {{baseUrl}}/users/{{pollCreatorUserId}}/currently-reading
+Authorization: Bearer {{pollCreatorToken}}
 
 ### 5. Mark progress as DNF
 # Use the _id returned from step 2 or 3 as progressId
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/dnf
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/dnf
+Authorization: Bearer {{pollCreatorToken}}
 
 ### 6. Check currently reading again
 # After DNF, the book should NOT appear here
-GET {{baseUrl}}/users/{{userId}}/currently-reading
-Authorization: Bearer {{token}}
+GET {{baseUrl}}/users/{{pollCreatorUserId}}/currently-reading
+Authorization: Bearer {{pollCreatorToken}}
 
 ### 7. Check completed / previous books
 # After DNF, the book SHOULD appear here with status: "dnf"
-GET {{baseUrl}}/users/{{userId}}/completed-books
-Authorization: Bearer {{token}}
+GET {{baseUrl}}/users/{{pollCreatorUserId}}/completed-books
+Authorization: Bearer {{pollCreatorToken}}
 
 ### 8. Try to mark as DNF again
 # Expected: either stays DNF or returns an error, depending on our controller logic
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/dnf
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/dnf
+Authorization: Bearer {{pollCreatorToken}}
 
 ### 9. Complete a book
 # Use totalChapters or higher currentChapter.
 # Expected: status: "completed", isCompleted: true
 POST {{baseUrl}}/reading-progress
-Authorization: Bearer {{token}}
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
-  "club": "{{clubId}}",
-  "book": "{{bookId}}",
+  "club": "{{dnfClubId}}",
+  "book": "{{dnfBookId}}",
   "currentChapter": 29
 }
 
 ### 10. Check completed / previous books again
 # Completed book should appear here with status: "completed"
-GET {{baseUrl}}/users/{{userId}}/completed-books
-Authorization: Bearer {{token}}
+GET {{baseUrl}}/users/{{pollCreatorUserId}}/completed-books
+Authorization: Bearer {{pollCreatorToken}}
 
-
-@baseUrl = http://localhost:5000/api
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2YTJlNjQ5NDFkYjJiOTEyYzE1ZDcyYmQiLCJpYXQiOjE3ODMxOTg2OTgsImV4cCI6MTc4MzE5OTU5OH0.PHixTEVF-o3mYTLM63dxKTUqbELwYSXLqA057gU3SmA
-@progressId = 6a42b4ab51e8d0115a4a54f2
 
 ### 1. Login - get token
 POST {{baseUrl}}/auth/login
@@ -577,20 +596,20 @@ Content-Type: application/json
 
 {
   "email": "linoy@example.com",
-  "password": "123456"
+  "password": "{{testPassword}}"
 }
 
 
 ### 2. Get my reading progress list
 ### Use this to copy a progress _id into @progressId above
 GET {{baseUrl}}/reading-progress
-Authorization: Bearer {{token}}
+Authorization: Bearer {{pollCreatorToken}}
 
 
 ### 3. Update reading progress to completed
 ### Change club/book/currentChapter according to your DB
 POST {{baseUrl}}/reading-progress
-Authorization: Bearer {{token}}
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -601,8 +620,8 @@ Content-Type: application/json
 
 
 ### 4. Rate completed book - valid rating
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -611,8 +630,8 @@ Content-Type: application/json
 
 
 ### 5. Update existing rating
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -621,8 +640,8 @@ Content-Type: application/json
 
 
 ### 6. Invalid rating - too high
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -631,8 +650,8 @@ Content-Type: application/json
 
 
 ### 7. Invalid rating - too low
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -641,8 +660,8 @@ Content-Type: application/json
 
 
 ### 8. Invalid rating - not an integer
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -651,8 +670,8 @@ Content-Type: application/json
 
 
 ### 9. Invalid rating - missing rating
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -661,8 +680,8 @@ Content-Type: application/json
 
 ### 10. Try to rate a book that is not completed
 ### For this test, @progressId should be a progress record with status reading/dnf
-PATCH {{baseUrl}}/reading-progress/{{progressId}}/rating
-Authorization: Bearer {{token}}
+PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
@@ -671,5 +690,5 @@ Content-Type: application/json
 
 
 ### 11. Get specific progress after rating
-GET {{baseUrl}}/reading-progress/{{progressId}}
-Authorization: Bearer {{token}}
+GET {{baseUrl}}/reading-progress/{{dnfProgressId}}
+Authorization: Bearer {{pollCreatorToken}}
