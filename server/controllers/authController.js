@@ -25,6 +25,7 @@ const sendRefreshTokenCookie = (res, refreshToken) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
     maxAge: 30 * 24 * 60 * 60 * 1000,
   });
 };
@@ -255,6 +256,7 @@ const logout = (req, res) => {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    path: '/',
   });
 
   res.status(200).json({

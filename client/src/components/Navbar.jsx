@@ -9,9 +9,9 @@ function Navbar() {
   const isActive = (path) => location.pathname === path;
   const isClubsActive = location.pathname.startsWith('/clubs');
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/', { replace: true });
   };
 
   // Guest menu
@@ -25,18 +25,16 @@ function Navbar() {
         <nav className="flex items-center gap-6">
           <Link
             to="/clubs"
-            className={`text-sm font-medium transition ${
-              isClubsActive ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
-            }`}
+            className={`text-sm font-medium transition ${isClubsActive ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
+              }`}
           >
             Clubs
           </Link>
 
           <Link
             to="/login"
-            className={`text-sm font-medium transition ${
-              isActive('/login') ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
-            }`}
+            className={`text-sm font-medium transition ${isActive('/login') ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
+              }`}
           >
             Sign in
           </Link>
@@ -62,27 +60,24 @@ function Navbar() {
       <nav className="flex items-center gap-8">
         <Link
           to="/dashboard"
-          className={`text-sm font-medium transition ${
-            isActive('/dashboard') ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
-          }`}
+          className={`text-sm font-medium transition ${isActive('/dashboard') ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
+            }`}
         >
           Dashboard
         </Link>
 
         <Link
           to="/clubs"
-          className={`text-sm font-medium transition ${
-            isClubsActive ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
-          }`}
+          className={`text-sm font-medium transition ${isClubsActive ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
+            }`}
         >
           Clubs
         </Link>
 
         <Link
           to="/profile"
-          className={`text-sm font-medium transition ${
-            isActive('/profile') ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
-          }`}
+          className={`text-sm font-medium transition ${isActive('/profile') ? 'text-[#c1a58d]' : 'text-ink hover:opacity-70'
+            }`}
         >
           Profile
         </Link>

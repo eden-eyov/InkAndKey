@@ -41,6 +41,7 @@ const clubsSlice = createSlice({
   reducers: {
     clearClubs: (state) => {
       state.list = [];
+      state.loading = false;
       state.error = null;
     },
   },

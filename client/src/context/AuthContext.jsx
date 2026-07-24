@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import api, { setUnauthorizedHandler } from '../services/api';
+import { useDispatch } from 'react-redux';
+import { clearClubs } from '../store/clubsSlice';
 
 const AuthContext = createContext(null);
 
@@ -9,11 +11,13 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const dispatch = useDispatch();
 
   const clearSession = useCallback(() => {
     localStorage.removeItem('token');
     setUser(null);
-  }, []);
+    dispatch(clearClubs());
+  }, [dispatch]);
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
@@ -74,10 +78,18 @@ export const AuthProvider = ({ children }) => {
     });
   };
 
-  const logout = () => {
-    clearSession();
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (error) {
+      console.error(
+        'LOGOUT ERROR:',
+        error.response?.data || error.message
+      );
+    } finally {
+      clearSession();
+    }
   };
-
   const isAuthenticated = Boolean(user);
 
   return (
