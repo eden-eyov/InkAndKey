@@ -71,7 +71,7 @@ const createComment = async (req, res, next) => {
 
     const club = await Club.findById(clubId);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -194,7 +194,7 @@ const getCommentsByBook = async (req, res, next) => {
 
     const club = await Club.findById(clubId);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -272,6 +272,15 @@ const getPublicSpoilerFreeComments = async (req, res, next) => {
       });
     }
 
+    const club = await Club.findById(clubId);
+
+    if (!club || club.isArchived) {
+      return res.status(404).json({
+        success: false,
+        message: 'Club not found',
+      });
+    }
+
     const book = await Book.findById(bookId);
 
     if (!book) {
@@ -320,10 +329,17 @@ const getCommentById = async (req, res, next) => {
 
     const comment = await Comment.findById(req.params.id)
       .populate('user', 'username profileImage')
-      .populate('club', 'name members')
+      .populate('club', 'name members isArchived')
       .populate('book', 'title author coverImage totalChapters');
 
     if (!comment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      });
+    }
+
+    if (!comment.club || comment.club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Comment not found',
@@ -390,6 +406,15 @@ const updateComment = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         message: 'You can update only your own comments',
+      });
+    }
+
+    const club = await Club.findById(comment.club);
+
+    if (!club || club.isArchived) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
       });
     }
 
@@ -498,6 +523,15 @@ const deleteComment = async (req, res, next) => {
       });
     }
 
+    const club = await Club.findById(comment.club);
+
+    if (!club || club.isArchived) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comment not found',
+      });
+    }
+
     if (comment.isDeleted) {
       return res.status(400).json({
         success: false,
@@ -567,7 +601,7 @@ const toggleLikeComment = async (req, res, next) => {
 
     const club = await Club.findById(comment.club);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',

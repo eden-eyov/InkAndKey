@@ -172,6 +172,7 @@ const getUserClubs = async (req, res, next) => {
 
     const clubs = await Club.find({
       members: req.params.id,
+      isArchived: false,
     })
       .populate('creator', 'username profileImage')
       .populate('currentBook', 'title author coverImage totalChapters description')
@@ -208,6 +209,7 @@ const getUserCreatedClubs = async (req, res, next) => {
 
     const filter = {
       creator: req.params.id,
+      isArchived: false,
     };
 
     const clubs = await Club.find(filter)
@@ -256,7 +258,7 @@ const getUserCurrentlyReading = async (req, res, next) => {
         { status: { $exists: false }, isCompleted: false },
       ],
     })
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate('book', 'title author coverImage totalChapters description')
       .sort({ updatedAt: -1 });
 
@@ -299,7 +301,7 @@ const getUserCompletedBooks = async (req, res, next) => {
       ],
     })
 
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate(
         'book',
         'title author coverImage totalChapters description averageRating ratingsCount'

@@ -1,7 +1,14 @@
 const Club = require('../models/Club');
+const Poll = require('../models/Poll');
+const PollVote = require('../models/PollVote');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
+const Comment = require('../models/Comment');
 const cloudinary = require('../config/cloudinary');
+
+const {
+  safelyDeleteManagedBookCover,
+} = require('../utils/cloudinaryImages');
 
 const {
   finalizeOldBookProgress,
@@ -52,7 +59,9 @@ const getAllClubs = async (req, res, next) => {
   try {
     const { search, genre, creator } = req.query;
 
-    const filter = {};
+    const filter = {
+      isArchived: false,
+    };
 
     if (search) {
       filter.name = { $regex: search, $options: 'i' };
@@ -108,6 +117,7 @@ const getMyClubs = async (req, res, next) => {
   try {
     const clubs = await Club.find({
       members: req.user._id,
+      isArchived: false,
     })
       .populate('creator', 'username email profileImage')
       .populate('members', 'username profileImage')
@@ -170,7 +180,7 @@ const getClubById = async (req, res, next) => {
       .populate('currentBook', 'title author coverImage totalChapters description averageRating ratingsCount')
       .populate('previousBooks', 'title author coverImage totalChapters description averageRating ratingsCount');
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -190,7 +200,7 @@ const updateClub = async (req, res, next) => {
   try {
     const club = await Club.findById(req.params.id);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -226,7 +236,7 @@ const updateClubCoverImage = async (req, res, next) => {
   try {
     const club = await Club.findById(req.params.id);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -300,15 +310,241 @@ const deleteClub = async (req, res, next) => {
     if (club.creator.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'Only the club creator can delete this club',
+        message: 'Only the club creator can archive this club',
       });
     }
 
-    await Club.findByIdAndDelete(req.params.id);
+    /*
+     * Archive first.
+     *
+     * If one of the cleanup operations fails afterward,
+     * the club is still no longer accessible as an active club.
+     *
+     * We do not immediately return when the club is already archived,
+     * so retrying the request can finish any cleanup that previously failed.
+     */
+    if (!club.isArchived) {
+      club.isArchived = true;
+      club.archivedAt = new Date();
+
+      await club.save();
+    }
+
+    /*
+     * Find every open poll.
+     *
+     * Normally there should only be one, but deleting all open polls
+     * also handles unexpected duplicate data safely.
+     */
+    const openPolls = await Poll.find({
+      club: club._id,
+      status: 'open',
+    });
+
+    /*
+     * Poll option images are temporary managed book-cover uploads.
+     * Their deletion is best effort and should not prevent club archiving.
+     */
+    await Promise.all(
+      openPolls.flatMap((poll) =>
+        poll.options.map(async (option) => {
+          if (!option.coverImagePublicId) {
+            return;
+          }
+
+          await safelyDeleteManagedBookCover(
+            option.coverImagePublicId,
+            `poll option ${option._id} from archived club ${club._id}`
+          );
+        })
+      )
+    );
+
+    const openPollIds = openPolls.map((poll) => poll._id);
+
+    if (openPollIds.length > 0) {
+      await PollVote.deleteMany({
+        poll: { $in: openPollIds },
+      });
+
+      await Poll.deleteMany({
+        _id: { $in: openPollIds },
+      });
+    }
+
+    /*
+ * Clean up announced winner books that were never applied
+ * as the club's current book.
+ *
+ * These books were created from closed polls, but no reading
+ * activity should exist for them because appliedAt was never set.
+ */
+    const unappliedWinnerPolls = await Poll.find({
+      club: club._id,
+      winnerBook: { $ne: null },
+      appliedAt: null,
+    });
+
+    let deletedUnappliedWinnerBooks = 0;
+    let deletedUnappliedWinnerPolls = 0;
+
+    for (const poll of unappliedWinnerPolls) {
+      const winnerBookId = poll.winnerBook;
+      /*
+      * Delete uploaded images that belong to the losing poll options.
+      * The winner's image is handled later together with the winner book.
+      */
+      await Promise.all(
+        poll.options.map(async (option) => {
+          const isWinner =
+            poll.winnerOption &&
+            option._id.toString() === poll.winnerOption.toString();
+
+          if (isWinner || !option.coverImagePublicId) {
+            return;
+          }
+
+          await safelyDeleteManagedBookCover(
+            option.coverImagePublicId,
+            `losing poll option ${option._id} from archived club ${club._id}`
+          );
+        })
+      );
+
+      if (!winnerBookId) {
+        continue;
+      }
+
+      /*
+       * Extra safety checks:
+       * never delete a book that is current, historical,
+       * or already has user-generated data.
+       */
+      const isCurrentBook =
+        club.currentBook &&
+        club.currentBook.toString() === winnerBookId.toString();
+
+      const isPreviousBook = club.previousBooks.some(
+        (previousBookId) =>
+          previousBookId.toString() === winnerBookId.toString()
+      );
+
+      const [hasReadingProgress, hasComments] = await Promise.all([
+        ReadingProgress.exists({
+          club: club._id,
+          book: winnerBookId,
+        }),
+        Comment.exists({
+          club: club._id,
+          book: winnerBookId,
+        }),
+      ]);
+
+      const isSafeToDelete =
+        !isCurrentBook &&
+        !isPreviousBook &&
+        !hasReadingProgress &&
+        !hasComments;
+
+      if (!isSafeToDelete) {
+        console.warn(
+          `Skipped deleting unapplied winner book ${winnerBookId} ` +
+          `from archived club ${club._id} because it is still referenced`
+        );
+
+        continue;
+      }
+
+      const winnerBook = await Book.findById(winnerBookId);
+
+      if (winnerBook) {
+        /*
+         * Best-effort Cloudinary cleanup.
+         * The helper safely ignores empty or unmanaged public ids.
+         */
+        await safelyDeleteManagedBookCover(
+          winnerBook.coverImagePublicId,
+          `unapplied winner book ${winnerBook._id} from archived club ${club._id}`
+        );
+
+        await Book.findByIdAndDelete(winnerBook._id);
+
+        deletedUnappliedWinnerBooks += 1;
+      }
+
+      /*
+       * Delete the unused poll too.
+       *
+       * Keeping it would leave poll.winnerBook pointing to a book
+       * that no longer exists.
+       */
+      await PollVote.deleteMany({
+        poll: poll._id,
+      });
+
+      await Poll.findByIdAndDelete(poll._id);
+
+      deletedUnappliedWinnerPolls += 1;
+    }
+
+    /*
+     * Keep progress for members who actually started the current book.
+     * Remove chapter-0 progress because the user never started reading it.
+     */
+    let deletedProgressCount = 0;
+
+    if (club.currentBook) {
+      const progressDeletionResult = await ReadingProgress.deleteMany({
+        club: club._id,
+        book: club.currentBook,
+        currentChapter: 0,
+      });
+
+      deletedProgressCount = progressDeletionResult.deletedCount || 0;
+    }
+
+    /*
+     * An archived club is not displayed anywhere,
+     * so its Cloudinary cover is no longer needed.
+     *
+     * Clear the database fields only after Cloudinary deletion succeeds.
+     * If deletion fails, the public id remains available for a later retry.
+     */
+    if (club.coverImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(club.coverImagePublicId);
+
+        club.coverImage = '';
+        club.coverImagePublicId = '';
+
+        await club.save();
+      } catch (cleanupError) {
+        console.error(
+          'Failed to delete archived club cover image from Cloudinary:',
+          cleanupError.message
+        );
+      }
+    } else if (club.coverImage) {
+      /*
+       * This handles an old external image URL for which there is
+       * no managed Cloudinary public id.
+       */
+      club.coverImage = '';
+      await club.save();
+    }
 
     res.status(200).json({
       success: true,
-      message: 'Club deleted successfully',
+      message: 'Club archived successfully',
+      data: {
+        clubId: club._id,
+        isArchived: true,
+        archivedAt: club.archivedAt,
+        deletedOpenPolls: openPollIds.length,
+        deletedUnappliedWinnerBooks,
+        deletedUnappliedWinnerPolls,
+        deletedChapterZeroProgress: deletedProgressCount,
+      },
     });
   } catch (error) {
     next(error);
@@ -319,7 +555,7 @@ const joinClub = async (req, res, next) => {
   try {
     const club = await Club.findById(req.params.id);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -356,7 +592,7 @@ const leaveClub = async (req, res, next) => {
   try {
     const club = await Club.findById(req.params.id);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -405,7 +641,7 @@ const setCurrentBook = async (req, res, next) => {
 
     const club = await Club.findById(req.params.id);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -445,7 +681,7 @@ const setCurrentBook = async (req, res, next) => {
         clubId: club._id,
         oldBookId: club.currentBook,
       });
-      
+
       const alreadyInPreviousBooks = club.previousBooks.some(
         (previousBookId) => previousBookId.toString() === currentBookId
       );

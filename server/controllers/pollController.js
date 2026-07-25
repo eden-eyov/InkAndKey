@@ -210,7 +210,7 @@ const createPoll = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -303,7 +303,7 @@ const getCurrentPoll = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -377,7 +377,7 @@ const voteInPoll = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -482,7 +482,7 @@ const closePoll = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -569,7 +569,7 @@ const announcePollWinner = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -715,7 +715,7 @@ const setWinnerBookAsCurrent = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -779,7 +779,7 @@ const setWinnerBookAsCurrent = async (req, res, next) => {
                 clubId: club._id,
                 oldBookId: club.currentBook,
             });
-            
+
             const alreadyInPreviousBooks = club.previousBooks.some(
                 (previousBookId) => previousBookId.toString() === currentBookId
             );
@@ -910,7 +910,7 @@ const getClubPolls = async (req, res, next) => {
 
         const club = await Club.findById(clubId);
 
-        if (!club) {
+        if (!club || club.isArchived) {
             return res.status(404).json({
                 success: false,
                 message: 'Club not found',
@@ -955,6 +955,7 @@ const getMyActivePolls = async (req, res, next) => {
         const now = new Date();
 
         const clubs = await Club.find({
+            isArchived: false,
             $or: [
                 { members: req.user._id },
                 { creator: req.user._id },

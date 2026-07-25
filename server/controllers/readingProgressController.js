@@ -61,15 +61,38 @@ const upsertMyProgress = async (req, res, next) => {
       });
     }
 
-    const isMember = club.members.some(
-      (memberId) => memberId.toString() === userId.toString()
-    );
+    /*
+     * Check whether the user already has progress for this exact
+     * user + club + book combination.
+     *
+     * For archived clubs:
+     * - existing progress may still be updated
+     * - new progress must not be created
+     */
+    const existingProgress = await ReadingProgress.findOne({
+      user: userId,
+      club: clubId,
+      book: bookId,
+    });
 
-    if (!isMember) {
-      return res.status(403).json({
-        success: false,
-        message: 'You must be a club member to update reading progress',
-      });
+    if (club.isArchived) {
+      if (!existingProgress) {
+        return res.status(404).json({
+          success: false,
+          message: 'Reading progress not found',
+        });
+      }
+    } else {
+      const isMember = club.members.some(
+        (memberId) => memberId.toString() === userId.toString()
+      );
+
+      if (!isMember) {
+        return res.status(403).json({
+          success: false,
+          message: 'You must be a club member to update reading progress',
+        });
+      }
     }
 
     const book = await Book.findById(bookId);
@@ -121,12 +144,12 @@ const upsertMyProgress = async (req, res, next) => {
       },
       {
         new: true,
-        upsert: true,
+        upsert: !club.isArchived,
         runValidators: true,
       }
     )
       .populate('user', 'username email profileImage')
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate(
         'book',
         'title author coverImage totalChapters description averageRating ratingsCount'
@@ -157,7 +180,7 @@ const getMyProgress = async (req, res, next) => {
     }
 
     const progressList = await ReadingProgress.find(filter)
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate(
         'book',
         'title author coverImage totalChapters description averageRating ratingsCount'
@@ -179,7 +202,7 @@ const getMyProgressById = async (req, res, next) => {
       _id: req.params.id,
       user: req.user._id,
     })
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate(
         'book',
         'title author coverImage totalChapters description averageRating ratingsCount'
@@ -236,7 +259,7 @@ const markMyProgressAsDnf = async (req, res, next) => {
 
     const updatedProgress = await ReadingProgress.findById(progress._id)
       .populate('user', 'username email profileImage')
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate(
         'book',
         'title author coverImage totalChapters description averageRating ratingsCount'
@@ -295,7 +318,7 @@ const rateMyCompletedBook = async (req, res, next) => {
 
     const updatedProgress = await ReadingProgress.findById(progress._id)
       .populate('user', 'username email profileImage')
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .populate(
         'book',
         'title author coverImage totalChapters description averageRating ratingsCount'

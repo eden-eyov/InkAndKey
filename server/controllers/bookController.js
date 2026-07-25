@@ -75,7 +75,7 @@ const createBook = async (req, res, next) => {
   try {
     const club = await Club.findById(req.body.club);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -122,7 +122,7 @@ const getAllBooks = async (req, res, next) => {
     }
 
     const books = await Book.find(filter)
-      .populate('club', 'name image')
+      .populate('club', 'name image isArchived')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -139,7 +139,7 @@ const getBookById = async (req, res, next) => {
   try {
     const book = await Book.findById(req.params.id).populate(
       'club',
-      'name image creator'
+      'name image creator isArchived'
     );
 
     if (!book) {
@@ -171,7 +171,7 @@ const updateBook = async (req, res, next) => {
 
     const club = await Club.findById(book.club);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',
@@ -194,7 +194,7 @@ const updateBook = async (req, res, next) => {
         new: true,
         runValidators: true,
       }
-    ).populate('club', 'name image');
+    ).populate('club', 'name image isArchived');
 
     if (
       oldCoverImagePublicId &&
@@ -228,7 +228,7 @@ const deleteBook = async (req, res, next) => {
 
     const club = await Club.findById(book.club);
 
-    if (!club) {
+    if (!club || club.isArchived) {
       return res.status(404).json({
         success: false,
         message: 'Club not found',

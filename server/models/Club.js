@@ -69,9 +69,19 @@ const clubSchema = new mongoose.Schema(
     ],
 
     genres: {
-        type: [String],
-        enum: GENRES,
-        default: [],
+      type: [String],
+      enum: GENRES,
+      default: [],
+    },
+
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+
+    archivedAt: {
+      type: Date,
+      default: null,
     },
 
   },
