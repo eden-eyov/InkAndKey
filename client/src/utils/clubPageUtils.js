@@ -91,6 +91,7 @@ export const mapCommentsToDiscussion = (comments = []) => {
       spoilerFree: comment.isSpoilerFreeReview,
       authorId: getCommentUserId(comment),
       authorName: comment.user?.username || 'Reader',
+      authorIsDeleted: Boolean(comment.user?.isDeleted),
       isDeleted: Boolean(comment.isDeleted),
       isLocked: comment.isLocked,
       lockedReason: comment.isLocked
@@ -110,6 +111,7 @@ export const mapCommentsToDiscussion = (comments = []) => {
           : '',
         authorId: getCommentUserId(reply),
         authorName: reply.user?.username || 'Reader',
+        authorIsDeleted: Boolean(reply.user?.isDeleted),
         isDeleted: Boolean(reply.isDeleted),
         likesCount: reply.likesCount || 0,
         isLikedByMe: Boolean(reply.isLikedByMe),

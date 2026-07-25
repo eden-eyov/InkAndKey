@@ -340,9 +340,7 @@ const deleteMyAccount = async (req, res, next) => {
     const userId = req.user._id;
     const deletedAt = new Date();
 
-    const user = await User.findById(userId).select(
-      '+password profileImagePublicId'
-    );
+    const user = await User.findById(userId);
 
     if (!user || user.isDeleted) {
       return res.status(404).json({
@@ -389,7 +387,7 @@ const deleteMyAccount = async (req, res, next) => {
       .update(normalizedEmail)
       .digest('hex');
 
-    user.username = `deleted-user-${deletedIdentifier}`;
+    user.username = `deleted-${deletedIdentifier.slice(-12)}`;
     user.email = `deleted-${deletedIdentifier}@deleted.local`;
     user.googleId = '';
     user.profileImage = '';

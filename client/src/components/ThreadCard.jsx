@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import LockedContent from './LockedContent';
 
-function AuthorLink({ userId, name }) {
-  const displayName = name || 'Reader';
+function AuthorLink({ userId, name, isDeleted = false }) {
+  const displayName = isDeleted ? 'Deleted user' : name || 'Reader';
 
-  if (!userId) {
-    return <span className="font-medium text-stone-500">{displayName}</span>;
+  if (!userId || isDeleted) {
+    return (
+      <span className="font-medium text-stone-500">
+        {displayName}
+      </span>
+    );
   }
 
   return (
@@ -256,7 +260,11 @@ function ThreadCard({
           <div className="flex items-center justify-between text-xs text-stone-400">
             <span>
               Posted by{' '}
-              <AuthorLink userId={thread.authorId} name={thread.authorName} />
+              <AuthorLink
+                userId={thread.authorId}
+                name={thread.authorName}
+                isDeleted={thread.authorIsDeleted}
+              />
             </span>
 
             <span>
@@ -449,6 +457,7 @@ function ThreadCard({
                           <AuthorLink
                             userId={reply.authorId}
                             name={reply.authorName}
+                            isDeleted={reply.authorIsDeleted}
                           />
                         </span>
 

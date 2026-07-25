@@ -90,11 +90,25 @@ export const AuthProvider = ({ children }) => {
       clearSession();
     }
   };
+
+  const deleteAccount = async () => {
+    await api.delete('/users/me');
+    clearSession();
+  };
+
   const isAuthenticated = Boolean(user);
 
   return (
     <AuthContext.Provider
-      value={{ user, login, logout, updateUser, loading, isAuthenticated }}
+      value={{
+        user,
+        login,
+        logout,
+        deleteAccount,
+        updateUser,
+        loading,
+        isAuthenticated,
+      }}
     >
       {children}
     </AuthContext.Provider>

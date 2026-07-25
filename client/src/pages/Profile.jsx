@@ -5,7 +5,7 @@ import api from '../services/api';
 
 function Profile() {
   const { userId } = useParams();
-  const { user } = useAuth();
+  const { user, deleteAccount } = useAuth();
   const navigate = useNavigate();
 
   const viewedUserId = userId || user?._id || user?.id;
@@ -21,6 +21,9 @@ function Profile() {
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
   const [imageUploadError, setImageUploadError] = useState('');
   const [imageUploadMessage, setImageUploadMessage] = useState('');
+
+  const [deleteAccountLoading, setDeleteAccountLoading] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState('');
 
   const [ratingLoadingId, setRatingLoadingId] = useState('');
 
@@ -92,6 +95,45 @@ function Profile() {
 
   const handleEditProfile = () => {
     navigate('/onboarding');
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteAccountLoading) return;
+
+    const confirmed = window.confirm(
+      'Are you sure you want to delete your account?\n\n' +
+      'Your profile will be deactivated, clubs you created will be archived, ' +
+      'and you will be removed from other clubs.\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setDeleteAccountLoading(true);
+      setDeleteAccountError('');
+
+      await deleteAccount();
+
+      navigate('/', {
+        replace: true,
+        state: {
+          accountDeleted: true,
+        },
+      });
+    } catch (err) {
+      console.log(
+        'DELETE ACCOUNT ERROR:',
+        err.response?.data || err
+      );
+
+      setDeleteAccountError(
+        err.response?.data?.message ||
+        'Failed to delete your account. Please try again.'
+      );
+    } finally {
+      setDeleteAccountLoading(false);
+    }
   };
 
   const clearSelectedProfileImage = () => {
@@ -329,13 +371,33 @@ function Profile() {
               </div>
 
               {isOwnProfile && (
-                <button
-                  type="button"
-                  onClick={handleEditProfile}
-                  className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition"
-                >
-                  Edit profile
-                </button>
+                <div className="flex flex-col items-stretch md:items-end gap-3">
+                  <button
+                    type="button"
+                    onClick={handleEditProfile}
+                    disabled={deleteAccountLoading}
+                    className="px-6 py-3 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Edit profile
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleDeleteAccount}
+                    disabled={deleteAccountLoading}
+                    className="px-6 py-3 border border-red-200 text-red-600 text-sm font-medium rounded-full hover:bg-red-50 transition disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {deleteAccountLoading
+                      ? 'Deleting account...'
+                      : 'Delete account'}
+                  </button>
+
+                  {deleteAccountError && (
+                    <p className="max-w-xs text-right text-xs text-red-600">
+                      {deleteAccountError}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
