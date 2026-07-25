@@ -6,7 +6,6 @@ const {
   getAllBooks,
   getBookById,
   updateBook,
-  deleteBook,
 } = require('../controllers/bookController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -25,6 +24,5 @@ router.get('/:id', getBookById);
 
 router.post('/', protect, validate(createBookSchema), createBook);
 router.patch('/:id', protect, validate(updateBookSchema), updateBook);
-router.delete('/:id', protect, deleteBook);
 
 module.exports = router;

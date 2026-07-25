@@ -215,58 +215,6 @@ const updateBook = async (req, res, next) => {
   }
 };
 
-const deleteBook = async (req, res, next) => {
-  try {
-    const book = await Book.findById(req.params.id);
-
-    if (!book) {
-      return res.status(404).json({
-        success: false,
-        message: 'Book not found',
-      });
-    }
-
-    const club = await Club.findById(book.club);
-
-    if (!club || club.isArchived) {
-      return res.status(404).json({
-        success: false,
-        message: 'Club not found',
-      });
-    }
-
-    if (club.creator.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Only the club creator can delete this book',
-      });
-    }
-
-    if (club.currentBook && club.currentBook.toString() === book._id.toString()) {
-      club.currentBook = null;
-      await club.save();
-    }
-
-    club.previousBooks = club.previousBooks.filter(
-      (bookId) => bookId.toString() !== book._id.toString()
-    );
-    await club.save();
-
-    await Book.findByIdAndDelete(req.params.id);
-
-    await safelyDeleteManagedBookCover(
-      book.coverImagePublicId,
-      `deleted book cover ${book._id}`
-    );
-
-    res.status(200).json({
-      success: true,
-      message: 'Book deleted successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 module.exports = {
   searchGoogleBooks,
@@ -274,5 +222,4 @@ module.exports = {
   getAllBooks,
   getBookById,
   updateBook,
-  deleteBook,
 };
