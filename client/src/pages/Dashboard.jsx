@@ -275,6 +275,10 @@ function Dashboard() {
     const clubId = progress?.club?._id;
     const bookId = progress?.book?._id;
 
+    if (progress?.club?.isArchived) {
+      return;
+    }
+
     if (!progressId || !clubId || !bookId) return;
 
     if (!forceRefresh && discussionsByProgressId[progressId]) {
@@ -460,6 +464,10 @@ function Dashboard() {
   };
 
   const handleChangeReadSection = async (progress, section) => {
+    if (section === 'discussions' && progress?.club?.isArchived) {
+      return;
+    }
+
     setExpandedRead({
       id: progress._id,
       section,
@@ -838,6 +846,7 @@ function Dashboard() {
 
                         const bookAuthor = progress.book?.author || '';
                         const bookCover = progress.book?.coverImage || '';
+                        const isArchivedClub = Boolean(progress.club?.isArchived);
                         const totalChapters =
                           Number(progress.book?.totalChapters) || 0;
                         const currentChapter =
@@ -906,8 +915,9 @@ function Dashboard() {
 
                                 <div className="flex-1 min-w-0">
                                   <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                                    Reading with{' '}
-                                    {progress.club?.name || 'a book club'}
+                                    {isArchivedClub
+                                      ? 'Club no longer available'
+                                      : `Reading with ${progress.club?.name || 'a book club'}`}
                                   </span>
 
                                   <h3 className="font-serif text-2xl mt-2 mb-1">
@@ -952,13 +962,19 @@ function Dashboard() {
                                       {isExpanded ? 'Close' : 'Open'}
                                     </button>
 
-                                    {progress.club?._id && (
-                                      <Link
-                                        to={`/clubs/${progress.club._id}`}
-                                        className="text-sm font-medium text-accent hover:underline ml-auto"
-                                      >
-                                        View club
-                                      </Link>
+                                    {isArchivedClub ? (
+                                      <span className="text-sm text-stone-400 ml-auto">
+                                        This club is no longer available
+                                      </span>
+                                    ) : (
+                                      progress.club?._id && (
+                                        <Link
+                                          to={`/clubs/${progress.club._id}`}
+                                          className="text-sm font-medium text-accent hover:underline ml-auto"
+                                        >
+                                          View club
+                                        </Link>
+                                      )
                                     )}
                                   </div>
                                 </div>
@@ -981,18 +997,20 @@ function Dashboard() {
                                     Progress
                                   </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleChangeReadSection(progress, 'discussions')
-                                    }
-                                    className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'discussions'
-                                      ? 'border-accent text-accent'
-                                      : 'border-transparent text-stone-500 hover:text-ink'
-                                      }`}
-                                  >
-                                    Discussions
-                                  </button>
+                                  {!isArchivedClub && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleChangeReadSection(progress, 'discussions')
+                                      }
+                                      className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'discussions'
+                                        ? 'border-accent text-accent'
+                                        : 'border-transparent text-stone-500 hover:text-ink'
+                                        }`}
+                                    >
+                                      Discussions
+                                    </button>
+                                  )}
                                 </div>
 
                                 <div className="p-5">
@@ -1036,137 +1054,138 @@ function Dashboard() {
                                     </div>
                                   )}
 
-                                  {expandedRead.section === 'discussions' && (
-                                    <div>
-                                      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
-                                        <div>
-                                          <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                                            Recent discussions
-                                          </span>
+                                  {expandedRead.section === 'discussions' &&
+                                    !isArchivedClub && (
+                                      <div>
+                                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+                                          <div>
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
+                                              Recent discussions
+                                            </span>
 
-                                          <h4 className="font-serif text-2xl mt-2">
-                                            Conversations about {bookTitle}
-                                          </h4>
-                                          {newDiscussionProgressId === progress._id && (
-                                            <AddThreadForm
-                                              totalChapters={totalChapters}
-                                              onCancel={() => setNewDiscussionProgressId('')}
-                                              onSubmitThread={(discussionData) =>
-                                                handleCreateDashboardDiscussion(
-                                                  progress,
-                                                  discussionData
-                                                )
-                                              }
-                                            />
-                                          )}
-                                        </div>
-
-                                        {progress.club?._id && (
-                                          <div className="flex flex-wrap items-center gap-4">
-                                            <button type="button"
-                                              onClick={() =>
-                                                setNewDiscussionProgressId((currentId) =>
-                                                  currentId === progress._id ? '' : progress._id
-                                                )
-                                              }
-                                              className="text-sm font-medium text-ink hover:text-accent transition">{newDiscussionProgressId === progress._id
-                                                ? 'Cancel'
-                                                : 'New discussion'}
-                                            </button>
-
-                                            {isStillCurrentClubBook && progress.club?._id && (
-                                              <Link
-                                                to={`/clubs/${progress.club._id}`}
-                                                className="text-sm font-medium text-accent hover:underline"
-                                              >
-                                                View all discussions
-                                              </Link>
-                                            )}
-
-                                            {!isStillCurrentClubBook && (
-                                              <span className="text-xs text-stone-400">
-                                                This is a previous club read.
-                                              </span>
+                                            <h4 className="font-serif text-2xl mt-2">
+                                              Conversations about {bookTitle}
+                                            </h4>
+                                            {newDiscussionProgressId === progress._id && (
+                                              <AddThreadForm
+                                                totalChapters={totalChapters}
+                                                onCancel={() => setNewDiscussionProgressId('')}
+                                                onSubmitThread={(discussionData) =>
+                                                  handleCreateDashboardDiscussion(
+                                                    progress,
+                                                    discussionData
+                                                  )
+                                                }
+                                              />
                                             )}
                                           </div>
 
+                                          {progress.club?._id && (
+                                            <div className="flex flex-wrap items-center gap-4">
+                                              <button type="button"
+                                                onClick={() =>
+                                                  setNewDiscussionProgressId((currentId) =>
+                                                    currentId === progress._id ? '' : progress._id
+                                                  )
+                                                }
+                                                className="text-sm font-medium text-ink hover:text-accent transition">{newDiscussionProgressId === progress._id
+                                                  ? 'Cancel'
+                                                  : 'New discussion'}
+                                              </button>
 
-                                        )}
+                                              {isStillCurrentClubBook && progress.club?._id && (
+                                                <Link
+                                                  to={`/clubs/${progress.club._id}`}
+                                                  className="text-sm font-medium text-accent hover:underline"
+                                                >
+                                                  View all discussions
+                                                </Link>
+                                              )}
 
-                                      </div>
+                                              {!isStillCurrentClubBook && (
+                                                <span className="text-xs text-stone-400">
+                                                  This is a previous club read.
+                                                </span>
+                                              )}
+                                            </div>
 
-                                      {discussionsLoadingId === progress._id ? (
-                                        <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
-                                          <p className="text-sm italic text-stone-500">
-                                            Loading discussions...
-                                          </p>
+
+                                          )}
+
                                         </div>
-                                      ) : discussionsErrors[progress._id] ? (
-                                        <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
-                                          <p className="text-sm text-red-600">
-                                            {discussionsErrors[progress._id]}
-                                          </p>
-                                        </div>
-                                      ) : (
-                                        (() => {
-                                          const discussions =
-                                            discussionsByProgressId[progress._id] || [];
 
-                                          const recentDiscussions = [...discussions]
-                                            .reverse()
-                                            .slice(0, 3);
+                                        {discussionsLoadingId === progress._id ? (
+                                          <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
+                                            <p className="text-sm italic text-stone-500">
+                                              Loading discussions...
+                                            </p>
+                                          </div>
+                                        ) : discussionsErrors[progress._id] ? (
+                                          <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
+                                            <p className="text-sm text-red-600">
+                                              {discussionsErrors[progress._id]}
+                                            </p>
+                                          </div>
+                                        ) : (
+                                          (() => {
+                                            const discussions =
+                                              discussionsByProgressId[progress._id] || [];
 
-                                          if (recentDiscussions.length === 0) {
+                                            const recentDiscussions = [...discussions]
+                                              .reverse()
+                                              .slice(0, 3);
+
+                                            if (recentDiscussions.length === 0) {
+                                              return (
+                                                <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
+                                                  <p className="text-sm text-stone-500">
+                                                    No discussions yet.
+                                                  </p>
+                                                </div>
+                                              );
+                                            }
+
                                             return (
-                                              <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
-                                                <p className="text-sm text-stone-500">
-                                                  No discussions yet.
-                                                </p>
-                                              </div>
-                                            );
-                                          }
-
-                                          return (
-                                            <div className="space-y-4">
-                                              {recentDiscussions.map((thread) => (
-                                                <ThreadCard
-                                                  key={thread._id}
-                                                  thread={thread}
-                                                  totalChapters={totalChapters}
-                                                  currentUserId={currentUserId}
-                                                  canLike
-                                                  onSubmitReply={(
-                                                    selectedThread,
-                                                    replyText,
-                                                    chapterNumber
-                                                  ) =>
-                                                    handleCreateDiscussionReply(
-                                                      progress,
+                                              <div className="space-y-4">
+                                                {recentDiscussions.map((thread) => (
+                                                  <ThreadCard
+                                                    key={thread._id}
+                                                    thread={thread}
+                                                    totalChapters={totalChapters}
+                                                    currentUserId={currentUserId}
+                                                    canLike
+                                                    onSubmitReply={(
                                                       selectedThread,
                                                       replyText,
                                                       chapterNumber
-                                                    )
-                                                  }
-                                                  onToggleLike={(commentId) =>
-                                                    handleToggleDiscussionLike(
-                                                      progress,
-                                                      commentId
-                                                    )
-                                                  }
-                                                  onDeleteComment={(commentId) =>
-                                                    handleDeleteDiscussionComment(
-                                                      progress,
-                                                      commentId
-                                                    )
-                                                  }
-                                                />
-                                              ))}
-                                            </div>
-                                          );
-                                        })()
-                                      )}
-                                    </div>
-                                  )}
+                                                    ) =>
+                                                      handleCreateDiscussionReply(
+                                                        progress,
+                                                        selectedThread,
+                                                        replyText,
+                                                        chapterNumber
+                                                      )
+                                                    }
+                                                    onToggleLike={(commentId) =>
+                                                      handleToggleDiscussionLike(
+                                                        progress,
+                                                        commentId
+                                                      )
+                                                    }
+                                                    onDeleteComment={(commentId) =>
+                                                      handleDeleteDiscussionComment(
+                                                        progress,
+                                                        commentId
+                                                      )
+                                                    }
+                                                  />
+                                                ))}
+                                              </div>
+                                            );
+                                          })()
+                                        )}
+                                      </div>
+                                    )}
                                 </div>
                               </div>
                             )}

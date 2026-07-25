@@ -16,7 +16,7 @@ function ClubHeaderCard({
     isCreator,
     onJoinClub,
     onLeaveClub,
-    onDeleteClub,
+    onArchiveClub,
     onCoverImageSelect,
     onUploadClubCoverImage,
     onClearCoverImageSelection,
@@ -110,7 +110,7 @@ function ClubHeaderCard({
                                 isCreator={isCreator}
                                 onJoinClub={onJoinClub}
                                 onLeaveClub={onLeaveClub}
-                                onDeleteClub={onDeleteClub}
+                                onArchiveClub={onArchiveClub}
                             />
                         </div>
                     </div>
@@ -187,7 +187,7 @@ function ClubActionButtons({
     isCreator,
     onJoinClub,
     onLeaveClub,
-    onDeleteClub,
+    onArchiveClub,
 }) {
     if (isGuest) {
         return (
@@ -221,10 +221,10 @@ function ClubActionButtons({
 
                 <button
                     type="button"
-                    onClick={onDeleteClub}
+                    onClick={onArchiveClub}
                     className="px-5 py-2.5 bg-red-50 border border-red-200 text-red-700 text-sm font-medium rounded-full hover:bg-red-100 transition"
                 >
-                    Delete club
+                    Archive club
                 </button>
             </div>
         );

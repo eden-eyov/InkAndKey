@@ -95,6 +95,7 @@ function App() {
           />
 
           {/* 404 */}
+          <Route path="/404" element={<NotFound />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>

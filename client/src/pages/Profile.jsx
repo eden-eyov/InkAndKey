@@ -451,7 +451,9 @@ function Profile() {
                           {progress.book?.author}
                         </p>
                         <p className="text-xs text-stone-400 mb-2">
-                          Tracked with {progress.club?.name || 'a book club'}
+                          {progress.club?.isArchived
+                            ? 'Club no longer available'
+                            : `Tracked with ${progress.club?.name || 'a book club'}`}
                         </p>
                         {Number(progress.book?.ratingsCount) > 0 && (
                           <p className="text-xs text-stone-400 mb-2">

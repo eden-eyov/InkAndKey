@@ -169,6 +169,11 @@ function Club() {
       } catch (err) {
         console.log('FETCH CLUB ERROR:', err.response?.data || err);
 
+        if (err.response?.status === 404) {
+          navigate('/404', { replace: true });
+          return;
+        }
+
         setError(
           err.response?.data?.message ||
           'Failed to load club. Please try again.'
@@ -469,11 +474,13 @@ function Club() {
     }
   };
 
-  const handleDeleteClub = async () => {
+  const handleArchiveClub = async () => {
     if (isGuest || !club) return;
 
     const confirmed = window.confirm(
-      'Are you sure you want to delete this club? This action cannot be undone.'
+      'Archive this club?\n\n' +
+      'The club page, discussions, and active polls will no longer be available. ' +
+      'Members who already started the current book will still be able to track their reading progress.'
     );
 
     if (!confirmed) return;
@@ -486,11 +493,11 @@ function Club() {
       refreshClubLists();
       navigate('/clubs');
     } catch (err) {
-      console.log('DELETE CLUB ERROR:', err.response?.data || err);
+      console.log('ARCHIVE CLUB ERROR:', err.response?.data || err);
 
       setError(
         err.response?.data?.message ||
-        'Failed to delete club. Please try again.'
+        'Failed to archive club. Please try again.'
       );
     }
   };
@@ -821,7 +828,7 @@ function Club() {
     return (
       <div className="min-h-screen bg-cream flex justify-center items-center px-4">
         <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center max-w-md">
-          <h1 className="font-serif text-2xl mb-2">Something went wrong</h1>
+          <h1 className="font-serif text-2xl mb-2">Club unavailable</h1>
           <p className="text-stone-500 text-sm mb-5">{error}</p>
 
           <Link
@@ -1060,7 +1067,7 @@ function Club() {
           isCreator={isCreator}
           onJoinClub={handleJoinClub}
           onLeaveClub={handleLeaveClub}
-          onDeleteClub={handleDeleteClub}
+          onArchiveClub={handleArchiveClub}
           onCoverImageSelect={handleCoverImageSelect}
           onUploadClubCoverImage={handleCoverImageUpload}
           onClearCoverImageSelection={clearSelectedCoverImage}
