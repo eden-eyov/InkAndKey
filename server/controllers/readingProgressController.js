@@ -335,34 +335,10 @@ const rateMyCompletedBook = async (req, res, next) => {
   }
 };
 
-const deleteMyProgress = async (req, res, next) => {
-  try {
-    const progress = await ReadingProgress.findOneAndDelete({
-      _id: req.params.id,
-      user: req.user._id,
-    });
-
-    if (!progress) {
-      return res.status(404).json({
-        success: false,
-        message: 'Reading progress not found',
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Reading progress deleted successfully',
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 module.exports = {
   upsertMyProgress,
   getMyProgress,
   getMyProgressById,
   markMyProgressAsDnf,
   rateMyCompletedBook,
-  deleteMyProgress,
 };

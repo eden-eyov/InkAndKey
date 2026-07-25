@@ -296,13 +296,6 @@ Content-Type: application/json
   "currentChapter": 99
 }
 
-### Delete my reading progress
-### This request deletes one reading progress document.
-### The user can delete only their own progress document.
-### Replace PROGRESS_ID_HERE with the _id of the reading progress document.
-DELETE {{baseUrl}}/reading-progress/{{progressId}}
-Authorization: Bearer {{primaryToken}}
-
 ##Comments check:
 ### Create regular chapter comment
 ### This creates a normal comment connected to a specific chapter.
