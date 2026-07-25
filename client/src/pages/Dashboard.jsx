@@ -463,6 +463,44 @@ function Dashboard() {
     }
   };
 
+  const handleUpdateDiscussionComment = async (
+    progress,
+    commentId,
+    updateData
+  ) => {
+    try {
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]: '',
+      }));
+
+      await api.patch(`/comments/${commentId}`, {
+        text: updateData.text,
+        chapterNumber: updateData.chapterNumber,
+        isSpoilerFreeReview: updateData.isSpoilerFreeReview,
+      });
+
+      await fetchDiscussionsForProgress(progress, {
+        forceRefresh: true,
+        showLoading: false,
+      });
+    } catch (err) {
+      console.log(
+        'UPDATE DASHBOARD COMMENT ERROR:',
+        err.response?.data || err
+      );
+
+      setDiscussionsErrors((previousErrors) => ({
+        ...previousErrors,
+        [progress._id]:
+          err.response?.data?.message ||
+          'Failed to update discussion.',
+      }));
+
+      throw err;
+    }
+  };
+
   const handleChangeReadSection = async (progress, section) => {
     if (section === 'discussions' && progress?.club?.isArchived) {
       return;
@@ -1176,6 +1214,13 @@ function Dashboard() {
                                                       handleDeleteDiscussionComment(
                                                         progress,
                                                         commentId
+                                                      )
+                                                    }
+                                                    onUpdateComment={(commentId, updateData) =>
+                                                      handleUpdateDiscussionComment(
+                                                        progress,
+                                                        commentId,
+                                                        updateData
                                                       )
                                                     }
                                                   />

@@ -29,6 +29,7 @@ function ThreadCard({
   onSubmitReply,
   onToggleLike,
   onDeleteComment,
+  onUpdateComment,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [replyText, setReplyText] = useState('');
@@ -39,6 +40,13 @@ function ThreadCard({
   const [likingId, setLikingId] = useState(null);
 
   const [deletingId, setDeletingId] = useState(null);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState('');
+  const [editChapter, setEditChapter] = useState(1);
+  const [editSpoilerFree, setEditSpoilerFree] = useState(false);
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState('');
 
   const canOpenThread = !thread.isLocked;
 
@@ -112,6 +120,68 @@ function ThreadCard({
     }
   };
 
+  const handleStartEditing = () => {
+    setEditText(thread.body || '');
+    setEditChapter(Number(thread.chapterNumber) || 1);
+    setEditSpoilerFree(Boolean(thread.spoilerFree));
+    setEditError('');
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    if (editSubmitting) return;
+
+    setIsEditing(false);
+    setEditError('');
+  };
+
+  const handleSubmitEdit = async (e) => {
+    e.preventDefault();
+
+    if (!onUpdateComment || editSubmitting) return;
+
+    const trimmedText = editText.trim();
+    const selectedChapter = Number(editChapter);
+
+    if (!trimmedText) {
+      setEditError('Please write some text for the discussion.');
+      return;
+    }
+
+    if (
+      !Number.isInteger(selectedChapter) ||
+      selectedChapter < 1 ||
+      selectedChapter > bookTotalChapters
+    ) {
+      setEditError(
+        `Please choose a chapter between 1 and ${bookTotalChapters}.`
+      );
+      return;
+    }
+
+    try {
+      setEditSubmitting(true);
+      setEditError('');
+
+      await onUpdateComment(thread._id, {
+        text: trimmedText,
+        chapterNumber: selectedChapter,
+        isSpoilerFreeReview: editSpoilerFree,
+      });
+
+      setIsEditing(false);
+    } catch (error) {
+      console.log('UPDATE DISCUSSION ERROR:', error);
+
+      setEditError(
+        error.response?.data?.message ||
+        'Failed to update the discussion. Please try again.'
+      );
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
   const parentChapter = Number(thread.chapterNumber) || 0;
   const bookTotalChapters = Number(totalChapters) || parentChapter;
 
@@ -171,13 +241,17 @@ function ThreadCard({
             )}
           </div>
 
-          <h3 className="font-serif text-xl text-ink mb-2">
-            {thread.title}
-          </h3>
+          {!isEditing && (
+            <>
+              <h3 className="font-serif text-xl text-ink mb-2">
+                {thread.title}
+              </h3>
 
-          <p className="text-stone-500 text-sm mb-4 leading-relaxed">
-            {thread.body}
-          </p>
+              <p className="text-stone-500 text-sm mb-4 leading-relaxed">
+                {thread.body}
+              </p>
+            </>
+          )}
 
           <div className="flex items-center justify-between text-xs text-stone-400">
             <span>
@@ -190,15 +264,123 @@ function ThreadCard({
             </span>
           </div>
         </button>
+        {isEditing && (
+          <form
+            onSubmit={handleSubmitEdit}
+            className="mt-4 space-y-4 rounded-xl border border-stone-200 bg-cream p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {editError && (
+              <p className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                {editError}
+              </p>
+            )}
+
+            <div>
+              <label
+                htmlFor={`edit-discussion-text-${thread._id}`}
+                className="mb-1 block text-xs uppercase tracking-wider text-stone-500"
+              >
+                Discussion text
+              </label>
+
+              <textarea
+                id={`edit-discussion-text-${thread._id}`}
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                rows="4"
+                disabled={editSubmitting}
+                className="w-full resize-none rounded-xl border border-stone-200 bg-white p-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor={`edit-discussion-chapter-${thread._id}`}
+                className="mb-1 block text-xs uppercase tracking-wider text-stone-500"
+              >
+                Chapter
+              </label>
+
+              <select
+                id={`edit-discussion-chapter-${thread._id}`}
+                value={editChapter}
+                onChange={(e) => setEditChapter(Number(e.target.value))}
+                disabled={editSubmitting || editSpoilerFree}
+                className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
+              >
+                {Array.from(
+                  { length: Math.max(bookTotalChapters, 1) },
+                  (_, index) => index + 1
+                ).map((chapter) => (
+                  <option key={chapter} value={chapter}>
+                    Chapter {chapter}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-stone-200 bg-white p-4 transition hover:border-accent">
+              <input
+                type="checkbox"
+                checked={editSpoilerFree}
+                onChange={(e) => setEditSpoilerFree(e.target.checked)}
+                disabled={editSubmitting}
+                className="mt-1 accent-[#7D6E5D]"
+              />
+
+              <span>
+                <span className="block text-sm font-medium text-ink">
+                  Spoiler-free discussion
+                </span>
+
+                <span className="mt-1 block text-xs leading-relaxed text-stone-500">
+                  Safe for guests and readers at any chapter.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex justify-end gap-3 border-t border-stone-200 pt-4">
+              <button
+                type="button"
+                onClick={handleCancelEditing}
+                disabled={editSubmitting}
+                className="text-sm font-medium text-stone-500 transition hover:text-ink disabled:opacity-50"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+                disabled={editSubmitting || !editText.trim()}
+                className="rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {editSubmitting ? 'Saving...' : 'Save changes'}
+              </button>
+            </div>
+          </form>
+        )}
         {canDeleteThread && !thread.isDeleted && (
-          <div className="mt-3 flex justify-end">
+          <div className="mt-3 flex justify-end gap-4">
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={handleStartEditing}
+                className="text-xs font-medium text-stone-400 transition hover:text-accent"
+              >
+                Edit discussion
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => handleDeleteClick(thread._id)}
-              disabled={deletingId === thread._id}
+              disabled={deletingId === thread._id || editSubmitting}
               className="text-xs font-medium text-stone-400 transition hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {deletingId === thread._id ? 'Deleting...' : 'Delete discussion'}
+              {deletingId === thread._id
+                ? 'Deleting...'
+                : 'Delete discussion'}
             </button>
           </div>
         )}

@@ -18,6 +18,7 @@ function DiscussionsSection({
   onCreateReply,
   onToggleLike,
   onDeleteComment,
+  onUpdateComment,
 }) {
   const visibleComments = comments.map((comment) => {
     if (isGuest) {
@@ -93,6 +94,7 @@ function DiscussionsSection({
               onSubmitReply={onCreateReply}
               onToggleLike={onToggleLike}
               onDeleteComment={onDeleteComment}
+              onUpdateComment={onUpdateComment}
             />
           ))}
         </div>

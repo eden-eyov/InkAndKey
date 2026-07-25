@@ -680,6 +680,34 @@ function Club() {
     }
   };
 
+  const handleUpdateComment = async (commentId, updateData) => {
+    if (!currentBook || !isMember) return;
+
+    try {
+      setError('');
+
+      await api.patch(`/comments/${commentId}`, {
+        text: updateData.text,
+        chapterNumber: updateData.chapterNumber,
+        isSpoilerFreeReview: updateData.isSpoilerFreeReview,
+      });
+
+      await fetchComments(currentBook._id, false, false);
+    } catch (err) {
+      console.log(
+        'UPDATE COMMENT ERROR:',
+        err.response?.data || err
+      );
+
+      setError(
+        err.response?.data?.message ||
+        'Failed to update discussion. Please try again.'
+      );
+
+      throw err;
+    }
+  };
+
   const toggleDescriptionPreview = (key) => {
     setExpandedDescriptions((prev) => ({
       ...prev,
@@ -1138,6 +1166,7 @@ function Club() {
             onCreateReply={handleCreateReply}
             onToggleLike={handleToggleLike}
             onDeleteComment={handleDeleteComment}
+            onUpdateComment={handleUpdateComment}
           />
 
           {isGuest ? (

@@ -48,25 +48,7 @@ function AddThreadForm({
       chapterNumber: Number(formData.chapterNumber),
       spoilerFree: formData.spoilerFree,
     };
-
-    // SERVER TODO:
-    // Later this data should be sent from Club.jsx to the backend.
-    // Possible endpoint:
-    // POST /clubs/:clubId/threads
-    //
-    // Body example:
-    // {
-    //   title,
-    //   body,
-    //   chapterNumber,
-    //   spoilerFree
-    // }
-    //
-    // The backend should add:
-    // - clubId from the URL
-    // - bookId from the club's current active book
-    // - authorId from the logged-in user's JWT
-
+    
     onSubmitThread(newThreadData);
   };
 
