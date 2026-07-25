@@ -1,7 +1,5 @@
 ### ==================================================
 ### Ink & Key API - REST Client collection
-### Fill these values locally before running protected requests.
-### Do not commit real passwords, access tokens, or resource IDs.
 ### ==================================================
 
 @baseUrl = http://localhost:5000/api
@@ -685,3 +683,333 @@ Content-Type: application/json
 ### 11. Get specific progress after rating
 GET {{baseUrl}}/reading-progress/{{dnfProgressId}}
 Authorization: Bearer {{pollCreatorToken}}
+
+
+### ==================================================
+### USER SOFT DELETE TESTS
+### ==================================================
+
+### IMPORTANT:
+### Use a dedicated test user for these requests.
+### Do not run the delete request with your main development account.
+
+@deletedUserEmail = softdelete-test@example.com
+@deletedUserUsername = Soft Delete Test
+@deletedUserPassword = YOUR_TEST_PASSWORD
+
+### After registration/login, copy these values from the responses:
+@deletedUserToken = YOUR_DELETED_USER_ACCESS_TOKEN
+@deletedUserId = YOUR_DELETED_USER_ID
+
+### Use another active user's token for checking search/profile/comments:
+@activeUserToken = YOUR_ACTIVE_USER_ACCESS_TOKEN
+
+### Optional existing resources:
+@deletedUserCommentId = COMMENT_CREATED_BY_DELETED_USER
+@deletedUserClubId = CLUB_CREATED_BY_DELETED_USER
+@otherUserClubId = CLUB_CREATED_BY_ANOTHER_USER
+
+
+### --------------------------------------------------
+### 1. Register a dedicated user for soft-delete testing
+### Expected: 201
+### Copy:
+### - response.data.id -> deletedUserId
+### - response.accessToken -> deletedUserToken
+### --------------------------------------------------
+
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "{{deletedUserUsername}}",
+  "email": "{{deletedUserEmail}}",
+  "password": "{{deletedUserPassword}}",
+  "favoriteGenres": ["Fantasy"],
+  "favoriteBooks": ["The Hobbit"]
+}
+
+
+### --------------------------------------------------
+### 2. Login before deletion
+### Expected: 200
+### The response should contain a valid accessToken.
+### --------------------------------------------------
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{deletedUserEmail}}",
+  "password": "{{deletedUserPassword}}"
+}
+
+
+### --------------------------------------------------
+### 3. Confirm the account is currently active
+### Expected: 200
+### --------------------------------------------------
+
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{deletedUserToken}}
+
+
+### --------------------------------------------------
+### 4. Optional: create a club owned by the user
+### Save the returned club id in deletedUserClubId.
+### Expected: 201
+### --------------------------------------------------
+
+POST {{baseUrl}}/clubs
+Authorization: Bearer {{deletedUserToken}}
+Content-Type: application/json
+
+{
+  "name": "Soft Delete Test Club",
+  "description": "This club should be archived when its creator deletes the account.",
+  "genres": ["Fantasy"]
+}
+
+
+### --------------------------------------------------
+### 5. Optional: join a club created by another user
+### The user should be removed from this club's members
+### after deleting the account.
+### Expected before deletion: 200
+### --------------------------------------------------
+
+POST {{baseUrl}}/clubs/{{otherUserClubId}}/join
+Authorization: Bearer {{deletedUserToken}}
+
+
+### --------------------------------------------------
+### 6. Optional: create a comment before deleting account
+### Replace the club and book ids as needed.
+### Save the returned comment id in deletedUserCommentId.
+### Expected: 201
+### --------------------------------------------------
+
+# POST {{baseUrl}}/comments
+# Authorization: Bearer {{deletedUserToken}}
+# Content-Type: application/json
+#
+# {
+#   "club": "YOUR_CLUB_ID",
+#   "book": "YOUR_BOOK_ID",
+#   "title": "Comment before account deletion",
+#   "text": "This comment should remain visible after the account is deleted.",
+#   "chapterNumber": 1,
+#   "isSpoilerFreeReview": false
+# }
+
+
+### --------------------------------------------------
+### 7. Delete the logged-in user's account
+### Expected: 200
+### Expected body:
+### {
+###   "success": true,
+###   "message": "Account deleted successfully"
+### }
+### --------------------------------------------------
+
+DELETE {{baseUrl}}/users/me
+Authorization: Bearer {{deletedUserToken}}
+
+
+### ==================================================
+### AUTH BLOCKING TESTS
+### Run these only after request 7.
+### ==================================================
+
+### --------------------------------------------------
+### 8. Old access token must stop working
+### Expected: 401
+### --------------------------------------------------
+
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{deletedUserToken}}
+
+
+### --------------------------------------------------
+### 9. Old refresh token must stop working
+### Expected: 401
+### Note:
+### Run this in the same REST Client session so the cookie
+### created during login is still available.
+### --------------------------------------------------
+
+POST {{baseUrl}}/auth/refresh-token
+
+
+### --------------------------------------------------
+### 10. Login with the old email/password must fail
+### Expected: 401
+### Prefer a generic message such as:
+### "Invalid email or password"
+### --------------------------------------------------
+
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{deletedUserEmail}}",
+  "password": "{{deletedUserPassword}}"
+}
+
+
+### --------------------------------------------------
+### 11. Register again with the deleted email must fail
+### Expected: 403
+### --------------------------------------------------
+
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "New Soft Delete Account",
+  "email": "{{deletedUserEmail}}",
+  "password": "{{deletedUserPassword}}",
+  "favoriteGenres": ["Mystery"],
+  "favoriteBooks": []
+}
+
+
+### --------------------------------------------------
+### 12. Google login check
+### This cannot be tested with a placeholder credential.
+### To test it, log in through the frontend using the same
+### Google account that was soft-deleted.
+### Expected: login should fail and no new user should be created.
+### --------------------------------------------------
+
+
+### ==================================================
+### PROFILE AND SEARCH VISIBILITY TESTS
+### Use a different active user's token.
+### ==================================================
+
+### --------------------------------------------------
+### 13. Deleted user must not appear in username search
+### Expected: 200
+### Expected data: []
+### --------------------------------------------------
+
+GET {{baseUrl}}/users/search?username=Soft%20Delete%20Test
+Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 14. Deleted user's profile must not be accessible
+### Expected: 404
+### --------------------------------------------------
+
+GET {{baseUrl}}/users/{{deletedUserId}}
+Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 15. Deleted user's created clubs endpoint
+### Expected: 404
+### --------------------------------------------------
+
+GET {{baseUrl}}/users/{{deletedUserId}}/created-clubs
+Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 16. Deleted user's club memberships endpoint
+### Expected: 404
+### --------------------------------------------------
+
+GET {{baseUrl}}/users/{{deletedUserId}}/clubs
+Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 17. Deleted user's currently-reading endpoint
+### Expected: 404
+### --------------------------------------------------
+
+GET {{baseUrl}}/users/{{deletedUserId}}/currently-reading
+Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 18. Deleted user's completed-books endpoint
+### Expected: 404
+### --------------------------------------------------
+
+GET {{baseUrl}}/users/{{deletedUserId}}/completed-books
+Authorization: Bearer {{activeUserToken}}
+
+
+### ==================================================
+### CLUB ARCHIVE AND MEMBERSHIP TESTS
+### ==================================================
+
+### --------------------------------------------------
+### 19. Club created by deleted user must not appear
+### in the public clubs list.
+### Expected: 200
+### The archived club should not be inside data.
+### --------------------------------------------------
+
+GET {{baseUrl}}/clubs
+
+
+### --------------------------------------------------
+### 20. Direct access to archived club must fail
+### Expected: 404 or the archived-club status used by your API.
+### --------------------------------------------------
+
+GET {{baseUrl}}/clubs/{{deletedUserClubId}}
+
+
+### --------------------------------------------------
+### 21. Deleted user must be removed from another club
+### Run using an active member/creator token.
+### Expected:
+### members should not include deletedUserId.
+### --------------------------------------------------
+
+GET {{baseUrl}}/clubs/{{otherUserClubId}}
+Authorization: Bearer {{activeUserToken}}
+
+
+### ==================================================
+### COMMENT AUTHOR ANONYMIZATION TESTS
+### ==================================================
+
+### --------------------------------------------------
+### 22. Read a comment created by the deleted user
+### Expected:
+### - comment text remains
+### - user.username = "Deleted user"
+### - user.profileImage = ""
+### - user.isDeleted = true
+### --------------------------------------------------
+
+GET {{baseUrl}}/comments/{{deletedUserCommentId}}
+Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 23. Read the full discussion list containing that comment
+### Replace ids as needed.
+### Expected:
+### the deleted user's comments remain, but the author is anonymized.
+### --------------------------------------------------
+
+# GET {{baseUrl}}/comments?club=YOUR_CLUB_ID&book=YOUR_BOOK_ID
+# Authorization: Bearer {{activeUserToken}}
+
+
+### --------------------------------------------------
+### 24. Public spoiler-free comment check
+### Use only if the deleted user created a spoiler-free review.
+### Expected:
+### author is also returned as "Deleted user".
+### --------------------------------------------------
+
+# GET {{baseUrl}}/comments/public?club=YOUR_CLUB_ID&book=YOUR_BOOK_ID

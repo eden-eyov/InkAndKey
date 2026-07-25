@@ -3,6 +3,8 @@ const Club = require('../models/Club');
 const ReadingProgress = require('../models/ReadingProgress');
 const cloudinary = require('../config/cloudinary');
 
+const crypto = require('crypto');
+
 const uploadBufferToCloudinary = (buffer, options) => {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
@@ -37,7 +39,10 @@ const getUserProfile = async (req, res, next) => {
       ? 'username email profileImage favoriteGenres favoriteBooks createdAt updatedAt'
       : 'username profileImage favoriteGenres favoriteBooks createdAt';
 
-    const user = await User.findById(req.params.id).select(fieldsToSelect);
+    const user = await User.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).select(fieldsToSelect);
 
     if (!user) {
       return res.status(404).json({
@@ -75,6 +80,7 @@ const searchUsers = async (req, res, next) => {
 
     const users = await User.find({
       username: { $regex: username, $options: 'i' },
+      isDeleted: false,
     })
       .select('username profileImage favoriteGenres favoriteBooks createdAt')
       .limit(20);
@@ -161,7 +167,10 @@ const updateMyProfileImage = async (req, res, next) => {
  */
 const getUserClubs = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('_id username');
+    const user = await User.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).select('_id username');
 
     if (!user) {
       return res.status(404).json({
@@ -195,7 +204,10 @@ const getUserClubs = async (req, res, next) => {
  */
 const getUserCreatedClubs = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('_id username');
+    const user = await User.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).select('_id username');
 
     if (!user) {
       return res.status(404).json({
@@ -239,7 +251,10 @@ const getUserCreatedClubs = async (req, res, next) => {
  */
 const getUserCurrentlyReading = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('_id username');
+    const user = await User.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).select('_id username');
 
     if (!user) {
       return res.status(404).json({
@@ -284,7 +299,10 @@ const getUserCurrentlyReading = async (req, res, next) => {
  */
 const getUserCompletedBooks = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('_id username');
+    const user = await User.findOne({
+      _id: req.params.id,
+      isDeleted: false,
+    }).select('_id username');
 
     if (!user) {
       return res.status(404).json({
@@ -317,6 +335,99 @@ const getUserCompletedBooks = async (req, res, next) => {
   }
 };
 
+const deleteMyAccount = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    const deletedAt = new Date();
+
+    const user = await User.findById(userId).select(
+      '+password profileImagePublicId'
+    );
+
+    if (!user || user.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    const profileImagePublicId = user.profileImagePublicId;
+
+    // Archive every active club created by this user.
+    await Club.updateMany(
+      {
+        creator: userId,
+        isArchived: false,
+      },
+      {
+        $set: {
+          isArchived: true,
+          archivedAt: deletedAt,
+        },
+      }
+    );
+
+    // Remove the user from clubs created by other users.
+    await Club.updateMany(
+      {
+        creator: { $ne: userId },
+        members: userId,
+      },
+      {
+        $pull: {
+          members: userId,
+        },
+      }
+    );
+
+    const deletedIdentifier = userId.toString();
+
+    const normalizedEmail = user.email.trim().toLowerCase();
+
+    user.deletedEmailHash = crypto
+      .createHash('sha256')
+      .update(normalizedEmail)
+      .digest('hex');
+
+    user.username = `deleted-user-${deletedIdentifier}`;
+    user.email = `deleted-${deletedIdentifier}@deleted.local`;
+    user.googleId = '';
+    user.profileImage = '';
+    user.profileImagePublicId = '';
+    user.favoriteGenres = [];
+    user.favoriteBooks = [];
+    user.isDeleted = true;
+    user.deletedAt = deletedAt;
+
+    await user.save();
+
+    if (profileImagePublicId) {
+      try {
+        await cloudinary.uploader.destroy(profileImagePublicId);
+      } catch (cleanupError) {
+        console.error(
+          'Failed to delete profile image from Cloudinary:',
+          cleanupError.message
+        );
+      }
+    }
+
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Account deleted successfully',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getUserProfile,
   searchUsers,
@@ -325,4 +436,5 @@ module.exports = {
   getUserCreatedClubs,
   getUserCurrentlyReading,
   getUserCompletedBooks,
+  deleteMyAccount,
 };

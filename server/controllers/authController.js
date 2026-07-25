@@ -1,8 +1,17 @@
 const { OAuth2Client } = require('google-auth-library');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 
+
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+const hashEmail = (email) => {
+  return crypto
+    .createHash('sha256')
+    .update(email.trim().toLowerCase())
+    .digest('hex');
+};
 
 const generateAccessToken = (userId) => {
   return jwt.sign(
@@ -46,7 +55,25 @@ const register = async (req, res, next) => {
   try {
     const { username, email, password, favoriteGenres, favoriteBooks } = req.body;
 
-    const existingEmail = await User.findOne({ email });
+    const normalizedEmail = email.trim().toLowerCase();
+    const deletedEmailHash = hashEmail(normalizedEmail);
+
+    const deletedAccount = await User.findOne({
+      isDeleted: true,
+      deletedEmailHash,
+    }).select('+deletedEmailHash');
+
+    if (deletedAccount) {
+      return res.status(403).json({
+        success: false,
+        message: 'An account with this email was previously deleted',
+      });
+    }
+
+    const existingEmail = await User.findOne({
+      email: normalizedEmail,
+      isDeleted: false,
+    });
 
     if (existingEmail) {
       return res.status(409).json({
@@ -66,7 +93,7 @@ const register = async (req, res, next) => {
 
     const user = await User.create({
       username,
-      email,
+      email: normalizedEmail,
       password,
       favoriteGenres,
       favoriteBooks,
@@ -92,6 +119,8 @@ const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -99,7 +128,10 @@ const login = async (req, res, next) => {
       });
     }
 
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({
+      email: normalizedEmail,
+      isDeleted: false,
+    }).select('+password');
 
     if (!user) {
       return res.status(401).json({
@@ -159,12 +191,28 @@ const googleLogin = async (req, res, next) => {
     }
 
     const email = payload.email.toLowerCase();
+    const deletedEmailHash = hashEmail(email);
+
+    const deletedAccount = await User.findOne({
+      isDeleted: true,
+      deletedEmailHash,
+    }).select('+deletedEmailHash');
+
+    if (deletedAccount) {
+      return res.status(403).json({
+        success: false,
+        message: 'This account is no longer active',
+      });
+    }
     const googleId = payload.sub;
     const username =
       payload.name ||
       email.split('@')[0];
 
-    let user = await User.findOne({ email });
+    let user = await User.findOne({
+      email,
+      isDeleted: false,
+    });
 
     if (!user) {
       user = await User.create({
@@ -230,7 +278,14 @@ const refreshAccessToken = async (req, res) => {
 
     const user = await User.findById(decoded.userId);
 
-    if (!user) {
+    if (!user || user.isDeleted) {
+      res.clearCookie('refreshToken', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+        path: '/',
+      });
+
       return res.status(401).json({
         success: false,
         message: 'User no longer exists',

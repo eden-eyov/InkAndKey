@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const GENRES = require('../utils/genres');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 /**             user schema:
 * username
@@ -66,6 +67,20 @@ const userSchema = new mongoose.Schema(
     favoriteBooks: {
       type: [String],
       default: [],
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+
+    deletedAt: {
+      type: Date,
+      default: null,
+    },
+    deletedEmailHash: {
+      type: String,
+      default: '',
+      select: false,
     },
   },
   {

@@ -3,6 +3,24 @@ const Club = require('../models/Club');
 const Book = require('../models/Book');
 const ReadingProgress = require('../models/ReadingProgress');
 
+const formatCommentAuthor = (user) => {
+  if (!user || user.isDeleted) {
+    return {
+      _id: user?._id || null,
+      username: 'Deleted user',
+      profileImage: '',
+      isDeleted: true,
+    };
+  }
+
+  return {
+    _id: user._id,
+    username: user.username,
+    profileImage: user.profileImage,
+    isDeleted: false,
+  };
+};
+
 const formatCommentForUser = (comment, currentChapter, userId) => {
   const isLocked =
     !comment.isSpoilerFreeReview &&
@@ -13,7 +31,7 @@ const formatCommentForUser = (comment, currentChapter, userId) => {
     _id: comment._id,
     club: comment.club,
     book: comment.book,
-    user: comment.user,
+    user: formatCommentAuthor(comment.user),
     title: isLocked ? null : comment.title,
     text: isLocked ? null : comment.text,
     chapterNumber: comment.chapterNumber,
@@ -37,7 +55,7 @@ const formatPublicComment = (comment) => {
     _id: comment._id,
     club: comment.club,
     book: comment.book,
-    user: comment.user,
+    user: formatCommentAuthor(comment.user),
     title: comment.title,
     text: comment.text,
     chapterNumber: comment.chapterNumber,
@@ -166,7 +184,7 @@ const createComment = async (req, res, next) => {
     });
 
     const populatedComment = await Comment.findById(comment._id)
-      .populate('user', 'username profileImage')
+      .populate('user', 'username profileImage isDeleted')
       .populate('club', 'name')
       .populate('book', 'title author coverImage');
 
@@ -240,7 +258,7 @@ const getCommentsByBook = async (req, res, next) => {
       club: clubId,
       book: bookId,
     })
-      .populate('user', 'username profileImage')
+      .populate('user', 'username profileImage isDeleted')
       .populate('club', 'name')
       .populate('book', 'title author coverImage')
       .sort({ createdAt: 1 });
@@ -303,7 +321,7 @@ const getPublicSpoilerFreeComments = async (req, res, next) => {
       isSpoilerFreeReview: true,
       parentComment: null,
     })
-      .populate('user', 'username profileImage')
+      .populate('user', 'username profileImage isDeleted')
       .populate('club', 'name')
       .populate('book', 'title author coverImage')
       .sort({ createdAt: -1 });
@@ -328,7 +346,7 @@ const getCommentById = async (req, res, next) => {
     const userId = req.user._id;
 
     const comment = await Comment.findById(req.params.id)
-      .populate('user', 'username profileImage')
+      .populate('user', 'username profileImage isDeleted')
       .populate('club', 'name members isArchived')
       .populate('book', 'title author coverImage totalChapters');
 
@@ -486,7 +504,7 @@ const updateComment = async (req, res, next) => {
     await comment.save();
 
     const updatedComment = await Comment.findById(comment._id)
-      .populate('user', 'username profileImage')
+      .populate('user', 'username profileImage isDeleted')
       .populate('club', 'name')
       .populate('book', 'title author coverImage');
 

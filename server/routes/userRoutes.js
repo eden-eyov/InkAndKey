@@ -8,6 +8,7 @@ const {
   getUserCreatedClubs,
   getUserCurrentlyReading,
   getUserCompletedBooks,
+  deleteMyAccount,
 } = require('../controllers/userController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -41,6 +42,13 @@ router.put(
   uploadImage.single('image'),
   updateMyProfileImage
 );
+
+/**
+ * Soft-delete the logged-in user's account.
+ * Example:
+ * DELETE /api/users/me
+ */
+router.delete('/me', deleteMyAccount);
 
 /**
  * Get clubs created by this user.
