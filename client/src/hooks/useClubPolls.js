@@ -297,7 +297,7 @@ function useClubPolls({
       if (err.response?.status !== 404 && err.response?.status !== 403) {
         setPollError(
           err.response?.data?.message ||
-            'Failed to load poll. Please try again.'
+          'Failed to load poll. Please try again.'
         );
       }
     } finally {
@@ -329,7 +329,7 @@ function useClubPolls({
 
       setPollError(
         err.response?.data?.message ||
-          'Failed to submit your vote. Please try again.'
+        'Failed to submit your vote. Please try again.'
       );
     } finally {
       setPollActionLoading(false);
@@ -339,6 +339,43 @@ function useClubPolls({
   const handleRefreshPollResults = async () => {
     setPollMessage('');
     await fetchClubPolls(true);
+  };
+
+  const handleDeletePoll = async () => {
+    if (!poll || !isCreator) return;
+
+    const confirmed = window.confirm(
+      'Delete this poll?\n\n' +
+      'This will permanently delete the poll and all votes.\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setPollActionLoading(true);
+      setPollError('');
+      setPollMessage('');
+
+      await api.delete(`/clubs/${clubId}/polls/${poll._id}`);
+
+      setPollMessage('Poll deleted successfully.');
+
+      await fetchClubPolls(false);
+      
+    } catch (err) {
+      console.log(
+        'DELETE POLL ERROR:',
+        err.response?.data || err
+      );
+
+      setPollError(
+        err.response?.data?.message ||
+        'Failed to delete poll. Please try again.'
+      );
+    } finally {
+      setPollActionLoading(false);
+    }
   };
 
   const handleOpenAnnounceWinnerForm = () => {
@@ -441,7 +478,7 @@ function useClubPolls({
 
       setPollError(
         err.response?.data?.message ||
-          'Failed to announce winner. Please try again.'
+        'Failed to announce winner. Please try again.'
       );
     } finally {
       setAnnouncingWinner(false);
@@ -587,10 +624,10 @@ function useClubPolls({
       options: prev.options.map((option, optionIndex) =>
         optionIndex === index
           ? {
-              ...option,
-              [field]: value,
-              ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
-            }
+            ...option,
+            [field]: value,
+            ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
+          }
           : option
       ),
     }));
@@ -610,13 +647,13 @@ function useClubPolls({
       options: prev.options.map((option, optionIndex) =>
         optionIndex === index
           ? {
-              ...option,
-              title: book.title || '',
-              author: book.author || '',
-              coverImage: book.coverImage || '',
-              coverImagePublicId: '',
-              description: book.description || '',
-            }
+            ...option,
+            title: book.title || '',
+            author: book.author || '',
+            coverImage: book.coverImage || '',
+            coverImagePublicId: '',
+            description: book.description || '',
+          }
           : option
       ),
     }));
@@ -761,10 +798,10 @@ function useClubPolls({
         options: prev.options.map((option) =>
           option._clientId === optionClientId
             ? {
-                ...option,
-                coverImage: uploadedImage.url || '',
-                coverImagePublicId: uploadedImage.publicId || '',
-              }
+              ...option,
+              coverImage: uploadedImage.url || '',
+              coverImagePublicId: uploadedImage.publicId || '',
+            }
             : option
         ),
       }));
@@ -848,7 +885,7 @@ function useClubPolls({
 
       setPollError(
         err.response?.data?.message ||
-          'Failed to set winner book as current book. Please try again.'
+        'Failed to set winner book as current book. Please try again.'
       );
     } finally {
       setPollActionLoading(false);
@@ -885,6 +922,7 @@ function useClubPolls({
     fetchClubPolls,
     handleVoteInPoll,
     handleRefreshPollResults,
+    handleDeletePoll,
     handleOpenAnnounceWinnerForm,
     handleWinnerDataChange,
     handleAnnounceWinner,

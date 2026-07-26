@@ -5,6 +5,7 @@ const {
     getCurrentPoll,
     voteInPoll,
     closePoll,
+    deletePoll,
     announcePollWinner,
     setWinnerBookAsCurrent,
     getClubPolls,
@@ -127,6 +128,21 @@ router.patch('/:pollId/set-winner-current', setWinnerBookAsCurrent);
  * - Club creator only.
  */
 router.patch('/:pollId/close', closePoll);
+
+/**
+ * Completely delete a poll and all of its votes.
+ *
+ * Example:
+ * DELETE /api/clubs/:clubId/polls/:pollId
+ *
+ * Access:
+ * - Club creator only.
+ *
+ * Rules:
+ * - The poll may be open or closed.
+ * - It cannot be deleted after a winner was announced.
+ */
+router.delete('/:pollId', deletePoll);
 
 module.exports = router;
 module.exports.userPollRouter = userPollRouter;

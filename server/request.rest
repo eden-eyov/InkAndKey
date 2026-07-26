@@ -1013,3 +1013,9 @@ Authorization: Bearer {{activeUserToken}}
 ### --------------------------------------------------
 
 # GET {{baseUrl}}/comments/public?club=YOUR_CLUB_ID&book=YOUR_BOOK_ID
+
+### Delete poll before winner announcement
+### Allowed for both open and closed polls.
+### Deletes the poll, all votes, and managed option cover images.
+DELETE {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}
+Authorization: Bearer {{pollCreatorToken}}

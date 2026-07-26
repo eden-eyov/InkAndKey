@@ -20,6 +20,7 @@ function ClubPollsSection({
   onToggleCreatePollForm,
   onOpenAnnounceWinnerForm,
   onSetWinnerBookAsCurrent,
+  onDeletePoll,
   renderAnnounceWinnerForm,
 
   newPollData,
@@ -80,6 +81,7 @@ function ClubPollsSection({
                 ? onSetWinnerBookAsCurrent
                 : undefined
             }
+            onDeletePoll={onDeletePoll}
             setWinnerLoading={pollActionLoading}
           />
         ) : (

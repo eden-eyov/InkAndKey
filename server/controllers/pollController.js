@@ -523,6 +523,96 @@ const closePoll = async (req, res, next) => {
 };
 
 /**
+ * @desc    Delete a poll before a winner has been announced.
+ * @route   DELETE /api/clubs/:clubId/polls/:pollId
+ * @access  Private - club creator only
+ *
+ * Purpose:
+ * - Allow the club creator to completely cancel a poll.
+ * - Delete all votes that belong to the poll.
+ * - Delete managed Cloudinary covers stored only on poll options.
+ *
+ * Important:
+ * - The poll may be open or closed.
+ * - It cannot be deleted after a winner has been announced.
+ */
+const deletePoll = async (req, res, next) => {
+    try {
+        const { clubId, pollId } = req.params;
+
+        const club = await Club.findById(clubId);
+
+        if (!club || club.isArchived) {
+            return res.status(404).json({
+                success: false,
+                message: 'Club not found',
+            });
+        }
+
+        if (!isClubCreator(club, req.user._id)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Only the club creator can delete this poll',
+            });
+        }
+
+        const poll = await Poll.findOne({
+            _id: pollId,
+            club: clubId,
+        });
+
+        if (!poll) {
+            return res.status(404).json({
+                success: false,
+                message: 'Poll not found',
+            });
+        }
+
+        const winnerWasAnnounced =
+            Boolean(poll.winnerOption) ||
+            Boolean(poll.winnerBook) ||
+            Boolean(poll.winnerAnnouncedAt) ||
+            Boolean(poll.appliedAt);
+
+        if (winnerWasAnnounced) {
+            return res.status(400).json({
+                success: false,
+                message:
+                    'A poll cannot be deleted after its winner has been announced',
+            });
+        }
+
+        await PollVote.deleteMany({
+            poll: poll._id,
+        });
+
+        await Poll.findByIdAndDelete(poll._id);
+
+        const managedCoverPublicIds = [
+            ...new Set(
+                poll.options
+                    .map((option) => option.coverImagePublicId)
+                    .filter(Boolean)
+            ),
+        ];
+
+        for (const publicId of managedCoverPublicIds) {
+            await safelyDeleteManagedBookCover(
+                publicId,
+                `deleted poll ${poll._id}`
+            );
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Poll and its votes deleted successfully',
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * @desc    Announce the winning book of a poll.
  * @route   POST /api/clubs/:clubId/polls/:pollId/announce-winner
  * @access  Private - club creator only
@@ -1027,6 +1117,7 @@ module.exports = {
     getCurrentPoll,
     voteInPoll,
     closePoll,
+    deletePoll,
     announcePollWinner,
     setWinnerBookAsCurrent,
     getClubPolls,

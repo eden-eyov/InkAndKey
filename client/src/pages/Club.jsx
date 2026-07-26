@@ -1212,6 +1212,7 @@ function Club() {
               onSelectPollOption={clubPolls.setSelectedPollOptionId}
               onVoteInPoll={clubPolls.handleVoteInPoll}
               onRefreshPollResults={clubPolls.handleRefreshPollResults}
+              onDeletePoll={clubPolls.handleDeletePoll}
               onToggleCreatePollForm={clubPolls.handleToggleCreatePollForm}
               onOpenAnnounceWinnerForm={clubPolls.handleOpenAnnounceWinnerForm}
               onSetWinnerBookAsCurrent={clubPolls.handleSetWinnerBookAsCurrent}

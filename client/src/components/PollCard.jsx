@@ -65,6 +65,7 @@ function PollCard({
   onToggleAnnounceWinnerForm,
   renderAnnounceWinnerForm,
   onSetWinnerAsCurrent,
+  onDeletePoll,
   setWinnerLoading = false,
 }) {
   const [now, setNow] = useState(Date.now());
@@ -111,6 +112,12 @@ function PollCard({
     winnerBook && typeof winnerBook === 'object' ? winnerBook.description : '';
   const canShowAnnounceWinnerButton =
     canAnnounceWinner && !poll.winnerBook && !poll.appliedAt && !pollIsOpen;
+
+  const canDeletePoll =
+    canAnnounceWinner &&
+    !poll.winnerBook &&
+    !poll.winnerAnnouncedAt &&
+    !poll.appliedAt;
 
   const getOptionId = (option) =>
     option.optionId?.toString() ||
@@ -424,6 +431,17 @@ function PollCard({
                 </button>
               )}
 
+              {canDeletePoll && (
+                <button
+                  type="button"
+                  onClick={onDeletePoll}
+                  disabled={voteLoading}
+                  className="w-full px-5 py-2.5 bg-white border border-red-200 text-red-600 text-sm font-medium rounded-full hover:bg-red-50 transition disabled:opacity-50"
+                >
+                  Delete poll
+                </button>
+              )}
+              
               {canShowAnnounceWinnerButton && (
                 <button
                   type="button"
