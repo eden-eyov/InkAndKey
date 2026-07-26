@@ -58,6 +58,47 @@ function Dashboard() {
   } = useSelector((state) => state.clubs);
 
   useEffect(() => {
+    if (!progressActionMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setProgressActionMessage('');
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [progressActionMessage]);
+
+  useEffect(() => {
+    const messagePollIds = Object.entries(pollMessages)
+      .filter(([, message]) => Boolean(message))
+      .map(([pollId]) => pollId);
+
+    if (messagePollIds.length === 0) return undefined;
+
+    const timeoutIds = messagePollIds.map((pollId) =>
+      window.setTimeout(() => {
+        setPollMessages((previousMessages) => {
+          if (!previousMessages[pollId]) {
+            return previousMessages;
+          }
+
+          return {
+            ...previousMessages,
+            [pollId]: '',
+          };
+        });
+      }, 3000)
+    );
+
+    return () => {
+      timeoutIds.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+    };
+  }, [pollMessages]);
+
+  useEffect(() => {
     dispatch(fetchUserClubs());
   }, [dispatch]);
 
@@ -529,7 +570,7 @@ function Dashboard() {
         currentChapter: nextChapter,
       });
 
-      setProgressActionMessage('Reading progress updated.');
+      setProgressActionMessage('Your progress has been updated.');
 
       const refreshTasks = [
         fetchCurrentReads(),
@@ -1371,7 +1412,7 @@ function Dashboard() {
                   onChange={(event) =>
                     setSearchQuery(event.target.value)
                   }
-                  placeholder="Search clubs, books, or readers..."
+                  placeholder="Search readers and your library..."
                   className="w-full rounded-2xl border border-stone-200 bg-white px-5 py-4 pr-12 text-sm shadow-sm outline-none transition placeholder:text-stone-400 focus:border-accent"
                 />
 
@@ -1387,8 +1428,12 @@ function Dashboard() {
                 <div className="mt-3 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
                   <div className="border-b border-stone-100 px-4 py-3">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                      Readers
+                      Reader results
                     </span>
+
+                    <p className="mt-1 text-xs text-stone-400">
+                      Your books and clubs are filtered in the main panel.
+                    </p>
                   </div>
 
                   {userSearchLoading ? (

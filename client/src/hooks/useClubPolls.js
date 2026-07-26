@@ -46,6 +46,8 @@ function useClubPolls({
   const [pollLoading, setPollLoading] = useState(false);
   const [pollError, setPollError] = useState('');
   const [pollMessage, setPollMessage] = useState('');
+  const [pollBookSelectionMessages, setPollBookSelectionMessages] =
+    useState({});
   const [selectedPollOptionId, setSelectedPollOptionId] = useState('');
   const [pollActionLoading, setPollActionLoading] = useState(false);
 
@@ -147,6 +149,7 @@ function useClubPolls({
     setSuppressedPollBookSearchQueries({});
     setCreatePollFormErrors(emptyCreatePollFormErrors);
     resetPollUploadState();
+    setPollBookSelectionMessages({});
   };
 
   useEffect(() => {
@@ -262,6 +265,39 @@ function useClubPolls({
     setCreatePollFormErrors(emptyCreatePollFormErrors);
   }, [showCreatePollForm]);
 
+  useEffect(() => {
+    const optionIndexes = Object.entries(pollBookSelectionMessages)
+      .filter(([, message]) => Boolean(message))
+      .map(([optionIndex]) => optionIndex);
+
+    if (optionIndexes.length === 0) return undefined;
+
+    const timeoutIds = optionIndexes.map((optionIndex) =>
+      window.setTimeout(() => {
+        setPollBookSelectionMessages((prev) => ({
+          ...prev,
+          [optionIndex]: '',
+        }));
+      }, 3000)
+    );
+
+    return () => {
+      timeoutIds.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+    };
+  }, [pollBookSelectionMessages]);
+
+  useEffect(() => {
+    if (!pollMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setPollMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [pollMessage]);
+
   const fetchClubPolls = async (showLoading = true) => {
     if (!user) return;
 
@@ -362,7 +398,7 @@ function useClubPolls({
       setPollMessage('Poll deleted successfully.');
 
       await fetchClubPolls(false);
-      
+
     } catch (err) {
       console.log(
         'DELETE POLL ERROR:',
@@ -589,6 +625,11 @@ function useClubPolls({
     const currentOption = newPollData.options[index];
     const optionClientId = currentOption?._clientId || index;
 
+    setPollBookSelectionMessages((prev) => ({
+      ...prev,
+      [index]: '',
+    }));
+
     if (field === 'title' || field === 'author') {
       setActivePollBookOptionIndex(index);
       setSuppressedPollBookSearchQueries((prev) => ({
@@ -684,6 +725,11 @@ function useClubPolls({
       ...prev,
       general: '',
       options: '',
+    }));
+
+    setPollBookSelectionMessages((prev) => ({
+      ...prev,
+      [index]: 'Book selected.',
     }));
   };
 
@@ -899,6 +945,7 @@ function useClubPolls({
     pollBookSearchResults,
     pollBookSearchLoading,
     pollBookSearchError,
+    pollBookSelectionMessages,
     activePollBookOptionIndex,
     pollOptionCoverUploadLoading,
     pollOptionCoverUploadError,

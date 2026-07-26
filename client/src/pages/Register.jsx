@@ -4,16 +4,16 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 function Register() {
-  const [formData, setFormData] = useState({ 
-    name: '', 
-    email: '', 
-    password: '', 
-    confirmPassword: '' 
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   const navigate = useNavigate();
   const { login } = useAuth();
 
@@ -34,45 +34,54 @@ function Register() {
       ...prev,
       [name]: value,
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: '',
+    }));
+
+    if (serverError) {
+      setServerError('');
+    }
   };
   const handleSubmit = async (e) => {
     e.preventDefault();
     setServerError('');
-    
+
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
       return;
     }
-    
+
     setErrors({});
     setLoading(true);
-    
-  try {
-    const { data } = await api.post('/auth/register', {
-      username: formData.name.trim(),
-      email: formData.email.trim(),
-      password: formData.password,
-    });
 
-    const user = data.data || data.user;
-    const token = data.accessToken || data.token;
+    try {
+      const { data } = await api.post('/auth/register', {
+        username: formData.name.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      });
 
-    if (!user || !token) {
-      throw new Error('Invalid register response from server');
-    }
+      const user = data.data || data.user;
+      const token = data.accessToken || data.token;
 
-    login(user, token);
-    navigate('/onboarding');
-  } catch (err) {
-    setServerError(
-      err.response?.data?.message ||
+      if (!user || !token) {
+        throw new Error('Invalid register response from server');
+      }
+
+      login(user, token);
+      navigate('/onboarding');
+    } catch (err) {
+      setServerError(
+        err.response?.data?.message ||
         err.message ||
         'Registration failed. The email might already be in use.'
-    );
-  } finally {
-    setLoading(false);
-  }
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,13 +89,13 @@ function Register() {
       <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-sm border border-stone-100">
         <h2 className="font-serif text-3xl text-center mb-2">Ink & Key</h2>
         <p className="text-center text-sm text-stone-500 mb-8">Join our reading community</p>
-        
+
         {serverError && (
           <div className="bg-red-50 text-red-600 text-sm p-3 rounded mb-4 text-center">
             {serverError}
           </div>
         )}
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
@@ -102,9 +111,8 @@ function Register() {
               type="text"
               required
               autoComplete="username"
-              className={`w-full p-3 bg-cream border ${
-                errors.name ? 'border-red-300' : 'border-stone-200'
-              } rounded focus:outline-none focus:border-accent transition`}
+              className={`w-full p-3 bg-cream border ${errors.name ? 'border-red-300' : 'border-stone-200'
+                } rounded focus:outline-none focus:border-accent transition`}
               value={formData.name}
               onChange={handleChange}
             />
@@ -125,15 +133,14 @@ function Register() {
               type="email"
               required
               autoComplete="email"
-              className={`w-full p-3 bg-cream border ${
-                errors.email ? 'border-red-300' : 'border-stone-200'
-              } rounded focus:outline-none focus:border-accent transition`}
+              className={`w-full p-3 bg-cream border ${errors.email ? 'border-red-300' : 'border-stone-200'
+                } rounded focus:outline-none focus:border-accent transition`}
               value={formData.email}
               onChange={handleChange}
             />
             {errors.email && <span className="text-xs text-red-500 mt-1 block">{errors.email}</span>}
           </div>
-          
+
           <div>
             <label
               htmlFor="password"
@@ -148,9 +155,8 @@ function Register() {
               type="password"
               required
               autoComplete="new-password"
-              className={`w-full p-3 bg-cream border ${
-                errors.password ? 'border-red-300' : 'border-stone-200'
-              } rounded focus:outline-none focus:border-accent transition`}
+              className={`w-full p-3 bg-cream border ${errors.password ? 'border-red-300' : 'border-stone-200'
+                } rounded focus:outline-none focus:border-accent transition`}
               value={formData.password}
               onChange={handleChange}
             />
@@ -171,24 +177,23 @@ function Register() {
               type="password"
               required
               autoComplete="new-password"
-              className={`w-full p-3 bg-cream border ${
-                errors.confirmPassword ? 'border-red-300' : 'border-stone-200'
-              } rounded focus:outline-none focus:border-accent transition`}
+              className={`w-full p-3 bg-cream border ${errors.confirmPassword ? 'border-red-300' : 'border-stone-200'
+                } rounded focus:outline-none focus:border-accent transition`}
               value={formData.confirmPassword}
               onChange={handleChange}
             />
             {errors.confirmPassword && <span className="text-xs text-red-500 mt-1 block">{errors.confirmPassword}</span>}
           </div>
-          
-          <button 
-            type="submit" 
+
+          <button
+            type="submit"
             disabled={loading}
             className="w-full py-3 bg-ink text-white font-medium rounded hover:opacity-90 transition disabled:opacity-50 mt-4"
           >
             {loading ? 'Creating account...' : 'Create account'}
           </button>
         </form>
-        
+
         <p className="text-center text-sm text-stone-500 mt-6">
           Already have an account?{' '}
           <Link to="/login" className="text-accent font-medium hover:underline">Sign in</Link>

@@ -86,6 +86,30 @@ function Profile() {
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedProfileImage]);
 
+  useEffect(() => {
+    if (!imageUploadMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setImageUploadMessage('');
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [imageUploadMessage]);
+
+  useEffect(() => {
+    if (!ratingActionMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setRatingActionMessage('');
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [ratingActionMessage]);
+
   const initials = profile?.username
     ?.split(' ')
     .map((part) => part[0])
@@ -339,9 +363,11 @@ function Profile() {
                       )}
 
                       {imageUploadMessage && (
-                        <p className="text-center text-xs text-accent">
-                          {imageUploadMessage}
-                        </p>
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                          <p className="text-center text-xs text-green-700">
+                            {imageUploadMessage}
+                          </p>
+                        </div>
                       )}
                     </div>
                   )}
@@ -478,9 +504,11 @@ function Profile() {
                 )}
 
                 {ratingActionMessage && (
-                  <p className="mt-3 text-sm text-accent">
-                    {ratingActionMessage}
-                  </p>
+                  <div className="mt-3 rounded-xl border border-green-200 bg-green-50 p-3">
+                    <p className="text-sm text-green-700">
+                      {ratingActionMessage}
+                    </p>
+                  </div>
                 )}
               </div>
 

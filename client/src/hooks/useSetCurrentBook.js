@@ -42,6 +42,7 @@ function useSetCurrentBook({
   const [googleBookResults, setGoogleBookResults] = useState([]);
   const [googleBooksLoading, setGoogleBooksLoading] = useState(false);
   const [googleBooksError, setGoogleBooksError] = useState('');
+  const [bookSelectionMessage, setBookSelectionMessage] = useState('');
   const [newBookSuggestionsActive, setNewBookSuggestionsActive] =
     useState(false);
   const [suppressedNewBookSearchQuery, setSuppressedNewBookSearchQuery] =
@@ -88,6 +89,7 @@ function useSetCurrentBook({
     setSetBookFormErrors(emptySetBookFormErrors);
     setNewBookCoverUploadError('');
     setNewBookCoverUploadLoading(false);
+    setBookSelectionMessage('');
   };
 
   useEffect(() => {
@@ -184,6 +186,16 @@ function useSetCurrentBook({
     setNewBookCoverUploadError('');
   }, [showSetBookForm]);
 
+  useEffect(() => {
+    if (!bookSelectionMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setBookSelectionMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [bookSelectionMessage]);
+
   const handleNewBookFieldsFocus = () => {
     setNewBookSuggestionsActive(true);
   };
@@ -202,6 +214,7 @@ function useSetCurrentBook({
     if (name === 'title' || name === 'author') {
       setNewBookSuggestionsActive(true);
       setSuppressedNewBookSearchQuery('');
+      setBookSelectionMessage('');
     }
 
     const shouldClearUploadedCover =
@@ -231,10 +244,12 @@ function useSetCurrentBook({
         : {}),
     }));
 
-    setNewBookData((prev) => ({
+    setSetBookFormErrors((prev) => ({
       ...prev,
-      [name]: value,
-      ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
+      general: '',
+      ...(Object.prototype.hasOwnProperty.call(prev, name)
+        ? { [name]: '' }
+        : {}),
     }));
   };
 
@@ -283,6 +298,7 @@ function useSetCurrentBook({
     setGoogleBookResults([]);
     setGoogleBooksError('');
     setNewBookCoverUploadError('');
+    setBookSelectionMessage('Book selected.');
     setSetBookFormErrors((prev) => ({
       ...prev,
       general: '',
@@ -577,6 +593,7 @@ function useSetCurrentBook({
     googleBookResults,
     googleBooksLoading,
     googleBooksError,
+    bookSelectionMessage,
     newBookSuggestionsActive,
     newBookCoverUploadLoading,
     newBookCoverUploadError,

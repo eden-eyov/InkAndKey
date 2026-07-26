@@ -26,6 +26,10 @@ function AddThreadForm({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+
+    if (error) {
+      setError('');
+    }
   };
 
   const handleSubmit = (e) => {
@@ -48,7 +52,7 @@ function AddThreadForm({
       chapterNumber: Number(formData.chapterNumber),
       spoilerFree: formData.spoilerFree,
     };
-    
+
     onSubmitThread(newThreadData);
   };
 

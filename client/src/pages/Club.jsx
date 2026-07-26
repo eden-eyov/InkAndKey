@@ -62,6 +62,36 @@ function Club() {
   const [coverImageUploadError, setCoverImageUploadError] = useState('');
   const [coverImageUploadMessage, setCoverImageUploadMessage] = useState('');
 
+  useEffect(() => {
+    if (!dnfMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setDnfMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [dnfMessage]);
+
+  useEffect(() => {
+    if (!ratingMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setRatingMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [ratingMessage]);
+
+  useEffect(() => {
+    if (!coverImageUploadMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setCoverImageUploadMessage('');
+    }, 3000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [coverImageUploadMessage]);
+
   const refreshClubLists = () => {
     dispatch(fetchAllClubs());
 
@@ -1139,6 +1169,7 @@ function Club() {
           googleBooksLoading={setCurrentBookForm.googleBooksLoading}
           googleBooksError={setCurrentBookForm.googleBooksError}
           googleBookResults={setCurrentBookForm.googleBookResults}
+          bookSelectionMessage={setCurrentBookForm.bookSelectionMessage}
           newBookSuggestionsActive={setCurrentBookForm.newBookSuggestionsActive}
           settingCurrentBook={setCurrentBookForm.settingCurrentBook}
           newBookCoverUploadLoading={setCurrentBookForm.newBookCoverUploadLoading}
@@ -1194,8 +1225,17 @@ function Club() {
                   <h3 className="font-serif text-lg mb-2">Guest preview</h3>
 
                   <p className="text-sm text-stone-500 leading-relaxed">
-                    You can explore this club, but surveys, joining, comments,
-                    and progress tracking require an account.
+                    You can explore this club, but joining, comments, and progress
+                    tracking require an account.
+                  </p>
+                </div>
+
+                <div className="bg-cream border border-stone-100 rounded-xl p-4 mb-5">
+                  <h3 className="font-serif text-lg mb-2">Club polls</h3>
+
+                  <p className="text-sm text-stone-500 leading-relaxed">
+                    Sign in and join this club to view active polls and vote for
+                    the next read.
                   </p>
                 </div>
 
@@ -1215,6 +1255,7 @@ function Club() {
               pollMessage={clubPolls.pollMessage}
               pollActionLoading={clubPolls.pollActionLoading}
               isCreator={isCreator}
+              isMember={isMember}
               canVoteInPoll={canVoteInPoll}
               selectedPollOptionId={clubPolls.selectedPollOptionId}
               showCreatePollForm={clubPolls.showCreatePollForm}
@@ -1235,6 +1276,9 @@ function Club() {
               pollBookSearchResults={clubPolls.pollBookSearchResults}
               pollBookSearchLoading={clubPolls.pollBookSearchLoading}
               pollBookSearchError={clubPolls.pollBookSearchError}
+              pollBookSelectionMessages={
+                clubPolls.pollBookSelectionMessages
+              }
               pollOptionCoverUploadLoading={clubPolls.pollOptionCoverUploadLoading}
               pollOptionCoverUploadError={clubPolls.pollOptionCoverUploadError}
               onCreatePoll={clubPolls.handleCreatePoll}

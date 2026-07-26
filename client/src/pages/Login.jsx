@@ -39,6 +39,15 @@ function Login() {
       ...prev,
       [name]: value,
     }));
+
+    setErrors((prev) => ({
+      ...prev,
+      [name]: '',
+    }));
+
+    if (serverError) {
+      setServerError('');
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -185,6 +194,12 @@ function Login() {
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={handleGoogleError}
+              text="signin_with"
+              theme="outline"
+              shape="pill"
+              size="large"
+              logo_alignment="left"
+              width="352"
             />
           </div>
         </form>

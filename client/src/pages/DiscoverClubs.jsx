@@ -132,10 +132,18 @@ function DiscoverClubs() {
 
         {filteredClubs.length === 0 ? (
           <section className="bg-white p-10 text-center rounded-2xl border border-stone-200/60 shadow-sm">
-            <h2 className="font-serif text-2xl mb-2">No clubs found</h2>
+            <h2 className="font-serif text-2xl mb-2">
+              {searchTerm.trim()
+                ? 'No clubs match your search.'
+                : 'There are no clubs yet.'}
+            </h2>
 
             <p className="text-stone-500 text-sm">
-              Try searching for a different book, genre, or club name.
+              {searchTerm.trim()
+                ? 'Try searching for a different book, genre, or club name.'
+                : user
+                  ? 'Create the first club and invite readers to join.'
+                  : 'Check back later to discover new reading communities.'}
             </p>
           </section>
         ) : (

@@ -99,11 +99,10 @@ function CreatePollModal({
               name="closesAt"
               value={newPollData.closesAt}
               onChange={onNewPollChange}
-              className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${
-                createPollFormErrors.closesAt
-                  ? 'border-red-500 focus:border-red-500'
-                  : 'border-stone-200 focus:border-accent'
-              }`}
+              className={`w-full p-3 bg-white border rounded-xl focus:outline-none text-sm ${createPollFormErrors.closesAt
+                ? 'border-red-500 focus:border-red-500'
+                : 'border-stone-200 focus:border-accent'
+                }`}
             />
 
             {createPollFormErrors.closesAt && (
@@ -206,17 +205,27 @@ function CreatePollModal({
                       </p>
                     )}
 
+                  {pollBookSelectionMessages?.[index] && (
+                    <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                      <p className="text-sm text-green-700">
+                        {pollBookSelectionMessages[index]}
+                      </p>
+                    </div>
+                  )}
+
                   {activePollBookOptionIndex === index &&
                     pollBookSearchResults[index]?.length > 0 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {pollBookSearchResults[index].slice(0, 4).map((book) =>
-                          renderGoogleBookSuggestion(
-                            book,
-                            `poll-${index}-suggestion-${book.googleBooksId || book.title}`,
-                            () => onSelectPollGoogleBook(index, book),
-                            { compact: true }
-                          )
-                        )}
+                      <div className="max-h-[360px] overflow-y-auto pr-1">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {pollBookSearchResults[index].slice(0, 10).map((book) =>
+                            renderGoogleBookSuggestion(
+                              book,
+                              `poll-${index}-suggestion-${book.googleBooksId || book.title}`,
+                              () => onSelectPollGoogleBook(index, book),
+                              { compact: true }
+                            )
+                          )}
+                        </div>
                       </div>
                     )}
                 </div>

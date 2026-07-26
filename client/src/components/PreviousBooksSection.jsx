@@ -21,15 +21,19 @@ function PreviousBooksSection({
 
       {previousBooks.length > 0 ? (
         <div className="space-y-4">
-          {(ratingError || ratingMessage) && (
-            <div className="bg-white rounded-2xl border border-stone-200/60 shadow-sm p-4">
-              {ratingError && (
-                <p className="text-sm text-red-500">{ratingError}</p>
-              )}
+          {ratingError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+              <p className="text-sm text-red-600">
+                {ratingError}
+              </p>
+            </div>
+          )}
 
-              {ratingMessage && (
-                <p className="text-sm text-accent">{ratingMessage}</p>
-              )}
+          {ratingMessage && (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+              <p className="text-sm text-green-700">
+                {ratingMessage}
+              </p>
             </div>
           )}
 
@@ -202,13 +206,11 @@ function PreviousBookRatingStatus({
                 type="button"
                 onClick={() => onRatePreviousBook(book, ratingValue)}
                 disabled={isSavingRating}
-                className={`text-xl leading-none transition ${
-                  isSelected ? 'text-accent' : 'text-stone-300'
-                } ${
-                  isSavingRating
+                className={`text-xl leading-none transition ${isSelected ? 'text-accent' : 'text-stone-300'
+                  } ${isSavingRating
                     ? 'cursor-not-allowed opacity-60'
                     : 'hover:text-accent cursor-pointer'
-                }`}
+                  }`}
                 aria-label={`Rate ${book.title || 'book'} ${ratingValue} out of 5`}
                 title={`Rate ${ratingValue}/5`}
               >

@@ -46,6 +46,18 @@ function ClubEditor() {
   }, [coverImagePreview]);
 
   useEffect(() => {
+    if (!coverImageUploadMessage) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setCoverImageUploadMessage('');
+    }, 3000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [coverImageUploadMessage]);
+
+  useEffect(() => {
     if (!isEditMode) return;
 
     const fetchClub = async () => {
@@ -80,7 +92,7 @@ function ClubEditor() {
 
         setError(
           err.response?.data?.message ||
-            'Failed to load club details. Please try again.'
+          'Failed to load club details. Please try again.'
         );
       } finally {
         setLoading(false);
@@ -97,6 +109,10 @@ function ClubEditor() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+
+    if (error) {
+      setError('');
+    }
   };
 
   const handleGenreToggle = (genre) => {
@@ -110,6 +126,10 @@ function ClubEditor() {
           : [...prev.genres, genre],
       };
     });
+
+    if (error) {
+      setError('');
+    }
   };
 
   const validateForm = () => {
@@ -190,7 +210,7 @@ function ClubEditor() {
 
       setCoverImageUploadError(
         err.response?.data?.message ||
-          'Failed to upload the club cover image. Please try again.'
+        'Failed to upload the club cover image. Please try again.'
       );
     } finally {
       setCoverImageUploading(false);
@@ -235,7 +255,7 @@ function ClubEditor() {
 
       setError(
         err.response?.data?.message ||
-          `Failed to ${isEditMode ? 'update' : 'create'} club. Please try again.`
+        `Failed to ${isEditMode ? 'update' : 'create'} club. Please try again.`
       );
     } finally {
       setSaving(false);
@@ -264,7 +284,7 @@ function ClubEditor() {
 
       setError(
         err.response?.data?.message ||
-          'Failed to delete club. Please try again.'
+        'Failed to delete club. Please try again.'
       );
     } finally {
       setDeleting(false);
@@ -445,9 +465,11 @@ function ClubEditor() {
               )}
 
               {coverImageUploadMessage && (
-                <p className="text-sm text-green-700">
-                  {coverImageUploadMessage}
-                </p>
+                <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                  <p className="text-sm text-green-700">
+                    {coverImageUploadMessage}
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -466,11 +488,10 @@ function ClubEditor() {
                     key={genre}
                     type="button"
                     onClick={() => handleGenreToggle(genre)}
-                    className={`px-4 py-2.5 rounded-full border text-sm transition ${
-                      selected
-                        ? 'bg-ink text-white border-ink'
-                        : 'bg-cream text-stone-600 border-stone-200 hover:border-accent hover:text-accent'
-                    }`}
+                    className={`px-4 py-2.5 rounded-full border text-sm transition ${selected
+                      ? 'bg-ink text-white border-ink'
+                      : 'bg-cream text-stone-600 border-stone-200 hover:border-accent hover:text-accent'
+                      }`}
                   >
                     {genre}
                   </button>

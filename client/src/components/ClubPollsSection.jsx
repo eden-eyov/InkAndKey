@@ -9,6 +9,7 @@ function ClubPollsSection({
   pollActionLoading,
 
   isCreator,
+  isMember,
   canVoteInPoll,
   selectedPollOptionId,
   showCreatePollForm,
@@ -32,6 +33,7 @@ function ClubPollsSection({
   pollBookSearchResults,
   pollBookSearchLoading,
   pollBookSearchError,
+  pollBookSelectionMessages,
   pollOptionCoverUploadLoading,
   pollOptionCoverUploadError,
 
@@ -49,6 +51,7 @@ function ClubPollsSection({
   renderGoogleBookSuggestion,
   renderDescriptionPreview,
 }) {
+  const canViewClubPolls = isMember || isCreator;
   return (
     <aside>
       <div className="bg-white p-6 rounded-2xl border border-stone-200/60 shadow-sm sticky top-24">
@@ -88,11 +91,15 @@ function ClubPollsSection({
           <div className="bg-cream p-6 rounded-xl border border-stone-100">
             <div className="text-center">
               <h4 className="font-serif text-lg text-ink mb-2 italic">
-                No active poll
+                {canViewClubPolls
+                  ? 'No active poll'
+                  : 'Polls are available to club members'}
               </h4>
 
               <p className="text-xs text-stone-500 leading-relaxed">
-                There is currently no open vote in this club.
+                {canViewClubPolls
+                  ? 'There is currently no open vote in this club.'
+                  : 'Join this club to view active polls and vote for the next read.'}
               </p>
             </div>
 
@@ -133,6 +140,7 @@ function ClubPollsSection({
         pollBookSearchResults={pollBookSearchResults}
         pollBookSearchLoading={pollBookSearchLoading}
         pollBookSearchError={pollBookSearchError}
+        pollBookSelectionMessages={pollBookSelectionMessages}
         pollOptionCoverUploadLoading={pollOptionCoverUploadLoading}
         pollOptionCoverUploadError={pollOptionCoverUploadError}
         onSubmit={onCreatePoll}

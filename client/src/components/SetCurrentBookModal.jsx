@@ -7,6 +7,7 @@ function SetCurrentBookModal({
     googleBooksLoading,
     googleBooksError,
     googleBookResults,
+    bookSelectionMessage,
     newBookSuggestionsActive,
     settingCurrentBook,
     newBookCoverUploadLoading,
@@ -135,16 +136,26 @@ function SetCurrentBookModal({
                         </p>
                     )}
 
+                    {bookSelectionMessage && (
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                            <p className="text-sm text-green-700">
+                                {bookSelectionMessage}
+                            </p>
+                        </div>
+                    )}
+
                     {newBookSuggestionsActive && googleBookResults.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {googleBookResults.slice(0, 6).map((book) =>
-                                renderGoogleBookSuggestion(
-                                    book,
-                                    `new-book-suggestion-${book.googleBooksId || book.title}`,
-                                    () => onSelectGoogleBook(book),
-                                    { selectLabel: 'Choose this book' }
-                                )
-                            )}
+                        <div className="max-h-[430px] overflow-y-auto pr-1">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {googleBookResults.slice(0, 10).map((book) =>
+                                    renderGoogleBookSuggestion(
+                                        book,
+                                        `new-book-suggestion-${book.googleBooksId || book.title}`,
+                                        () => onSelectGoogleBook(book),
+                                        { selectLabel: 'Choose this book' }
+                                    )
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

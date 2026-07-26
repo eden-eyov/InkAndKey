@@ -101,7 +101,7 @@ function DiscussionsSection({
       ) : (
         <div className="bg-white p-8 rounded-2xl border border-stone-200/60 shadow-sm text-center">
           <p className="text-stone-500 text-sm">
-            No discussions yet.
+            Be the first to start the conversation.
           </p>
         </div>
       )}

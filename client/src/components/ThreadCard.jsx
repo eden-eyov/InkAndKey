@@ -295,7 +295,13 @@ function ThreadCard({
               <textarea
                 id={`edit-discussion-text-${thread._id}`}
                 value={editText}
-                onChange={(e) => setEditText(e.target.value)}
+                onChange={(e) => {
+                  setEditText(e.target.value);
+
+                  if (editError) {
+                    setEditError('');
+                  }
+                }}
                 rows="4"
                 disabled={editSubmitting}
                 className="w-full resize-none rounded-xl border border-stone-200 bg-white p-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
@@ -313,7 +319,13 @@ function ThreadCard({
               <select
                 id={`edit-discussion-chapter-${thread._id}`}
                 value={editChapter}
-                onChange={(e) => setEditChapter(Number(e.target.value))}
+                onChange={(e) => {
+                  setEditChapter(Number(e.target.value));
+
+                  if (editError) {
+                    setEditError('');
+                  }
+                }}
                 disabled={editSubmitting || editSpoilerFree}
                 className="w-full rounded-xl border border-stone-200 bg-white p-3 text-sm focus:border-accent focus:outline-none disabled:opacity-60"
               >
@@ -332,7 +344,13 @@ function ThreadCard({
               <input
                 type="checkbox"
                 checked={editSpoilerFree}
-                onChange={(e) => setEditSpoilerFree(e.target.checked)}
+                onChange={(e) => {
+                  setEditSpoilerFree(e.target.checked);
+
+                  if (editError) {
+                    setEditError('');
+                  }
+                }}
                 disabled={editSubmitting}
                 className="mt-1 accent-[#7D6E5D]"
               />

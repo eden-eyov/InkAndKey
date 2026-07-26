@@ -228,7 +228,13 @@ function Onboarding() {
                     : 'e.g., The Secret History'
                 }
                 value={bookInput}
-                onChange={(e) => setBookInput(e.target.value)}
+                onChange={(e) => {
+                  setBookInput(e.target.value);
+
+                  if (error) {
+                    setError('');
+                  }
+                }}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddBook(e)}
                 disabled={favoriteBooks.length >= 3}
                 className="flex-grow p-3 bg-cream border border-stone-200 rounded-xl focus:outline-none focus:border-accent text-sm disabled:opacity-50"

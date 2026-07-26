@@ -38,6 +38,7 @@ function CurrentReadingSection({
   googleBooksLoading,
   googleBooksError,
   googleBookResults,
+  bookSelectionMessage,
   newBookSuggestionsActive,
   settingCurrentBook,
   newBookCoverUploadLoading,
@@ -146,7 +147,11 @@ function CurrentReadingSection({
                       )}
 
                       {dnfMessage && (
-                        <p className="text-sm text-accent">{dnfMessage}</p>
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-3">
+                          <p className="text-sm text-green-700">
+                            {dnfMessage}
+                          </p>
+                        </div>
                       )}
 
                       {canMarkCurrentBookAsDnf && (
@@ -185,6 +190,7 @@ function CurrentReadingSection({
             googleBooksLoading={googleBooksLoading}
             googleBooksError={googleBooksError}
             googleBookResults={googleBookResults}
+            bookSelectionMessage={bookSelectionMessage}
             newBookSuggestionsActive={newBookSuggestionsActive}
             settingCurrentBook={settingCurrentBook}
             newBookCoverUploadLoading={newBookCoverUploadLoading}

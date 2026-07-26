@@ -155,12 +155,13 @@ function ClubHeaderCard({
                             {coverImageUploadError}
                         </p>
                     )}
-
-                    {coverImageUploadMessage && (
-                        <p className="text-sm text-green-700 mt-3">
-                            {coverImageUploadMessage}
-                        </p>
-                    )}
+                </div>
+            )}
+            {isCreator && coverImageUploadMessage && (
+                <div className="mx-6 md:mx-8 mb-6 rounded-xl border border-green-200 bg-green-50 p-4">
+                    <p className="text-sm text-green-700">
+                        {coverImageUploadMessage}
+                    </p>
                 </div>
             )}
             <div className="grid grid-cols-2 md:grid-cols-4 border-t border-stone-200/60 bg-cream/70">
