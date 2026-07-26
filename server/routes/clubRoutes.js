@@ -11,6 +11,7 @@ const {
   joinClub,
   leaveClub,
   setCurrentBook,
+  removeCurrentBook,
 } = require('../controllers/clubController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -47,6 +48,12 @@ router.patch(
   protect,
   validate(setCurrentBookSchema),
   setCurrentBook
+);
+
+router.delete(
+  '/:id/current-book',
+  protect,
+  removeCurrentBook
 );
 
 module.exports = router;

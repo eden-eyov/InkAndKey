@@ -32,9 +32,11 @@ function useSetCurrentBook({
   onCommentsReset,
   onCommentsRefresh,
   onClubListsRefresh,
+  onCurrentBookRemoved,
 }) {
   const [showSetBookForm, setShowSetBookForm] = useState(false);
   const [settingCurrentBook, setSettingCurrentBook] = useState(false);
+  const [removingCurrentBook, setRemovingCurrentBook] = useState(false);
 
   const [newBookData, setNewBookData] = useState(createEmptyNewBookData);
   const [googleBookResults, setGoogleBookResults] = useState([]);
@@ -513,9 +515,63 @@ function useSetCurrentBook({
     }
   };
 
+  const handleRemoveCurrentBook = async () => {
+    if (!isCreator) return;
+
+    const confirmed = window.confirm(
+      'Remove the current book?\n\n' +
+      'This will permanently delete:\n' +
+      '• the current book\n' +
+      '• all discussions\n' +
+      '• all replies\n' +
+      '• all reading progress\n\n' +
+      'This action cannot be undone.'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setRemovingCurrentBook(true);
+
+      const { data } = await api.delete(
+        `/clubs/${clubId}/current-book`
+      );
+
+      onClubUpdated?.(data.data.club);
+
+      onCommentsReset?.();
+
+      onClubListsRefresh?.();
+
+      bookFormSessionRef.current += 1;
+      showSetBookFormRef.current = false;
+      setShowSetBookForm(false);
+
+      resetBookFormState();
+
+      onCurrentBookRemoved?.();
+    } catch (err) {
+      console.log(
+        'REMOVE CURRENT BOOK ERROR:',
+        err.response?.data || err
+      );
+
+      setSetBookFormErrors({
+        ...emptySetBookFormErrors,
+        general: getApiErrorMessage(
+          err,
+          'Failed to remove current book.'
+        ),
+      });
+    } finally {
+      setRemovingCurrentBook(false);
+    }
+  };
+
   return {
     showSetBookForm,
     settingCurrentBook,
+    removingCurrentBook,
     newBookData,
     setBookFormErrors,
     googleBookResults,
@@ -534,6 +590,7 @@ function useSetCurrentBook({
     handleNewBookCoverUpload,
     handleNewBookGenreToggle,
     handleSetCurrentBook,
+    handleRemoveCurrentBook,
   };
 }
 

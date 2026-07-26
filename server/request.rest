@@ -33,6 +33,13 @@
 @dnfBookId = YOUR_DNF_BOOK_ID
 @dnfProgressId = YOUR_DNF_PROGRESS_ID
 
+### Current book deletion test data
+@currentBookDeleteCreatorToken = YOUR_CLUB_CREATOR_ACCESS_TOKEN
+@currentBookDeleteMemberToken = YOUR_CLUB_MEMBER_ACCESS_TOKEN
+@currentBookDeleteClubId = YOUR_TEST_CLUB_ID
+@currentBookDeleteBookId = YOUR_CURRENT_BOOK_ID
+@currentBookDeletePollId = YOUR_RELATED_POLL_ID
+
 
 ### Health check
 GET {{baseUrl}}/health
@@ -1019,3 +1026,207 @@ Authorization: Bearer {{activeUserToken}}
 ### Deletes the poll, all votes, and managed option cover images.
 DELETE {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}
 Authorization: Bearer {{pollCreatorToken}}
+
+### ==================================================
+### CURRENT BOOK PERMANENT DELETION TESTS
+### ==================================================
+
+### IMPORTANT:
+### These requests permanently delete:
+### - the current Book document
+### - all comments and replies for the book
+### - all ReadingProgress documents for the book
+### - the managed Cloudinary cover, if one exists
+###
+### Use a dedicated test club and test book.
+### Run the requests in order.
+
+
+### --------------------------------------------------
+### 1. Check the club before deletion
+### Expected: 200
+### Expected:
+### data.currentBook._id should equal currentBookDeleteBookId.
+### --------------------------------------------------
+
+GET {{baseUrl}}/clubs/{{currentBookDeleteClubId}}
+
+
+### --------------------------------------------------
+### 2. Check the book before deletion
+### Expected: 200
+### --------------------------------------------------
+
+GET {{baseUrl}}/books/{{currentBookDeleteBookId}}
+
+
+### --------------------------------------------------
+### 3. Check the creator's reading progress before deletion
+### Expected: 200
+### Expected:
+### data should contain progress for currentBookDeleteBookId.
+### --------------------------------------------------
+
+GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
+
+
+### --------------------------------------------------
+### 4. Optional: check another member's progress
+### Expected: 200
+### Expected:
+### data should contain that member's progress for the book.
+### Skip this request if there is no second test member.
+### --------------------------------------------------
+
+GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
+Authorization: Bearer {{currentBookDeleteMemberToken}}
+
+
+### --------------------------------------------------
+### 5. Check comments and replies before deletion
+### Expected: 200
+### Expected:
+### data should contain the test comments and replies.
+### --------------------------------------------------
+
+GET {{baseUrl}}/comments?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
+
+
+### --------------------------------------------------
+### 6. Try deleting as a regular member
+### Expected: 403
+### Expected message:
+### "Only the club creator can remove the current book"
+###
+### Skip this request if there is no second test member.
+### Confirm afterward that the book still exists.
+### --------------------------------------------------
+
+DELETE {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/current-book
+Authorization: Bearer {{currentBookDeleteMemberToken}}
+
+
+### --------------------------------------------------
+### 7. Confirm failed unauthorized deletion changed nothing
+### Expected: 200
+### The book should still exist.
+### --------------------------------------------------
+
+GET {{baseUrl}}/books/{{currentBookDeleteBookId}}
+
+
+### --------------------------------------------------
+### 8. Delete the current book as the club creator
+### Expected: 200
+###
+### Expected response:
+### {
+###   "success": true,
+###   "message": "Current book removed successfully",
+###   "data": {
+###     "club": {
+###       "currentBook": null
+###     },
+###     "deletedBookId": "...",
+###     "deletedComments": 0 or more,
+###     "deletedReadingProgress": 1 or more,
+###     "updatedPolls": 0 or more
+###   }
+### }
+###
+### Save the response for comparison with the checks below.
+### --------------------------------------------------
+
+DELETE {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/current-book
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
+
+
+### ==================================================
+### CHECKS AFTER DELETION
+### Run only after request 8 succeeds.
+### ==================================================
+
+
+### --------------------------------------------------
+### 9. Check the club after deletion
+### Expected: 200
+### Expected:
+### data.currentBook should be null.
+### The deleted book must not appear inside previousBooks.
+### --------------------------------------------------
+
+GET {{baseUrl}}/clubs/{{currentBookDeleteClubId}}
+
+
+### --------------------------------------------------
+### 10. Check the deleted book directly
+### Expected: 404
+### Expected message:
+### "Book not found"
+### --------------------------------------------------
+
+GET {{baseUrl}}/books/{{currentBookDeleteBookId}}
+
+
+### --------------------------------------------------
+### 11. Check the creator's progress after deletion
+### Expected: 200
+### Expected:
+### data should be an empty array.
+### --------------------------------------------------
+
+GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
+
+
+### --------------------------------------------------
+### 12. Optional: check another member's progress
+### Expected: 200
+### Expected:
+### data should be an empty array.
+### --------------------------------------------------
+
+GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
+Authorization: Bearer {{currentBookDeleteMemberToken}}
+
+
+### --------------------------------------------------
+### 13. Check comments and replies after deletion
+### Expected:
+### - 200 with data: []
+### OR
+### - 404 if the comments controller first requires the Book to exist
+###
+### There must not be any returned comments or replies.
+### --------------------------------------------------
+
+GET {{baseUrl}}/comments?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
+
+
+### --------------------------------------------------
+### 14. Try deleting again
+### Expected: 400
+### Expected message:
+### "This club does not have a current book"
+### --------------------------------------------------
+
+DELETE {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/current-book
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
+
+
+### --------------------------------------------------
+### 15. Optional: inspect the related poll through the API
+###
+### Run this only if your current-poll endpoint returns the closed/applied poll.
+### Expected:
+### - winnerBook should be null
+### - appliedAt should remain populated
+### - winnerOption should remain populated
+### - votes and poll history should remain
+### --------------------------------------------------
+
+GET {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/polls/current
+Authorization: Bearer {{currentBookDeleteCreatorToken}}
