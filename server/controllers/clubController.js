@@ -748,6 +748,147 @@ const setCurrentBook = async (req, res, next) => {
   }
 };
 
+const removeCurrentBook = async (req, res, next) => {
+  try {
+    const club = await Club.findById(req.params.id);
+
+    if (!club || club.isArchived) {
+      return res.status(404).json({
+        success: false,
+        message: 'Club not found',
+      });
+    }
+
+    if (club.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the club creator can remove the current book',
+      });
+    }
+
+    if (!club.currentBook) {
+      return res.status(400).json({
+        success: false,
+        message: 'This club does not have a current book',
+      });
+    }
+
+    const currentBookId = club.currentBook;
+
+    const book = await Book.findById(currentBookId);
+
+    if (!book) {
+      return res.status(404).json({
+        success: false,
+        message: 'Current book not found',
+      });
+    }
+
+    if (book.club.toString() !== club._id.toString()) {
+      return res.status(400).json({
+        success: false,
+        message: 'The current book does not belong to this club',
+      });
+    }
+
+    const isPreviousBook = club.previousBooks.some(
+      (previousBookId) =>
+        previousBookId.toString() === currentBookId.toString()
+    );
+
+    if (isPreviousBook) {
+      return res.status(400).json({
+        success: false,
+        message: 'A historical book cannot be removed',
+      });
+    }
+
+    /*
+     * Remove all club activity that belongs specifically
+     * to this current book.
+     *
+     * Replies are also removed because every Comment document
+     * stores both its club and book.
+     */
+    const [
+      commentsDeletionResult,
+      progressDeletionResult,
+      pollUpdateResult,
+    ] = await Promise.all([
+      Comment.deleteMany({
+        club: club._id,
+        book: currentBookId,
+      }),
+
+      ReadingProgress.deleteMany({
+        club: club._id,
+        book: currentBookId,
+      }),
+
+      /*
+       * Keep the poll and its votes as voting history,
+       * but remove the reference to the Book document
+       * that is about to be deleted.
+       *
+       * We intentionally keep appliedAt so the old poll
+       * is not treated as waiting to be applied again.
+       */
+      Poll.updateMany(
+        {
+          club: club._id,
+          winnerBook: currentBookId,
+        },
+        {
+          $set: {
+            winnerBook: null,
+          },
+        }
+      ),
+    ]);
+
+    /*
+     * Remove the club reference before deleting the Book document,
+     * so club.currentBook never points to a deleted document.
+     */
+    club.currentBook = null;
+    await club.save();
+
+    await Book.findByIdAndDelete(currentBookId);
+
+    /*
+     * Cloudinary cleanup is best effort.
+     *
+     * A Google Books URL or any unmanaged image is ignored safely
+     * by safelyDeleteManagedBookCover.
+     */
+    await safelyDeleteManagedBookCover(
+      book.coverImagePublicId,
+      `removed current book ${book._id} from club ${club._id}`
+    );
+
+    const updatedClub = await populateClub(club._id).select(
+      '-coverImagePublicId'
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Current book removed successfully',
+      data: {
+        club: updatedClub,
+        deletedBookId: currentBookId,
+        deletedComments:
+          commentsDeletionResult.deletedCount || 0,
+        deletedReadingProgress:
+          progressDeletionResult.deletedCount || 0,
+        updatedPolls:
+          pollUpdateResult.modifiedCount || 0,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createClub,
   getAllClubs,
@@ -759,4 +900,5 @@ module.exports = {
   joinClub,
   leaveClub,
   setCurrentBook,
+  removeCurrentBook,
 };

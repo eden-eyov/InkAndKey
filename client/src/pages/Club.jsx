@@ -830,6 +830,14 @@ function Club() {
     onCommentsReset: () => setDiscussionComments([]),
     onCommentsRefresh: fetchComments,
     onClubListsRefresh: refreshClubLists,
+    onCurrentBookRemoved: () => {
+      setShowAddCommentForm(false);
+      setDnfError('');
+      setDnfMessage('');
+      setCurrentBookRatingError('');
+      setCompletedProgressForRating(null);
+      setShowCurrentBookRatingModal(false);
+    },
   });
 
   const clubPolls = useClubPolls({
@@ -1111,6 +1119,8 @@ function Club() {
           isCreator={isCreator}
           showSetBookForm={setCurrentBookForm.showSetBookForm}
           onToggleSetBookForm={setCurrentBookForm.handleToggleSetBookForm}
+          removingCurrentBook={setCurrentBookForm.removingCurrentBook}
+          onRemoveCurrentBook={setCurrentBookForm.handleRemoveCurrentBook}
           userReadingProgress={userReadingProgress}
           userCanRateCurrentBook={userCanRateCurrentBook}
           userRatedCurrentBook={userRatedCurrentBook}

@@ -14,6 +14,8 @@ function CurrentReadingSection({
 
   showSetBookForm,
   onToggleSetBookForm,
+  removingCurrentBook,
+  onRemoveCurrentBook,
 
   userReadingProgress,
   userCanRateCurrentBook,
@@ -88,13 +90,29 @@ function CurrentReadingSection({
             </div>
 
             {isCreator && (
-              <button
-                type="button"
-                onClick={onToggleSetBookForm}
-                className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition text-center"
-              >
-                {showSetBookForm ? 'Close book form' : 'Set new current book'}
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={onToggleSetBookForm}
+                  disabled={removingCurrentBook}
+                  className="px-5 py-2.5 bg-ink text-white text-sm font-medium rounded-full hover:opacity-90 transition text-center disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {showSetBookForm ? 'Close book form' : 'Set new current book'}
+                </button>
+
+                {currentBook && (
+                  <button
+                    type="button"
+                    onClick={onRemoveCurrentBook}
+                    disabled={removingCurrentBook}
+                    className="px-5 py-2.5 border border-red-200 text-red-600 text-sm font-medium rounded-full hover:border-red-400 hover:bg-red-50 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {removingCurrentBook
+                      ? 'Removing...'
+                      : 'Remove current book'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
