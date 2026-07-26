@@ -348,7 +348,7 @@ const updateMe = async (req, res, next) => {
       req.user._id,
       updates,
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       }
     );
