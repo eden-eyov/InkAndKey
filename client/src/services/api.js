@@ -1,12 +1,16 @@
 import axios from 'axios';
 
+const baseURL =
+  import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
+  baseURL,
   timeout: 10000,
   withCredentials: true,
 });
 
 let unauthorizedHandler = null;
+let refreshRequest = null;
 
 export const setUnauthorizedHandler = (handler) => {
   unauthorizedHandler = handler;
@@ -27,19 +31,62 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
     const status = error.response?.status;
-    const requestUrl = error.config?.url;
+    const requestUrl = originalRequest?.url || '';
+
     const isAuthFormRequest =
-      requestUrl?.includes('/auth/login') ||
-      requestUrl?.includes('/auth/register') ||
-      requestUrl?.includes('/auth/google');
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/register') ||
+      requestUrl.includes('/auth/google');
 
-    if (status === 401 && !isAuthFormRequest) {
-      localStorage.removeItem('token');
+    const isRefreshRequest =
+      requestUrl.includes('/auth/refresh-token');
 
-      if (unauthorizedHandler) {
-        unauthorizedHandler(error);
+    const shouldTryRefresh =
+      status === 401 &&
+      !originalRequest?._retry &&
+      !isAuthFormRequest &&
+      !isRefreshRequest;
+
+    if (shouldTryRefresh) {
+      originalRequest._retry = true;
+
+      try {
+        if (!refreshRequest) {
+          refreshRequest = axios.post(
+            `${baseURL}/auth/refresh-token`,
+            {},
+            {
+              withCredentials: true,
+              timeout: 10000,
+            }
+          );
+        }
+
+        const { data } = await refreshRequest;
+        const newAccessToken = data.accessToken;
+
+        localStorage.setItem('token', newAccessToken);
+
+        originalRequest.headers =
+          originalRequest.headers || {};
+
+        originalRequest.headers.Authorization =
+          `Bearer ${newAccessToken}`;
+
+        return api(originalRequest);
+      } catch (refreshError) {
+        localStorage.removeItem('token');
+
+        if (unauthorizedHandler) {
+          unauthorizedHandler(refreshError);
+        }
+
+        return Promise.reject(refreshError);
+      } finally {
+        refreshRequest = null;
       }
     }
 
