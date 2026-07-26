@@ -18,7 +18,10 @@ const uploadRoutes = require('./routes/uploadRoutes');
 
 // middleware imports
 const errorHandler = require('./middleware/errorHandler');
+
 const app = express();
+
+app.set('trust proxy', 1);
 
 const generalApiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
