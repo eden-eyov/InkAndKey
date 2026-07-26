@@ -121,7 +121,7 @@ const updateMyProfileImage = async (req, res, next) => {
         profileImagePublicId: uploadedImage.public_id,
       },
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       }
     ).select(

@@ -195,7 +195,7 @@ const updateBook = async (req, res, next) => {
       req.params.id,
       req.body,
       {
-        new: true,
+        returnDocument: 'after',
         runValidators: true,
       }
     ).populate('club', 'name image isArchived');

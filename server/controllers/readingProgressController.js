@@ -36,7 +36,7 @@ const recalculateBookRating = async (bookId) => {
       ratingsCount,
     },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }
   );
@@ -143,7 +143,7 @@ const upsertMyProgress = async (req, res, next) => {
         },
       },
       {
-        new: true,
+        returnDocument: 'after',
         upsert: !club.isArchived,
         runValidators: true,
       }
