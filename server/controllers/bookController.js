@@ -49,14 +49,18 @@ const searchGoogleBooks = async (req, res, next) => {
           : 'Unknown author',
         authors: volumeInfo.authors || [],
         description: volumeInfo.description || '',
-        coverImage:
+        coverImage: (
           volumeInfo.imageLinks?.thumbnail ||
           volumeInfo.imageLinks?.smallThumbnail ||
-          '',
+          ''
+        ).replace(/^http:\/\//i, 'https://'),
         pageCount: volumeInfo.pageCount || null,
         publishedDate: volumeInfo.publishedDate || '',
         language: volumeInfo.language || '',
-        infoLink: volumeInfo.infoLink || '',
+        infoLink: (volumeInfo.infoLink || '').replace(
+          /^http:\/\//i,
+          'https://'
+        ),
         categories: volumeInfo.categories || [],
       };
     });
