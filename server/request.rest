@@ -4,36 +4,64 @@
 
 @baseUrl = http://localhost:5000/api
 
+### --------------------------------------------------
 ### Local test credentials
+### Keep placeholders only. Never commit real passwords or tokens.
+### --------------------------------------------------
 @testPassword = YOUR_TEST_PASSWORD
 
+### --------------------------------------------------
 ### Access tokens
+### --------------------------------------------------
 @primaryToken = YOUR_PRIMARY_USER_ACCESS_TOKEN
 @secondaryToken = YOUR_SECONDARY_USER_ACCESS_TOKEN
 @pollCreatorToken = YOUR_POLL_CREATOR_ACCESS_TOKEN
+@lowerProgressToken = YOUR_LOWER_PROGRESS_USER_ACCESS_TOKEN
+@nonMemberToken = YOUR_NON_MEMBER_ACCESS_TOKEN
 
+### --------------------------------------------------
 ### User IDs
+### --------------------------------------------------
 @primaryUserId = YOUR_PRIMARY_USER_ID
 @secondaryUserId = YOUR_SECONDARY_USER_ID
 @pollCreatorUserId = YOUR_POLL_CREATOR_USER_ID
 
+### --------------------------------------------------
 ### Fantasy Readers test data
+### --------------------------------------------------
 @fantasyClubId = YOUR_FANTASY_CLUB_ID
 @fantasyBookId = YOUR_FANTASY_BOOK_ID
 @progressId = YOUR_PROGRESS_ID
 @commentId = YOUR_COMMENT_ID
+@parentCommentId = YOUR_PARENT_COMMENT_ID
+@replyId = YOUR_REPLY_ID
 
+### --------------------------------------------------
 ### Poll test data
+### --------------------------------------------------
 @pollClubId = YOUR_POLL_CLUB_ID
 @pollId = YOUR_POLL_ID
 @pollOptionId = YOUR_POLL_OPTION_ID
 
+### --------------------------------------------------
 ### DNF and rating test data
+### --------------------------------------------------
 @dnfClubId = YOUR_DNF_CLUB_ID
 @dnfBookId = YOUR_DNF_BOOK_ID
 @dnfProgressId = YOUR_DNF_PROGRESS_ID
+@completedProgressId = YOUR_COMPLETED_PROGRESS_ID
+@readingProgressId = YOUR_READING_PROGRESS_ID
 
-### Current book deletion test data
+### --------------------------------------------------
+### Club archive test data
+### --------------------------------------------------
+@archiveClubId = YOUR_ARCHIVE_TEST_CLUB_ID
+@archiveClubCreatorToken = YOUR_ARCHIVE_CLUB_CREATOR_TOKEN
+@archiveClubMemberToken = YOUR_ARCHIVE_CLUB_MEMBER_TOKEN
+
+### --------------------------------------------------
+### Current book removal test data
+### --------------------------------------------------
 @currentBookDeleteCreatorToken = YOUR_CLUB_CREATOR_ACCESS_TOKEN
 @currentBookDeleteMemberToken = YOUR_CLUB_MEMBER_ACCESS_TOKEN
 @currentBookDeleteClubId = YOUR_TEST_CLUB_ID
@@ -41,12 +69,20 @@
 @currentBookDeletePollId = YOUR_RELATED_POLL_ID
 
 
-### Health check
+### ==================================================
+### HEALTH CHECK
+### ==================================================
+
+### Expected: 200
 GET {{baseUrl}}/health
 
-##auth checks:
 
-### Register new user
+### ==================================================
+### AUTH TESTS
+### ==================================================
+
+### Register primary test user
+### Expected: 201
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
@@ -57,9 +93,9 @@ Content-Type: application/json
   "favoriteGenres": ["Fantasy", "Romance"],
   "favoriteBooks": ["Fourth Wing"]
 }
-### Register second user
-### This request creates another user so we can test club creation
-### and later test joining/leaving clubs with different users.
+
+### Register secondary test user
+### Expected: 201
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
@@ -71,7 +107,19 @@ Content-Type: application/json
   "favoriteBooks": ["The Silent Patient"]
 }
 
-### Login user
+### Register with invalid data
+### Expected: 400
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+  "username": "a",
+  "email": "not-an-email",
+  "password": "123"
+}
+
+### Login primary user
+### Expected: 200
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
@@ -79,9 +127,9 @@ Content-Type: application/json
   "email": "linoy@example.com",
   "password": "{{testPassword}}"
 }
-### Login second user
-### This request logs in the second user.
-### Copy the accessToken from the response and use it in the next request.
+
+### Login secondary user
+### Expected: 200
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
@@ -90,18 +138,40 @@ Content-Type: application/json
   "password": "{{testPassword}}"
 }
 
+### Login with wrong password
+### Expected: 401
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "maya@example.com",
+  "password": "WRONG_PASSWORD"
+}
+
 ### Refresh access token
+### Expected: 200 when the refresh cookie is valid
 POST {{baseUrl}}/auth/refresh-token
 
-
 ### Logout
+### Expected: 200 and refresh cookie cleared
 POST {{baseUrl}}/auth/logout
 
 ### Get current user
+### Expected: 200
 GET {{baseUrl}}/auth/me
 Authorization: Bearer {{primaryToken}}
 
+### Get current user without token
+### Expected: 401
+GET {{baseUrl}}/auth/me
+
+### Get current user with invalid token
+### Expected: 401
+GET {{baseUrl}}/auth/me
+Authorization: Bearer invalid-token
+
 ### Update current user
+### Expected: 200
 PATCH {{baseUrl}}/auth/me
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -112,14 +182,12 @@ Content-Type: application/json
 }
 
 
-##club checks:
+### ==================================================
+### CLUB TESTS
+### ==================================================
 
 ### Create a new club
-### This request creates a new book club in the database.
-### It requires a logged-in user, so we must send an access token.
-### The server will take the logged-in user from the token and save them as:
-### 1. creator - the user who created the club
-### 2. first member - the creator is automatically added to members
+### Expected: 201
 POST {{baseUrl}}/clubs
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -129,11 +197,9 @@ Content-Type: application/json
   "description": "A cozy club for fantasy book lovers",
   "genres": ["Fantasy"]
 }
-### Create a new club as second user
-### This request creates a new book club using Noa's account.
-### Because the token belongs to Noa, the server will save Noa as:
-### 1. the creator of the club
-### 2. the first member of the club
+
+### Create a new club as the secondary user
+### Expected: 201
 POST {{baseUrl}}/clubs
 Authorization: Bearer {{secondaryToken}}
 Content-Type: application/json
@@ -143,34 +209,85 @@ Content-Type: application/json
   "description": "A relaxed club for readers who love mysteries, thrillers, and cozy discussions.",
   "genres": ["Mystery", "Thriller"]
 }
+
+### Create club with invalid body
+### Expected: 400
+POST {{baseUrl}}/clubs
+Authorization: Bearer {{primaryToken}}
+Content-Type: application/json
+
+{
+  "name": "",
+  "description": "",
+  "genres": []
+}
+
 ### Get all public clubs
+### Expected: 200
 GET {{baseUrl}}/clubs
 
 ### Search clubs by club name
-### This request searches public clubs by club name.
-### It can return more than one club if several clubs match the same text.
+### Expected: 200
 GET {{baseUrl}}/clubs?search=fantasy
 
 ### Filter clubs by genre
-### This request returns public clubs that include the selected genre.
+### Expected: 200
 GET {{baseUrl}}/clubs?genre=Fantasy
 
 ### Search clubs by creator name
-### This request returns public clubs created by users whose name includes the search text.
+### Expected: 200
 GET {{baseUrl}}/clubs?creator=linoy
 
 ### Search clubs by name and genre together
-### This request returns public clubs whose name includes the search text
-### and whose genres include the selected genre.
+### Expected: 200
 GET {{baseUrl}}/clubs?search=fantasy&genre=Fantasy
 
-##books checks:
+### Get a single club
+### Expected: 200
+GET {{baseUrl}}/clubs/{{fantasyClubId}}
+
+### Join a club
+### Expected: 200
+POST {{baseUrl}}/clubs/{{fantasyClubId}}/join
+Authorization: Bearer {{secondaryToken}}
+
+### Join the same club again
+### Expected: 400
+POST {{baseUrl}}/clubs/{{fantasyClubId}}/join
+Authorization: Bearer {{secondaryToken}}
+
+### Leave a club
+### Expected: 200 for a regular member
+POST {{baseUrl}}/clubs/{{fantasyClubId}}/leave
+Authorization: Bearer {{secondaryToken}}
+
+### Update a club as its creator
+### Expected: 200
+PATCH {{baseUrl}}/clubs/{{fantasyClubId}}
+Authorization: Bearer {{primaryToken}}
+Content-Type: application/json
+
+{
+  "description": "Updated REST test description"
+}
+
+### Try to update a club as a regular member
+### Expected: 403
+PATCH {{baseUrl}}/clubs/{{fantasyClubId}}
+Authorization: Bearer {{secondaryToken}}
+Content-Type: application/json
+
+{
+  "name": "Unauthorized club update"
+}
+
+
+### ==================================================
+### BOOK TESTS
+### ==================================================
 
 ### Create a new book for a club
-### This request creates a book and connects it to an existing club.
-### Only the creator of the club can add books to that club.
-### Replace CLUB_ID_HERE with the id of the club.
-### Replace ACCESS_TOKEN_HERE with the access token of the club creator.
+### Expected: 201
 POST {{baseUrl}}/books
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -186,10 +303,7 @@ Content-Type: application/json
 }
 
 ### Create another book for Fantasy Readers
-### This request creates one more book and connects it to the Fantasy Readers club.
-### Only the creator of Fantasy Readers can add books to this club.
-### Replace FANTASY_READERS_CLUB_ID with the id of Fantasy Readers.
-### Replace MAYA_ACCESS_TOKEN_HERE with Maya's access token.
+### Expected: 201
 POST {{baseUrl}}/books
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -198,19 +312,30 @@ Content-Type: application/json
   "title": "Harry Potter and the Philosopher's Stone",
   "author": "J.K. Rowling",
   "coverImage": "",
-  "description": "A young boy discovers he is a wizard and begins his first year at Hogwarts School of Witchcraft and Wizardry.",
+  "description": "A young boy discovers he is a wizard and begins his first year at Hogwarts.",
   "genres": ["Fantasy"],
   "totalChapters": 17,
   "club": "{{fantasyClubId}}"
 }
-#########################################################################################################################
+
+### Try to create a book as a regular club member
+### Expected: 403
+POST {{baseUrl}}/books
+Authorization: Bearer {{secondaryToken}}
+Content-Type: application/json
+
+{
+  "title": "Unauthorized Test Book",
+  "author": "Test Author",
+  "coverImage": "",
+  "description": "This book should not be created.",
+  "genres": ["Fantasy"],
+  "totalChapters": 10,
+  "club": "{{fantasyClubId}}"
+}
+
 ### Set current book for Fantasy Readers
-### This request sets a book as the current book of a club.
-### Only the club creator can do this.
-### If the club already has a current book, the old current book moves to previousBooks.
-### Replace FANTASY_READERS_CLUB_ID with the club id.
-### Replace BOOK_ID_HERE with the id of a book that belongs to this club.
-### Replace MAYA_ACCESS_TOKEN_HERE with Maya's access token.
+### Expected: 200
 PATCH {{baseUrl}}/clubs/{{fantasyClubId}}/current-book
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -219,32 +344,38 @@ Content-Type: application/json
   "book": "{{fantasyBookId}}"
 }
 
-
 ### Get all books
-### This request returns all books from all clubs.
+### Expected: 200
 GET {{baseUrl}}/books
 
+### Get a single book
+### Expected: 200
+GET {{baseUrl}}/books/{{fantasyBookId}}
+
 ### Get books by club
-### This request returns only the books connected to a specific club.
+### Expected: 200
 GET {{baseUrl}}/books?club={{fantasyClubId}}
 
 ### Search books by title or author
-### This request searches books by title or author.
+### Expected: 200
 GET {{baseUrl}}/books?search=hobbit
 
 ### Filter books by genre
-### This request returns books that include the selected genre.
+### Expected: 200
 GET {{baseUrl}}/books?genre=Fantasy
 
-##reading Progress checks:
+### Search Google Books
+### Expected: 200
+GET {{baseUrl}}/books/google-search?query=dune
+Authorization: Bearer {{pollCreatorToken}}
+
+
+### ==================================================
+### READING PROGRESS TESTS
+### ==================================================
 
 ### Update my reading progress
-### This request creates or updates the logged-in user's reading progress.
-### If progress already exists for this user + club + book, it updates it.
-### If it does not exist yet, it creates a new progress document.
-### Replace ACCESS_TOKEN_HERE with the user's access token.
-### Replace CLUB_ID_HERE with the club id.
-### Replace BOOK_ID_HERE with the book id.
+### Expected: 200
 POST {{baseUrl}}/reading-progress
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -256,27 +387,27 @@ Content-Type: application/json
 }
 
 ### Get my reading progress
-### This request returns all reading progress documents
-### that belong to the logged-in user.
+### Expected: 200
 GET {{baseUrl}}/reading-progress
 Authorization: Bearer {{primaryToken}}
 
 ### Get my reading progress by club
-### This request returns the logged-in user's reading progress
-### only for one specific club.
+### Expected: 200
 GET {{baseUrl}}/reading-progress?club={{fantasyClubId}}
 Authorization: Bearer {{primaryToken}}
 
 ### Get my reading progress by book
-### This request returns the logged-in user's reading progress
-### only for one specific book.
+### Expected: 200
 GET {{baseUrl}}/reading-progress?book={{fantasyBookId}}
 Authorization: Bearer {{primaryToken}}
 
+### Get a specific progress record
+### Expected: 200
+GET {{baseUrl}}/reading-progress/{{progressId}}
+Authorization: Bearer {{primaryToken}}
+
 ### Complete a book and add rating
-### This request updates the current chapter to the last chapter.
-### The server should automatically set isCompleted to true.
-### The rating is optional, but here we test saving a user rating too.
+### Expected: 200
 POST {{baseUrl}}/reading-progress
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -288,9 +419,8 @@ Content-Type: application/json
   "rating": 5
 }
 
-### Try to update progress with chapter greater than total chapters
-### This request should fail because the selected book has only 17 chapters.
-### Expected result: 400 error.
+### Try chapter greater than total chapters
+### Expected: 400
 POST {{baseUrl}}/reading-progress
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -301,13 +431,25 @@ Content-Type: application/json
   "currentChapter": 99
 }
 
-##Comments check:
+### Try a negative chapter
+### Expected: 400
+POST {{baseUrl}}/reading-progress
+Authorization: Bearer {{primaryToken}}
+Content-Type: application/json
+
+{
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
+  "currentChapter": -1
+}
+
+
+### ==================================================
+### COMMENT, THREAD, AND REPLY TESTS
+### ==================================================
+
 ### Create regular chapter comment
-### This creates a normal comment connected to a specific chapter.
-### It is NOT spoiler-free, so users who have not reached this chapter should see it locked.
-### Replace ACCESS_TOKEN_HERE with a club member access token.
-### Replace CLUB_ID_HERE with the club id.
-### Replace BOOK_ID_HERE with the book id.
+### Expected: 201
 POST {{baseUrl}}/comments
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -322,8 +464,7 @@ Content-Type: application/json
 }
 
 ### Create locked future chapter comment
-### This creates a comment for a later chapter.
-### A user whose reading progress is lower than this chapter should receive it with text: null and isLocked: true.
+### Expected: 201
 POST {{baseUrl}}/comments
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -337,15 +478,29 @@ Content-Type: application/json
   "parentComment": null
 }
 
-### Create spoiler-free public review
-### This creates a comment/review that is safe for everyone, including guests.
-### It should appear in the public comments endpoint.
+### Create a crafted reply that tries to bypass spoiler protection
+### Expected: 201, but the server must inherit the parent's protection.
 POST {{baseUrl}}/comments
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
 
 {
-"club": "{{fantasyClubId}}",
+  "club": "{{fantasyClubId}}",
+  "book": "{{fantasyBookId}}",
+  "text": "This reply contains information from the locked parent discussion.",
+  "chapterNumber": 0,
+  "isSpoilerFreeReview": true,
+  "parentComment": "{{parentCommentId}}"
+}
+
+### Create spoiler-free public review
+### Expected: 201
+POST {{baseUrl}}/comments
+Authorization: Bearer {{primaryToken}}
+Content-Type: application/json
+
+{
+  "club": "{{fantasyClubId}}",
   "book": "{{fantasyBookId}}",
   "text": "A beautifully written fantasy book with a cozy and adventurous atmosphere.",
   "chapterNumber": 0,
@@ -354,26 +509,36 @@ Content-Type: application/json
 }
 
 ### Get comments for logged-in user
-### This returns all comments for the selected club and book.
-### Comments from chapters the user has not reached should still appear,
-### but with text: null and isLocked: true.
+### Expected: 200
 GET {{baseUrl}}/comments?club={{fantasyClubId}}&book={{fantasyBookId}}
 Authorization: Bearer {{primaryToken}}
 
+### Read discussions as a lower-progress user
+### Expected: protected parent and reply are locked; protected text is absent.
+GET {{baseUrl}}/comments?club={{fantasyClubId}}&book={{fantasyBookId}}
+Authorization: Bearer {{lowerProgressToken}}
+
+### Try to read discussions as a non-member
+### Expected: 403
+GET {{baseUrl}}/comments?club={{fantasyClubId}}&book={{fantasyBookId}}
+Authorization: Bearer {{nonMemberToken}}
+
 ### Get public spoiler-free comments
-### This returns only spoiler-free comments.
-### It does not require login and is safe for guests.
+### Expected: 200; crafted reply under a protected parent must not leak.
 GET {{baseUrl}}/comments/public?club={{fantasyClubId}}&book={{fantasyBookId}}
 
+### Get a single comment
+### Expected: 200
+GET {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{primaryToken}}
+
 ### Toggle like comment
-### Run this request once to like the comment.
-### Run it again to unlike the same comment.
+### Expected: 200
 POST {{baseUrl}}/comments/{{commentId}}/like
 Authorization: Bearer {{primaryToken}}
 
 ### Update my comment
-### Only the comment author can update the comment.
-
+### Expected: 200
 PATCH {{baseUrl}}/comments/{{commentId}}
 Authorization: Bearer {{primaryToken}}
 Content-Type: application/json
@@ -384,64 +549,86 @@ Content-Type: application/json
   "isSpoilerFreeReview": false
 }
 
-### Delete comment without replies
-### If this comment has no replies, it should be permanently deleted.
+### Try to update another user's comment
+### Expected: 403
+PATCH {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{secondaryToken}}
+Content-Type: application/json
+
+{
+  "text": "This unauthorized update should fail."
+}
+
+### Delete my comment
+### Expected:
+### - without replies, it may be removed completely
+### - with replies, the parent content is replaced safely and replies remain
 DELETE {{baseUrl}}/comments/{{commentId}}
 Authorization: Bearer {{primaryToken}}
 
+### Read discussions after deleting the parent comment
+### Expected: replies remain accessible and the deleted parent is represented safely.
+GET {{baseUrl}}/comments?club={{fantasyClubId}}&book={{fantasyBookId}}
+Authorization: Bearer {{primaryToken}}
 
-##user checks:
+
+### ==================================================
+### USER TESTS
+### ==================================================
 
 ### Search users by username
-### This request searches users by username.
-### It requires login.
-### It does NOT return email, because this is user-search data.
+### Expected: 200
 GET {{baseUrl}}/users/search?username=maya
 Authorization: Bearer {{primaryToken}}
 
 ### Get my own user profile
-### This request returns the logged-in user's own profile.
-### Because it is my own profile, the response should include email.
+### Expected: 200; own email may be included.
 GET {{baseUrl}}/users/{{primaryUserId}}
 Authorization: Bearer {{primaryToken}}
 
 ### Get another user's profile
-### This request returns another user's profile.
-### Because it is not my own profile, the response should NOT include email.
+### Expected: 200; another user's email must not be included.
 GET {{baseUrl}}/users/{{secondaryUserId}}
 Authorization: Bearer {{primaryToken}}
 
-
 ### Get user's clubs
-### This request returns all clubs where the selected user is a member.
+### Expected: 200
 GET {{baseUrl}}/users/{{primaryUserId}}/clubs
 Authorization: Bearer {{secondaryToken}}
 
 ### Get user's currently reading books
-### This request returns ReadingProgress documents where isCompleted is false.
+### Expected: 200
 GET {{baseUrl}}/users/{{primaryUserId}}/currently-reading
 Authorization: Bearer {{secondaryToken}}
 
-### Get user's completed books
-### This request returns ReadingProgress documents where isCompleted is true.
-### It can include rating if the user rated the book.
+### Get user's previous reading records
+### Expected: 200; may include completed and DNF records according to profile rules.
 GET {{baseUrl}}/users/{{primaryUserId}}/completed-books
 Authorization: Bearer {{secondaryToken}}
 
 ### Try to get user profile without login
-### This request should fail because user routes are protected.
-### Expected result: 401 Unauthorized.
+### Expected: 401
 GET {{baseUrl}}/users/{{secondaryUserId}}
 
+### Invalid ObjectId
+### Expected: 400
+GET {{baseUrl}}/users/not-a-valid-object-id
+Authorization: Bearer {{primaryToken}}
+
+
+### ==================================================
+### POLL TESTS
+### ==================================================
 
 ### Create next-read poll
+### Expected: 201
 POST {{baseUrl}}/clubs/{{pollClubId}}/polls
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
   "question": "What should we read next?",
-  "closesAt": "2026-07-01T20:00:00.000Z",
+  "closesAt": "2026-12-31T20:00:00.000Z",
   "options": [
     {
       "title": "Babel",
@@ -458,20 +645,54 @@ Content-Type: application/json
   ]
 }
 
+### Get all club polls
+### Expected: 200
+GET {{baseUrl}}/clubs/{{pollClubId}}/polls
+Authorization: Bearer {{pollCreatorToken}}
+
 ### Get current poll
+### Expected: 200
 GET {{baseUrl}}/clubs/{{pollClubId}}/polls/current
 Authorization: Bearer {{pollCreatorToken}}
 
 ### Vote in poll
+### Expected: 201 or 200 according to controller
 POST {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/vote
-Authorization: Bearer {{pollCreatorToken}}
+Authorization: Bearer {{secondaryToken}}
 Content-Type: application/json
 
 {
   "optionId": "{{pollOptionId}}"
 }
 
+### Try to vote twice
+### Expected: 400 or 409 according to controller
+POST {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/vote
+Authorization: Bearer {{secondaryToken}}
+Content-Type: application/json
+
+{
+  "optionId": "{{pollOptionId}}"
+}
+
+### Try to cancel poll as a regular member
+### Run before the creator cancellation request.
+### Expected: 403
+DELETE {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}
+Authorization: Bearer {{secondaryToken}}
+
+### Cancel poll before winner announcement
+### Expected: 200 and status becomes cancelled.
+DELETE {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}
+Authorization: Bearer {{pollCreatorToken}}
+
+### Get current poll after cancellation
+### Expected: cancelled poll is not returned as active/current.
+GET {{baseUrl}}/clubs/{{pollClubId}}/polls/current
+Authorization: Bearer {{pollCreatorToken}}
+
 ### Announce poll winner
+### Use a different non-cancelled poll for this request.
 POST {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/announce-winner
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
@@ -482,11 +703,17 @@ Content-Type: application/json
 }
 
 ### Set winner book as current book
+### Expected: 200
 PATCH {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}/set-winner-current
 Authorization: Bearer {{pollCreatorToken}}
 
 
+### ==================================================
+### IMAGE UPLOAD TESTS
+### ==================================================
+
 ### Upload profile image
+### Expected: 200
 PUT {{baseUrl}}/users/me/profile-image
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: multipart/form-data; boundary=----LiveBookBoundary
@@ -498,8 +725,8 @@ Content-Type: image/jpeg
 < ./avatar.jpg
 ------LiveBookBoundary--
 
-
 ### Upload club cover image
+### Expected: 200
 PUT {{baseUrl}}/clubs/{{fantasyClubId}}/cover-image
 Authorization: Bearer {{primaryToken}}
 Content-Type: multipart/form-data; boundary=LiveBookCoverBoundary
@@ -511,25 +738,13 @@ Content-Type: image/jpeg
 < ./cover.jpg
 --LiveBookCoverBoundary--
 
-### Search Google Books
-GET {{baseUrl}}/books/google-search?query=dune
-Authorization: Bearer {{pollCreatorToken}}
 
+### ==================================================
+### READING PROGRESS AND DNF TESTS
+### ==================================================
 
-### 1. Login - get token
-# Replace email/password with one of your real users
-POST {{baseUrl}}/auth/login
-Content-Type: application/json
-
-{
-  "email": "linoy@example.com",
-  "password": "{{testPassword}}"
-}
-
-###
-
-
-### 2. Update reading progress - should return status: "reading"
+### Update reading progress to reading
+### Expected: 200 and status: reading
 POST {{baseUrl}}/reading-progress
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
@@ -540,38 +755,38 @@ Content-Type: application/json
   "currentChapter": 3
 }
 
-### 3. Get my reading progress list
+### Get my reading progress list
+### Expected: 200
 GET {{baseUrl}}/reading-progress
 Authorization: Bearer {{pollCreatorToken}}
 
-### 4. Get user's currently reading books
-# After update progress, the book should appear here if status is "reading"
+### Get user's currently reading books
+### Expected: the book appears while status is reading.
 GET {{baseUrl}}/users/{{pollCreatorUserId}}/currently-reading
 Authorization: Bearer {{pollCreatorToken}}
 
-### 5. Mark progress as DNF
-# Use the _id returned from step 2 or 3 as progressId
+### Mark progress as DNF
+### Expected: 200 and status: dnf
 PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/dnf
 Authorization: Bearer {{pollCreatorToken}}
 
-### 6. Check currently reading again
-# After DNF, the book should NOT appear here
+### Check currently reading after DNF
+### Expected: the DNF book no longer appears.
 GET {{baseUrl}}/users/{{pollCreatorUserId}}/currently-reading
 Authorization: Bearer {{pollCreatorToken}}
 
-### 7. Check completed / previous books
-# After DNF, the book SHOULD appear here with status: "dnf"
+### Check previous books after DNF
+### Expected: the book appears with status: dnf.
 GET {{baseUrl}}/users/{{pollCreatorUserId}}/completed-books
 Authorization: Bearer {{pollCreatorToken}}
 
-### 8. Try to mark as DNF again
-# Expected: either stays DNF or returns an error, depending on our controller logic
+### Mark as DNF again
+### Expected: verify the explicit behavior defined by the controller.
 PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/dnf
 Authorization: Bearer {{pollCreatorToken}}
 
-### 9. Complete a book
-# Use totalChapters or higher currentChapter.
-# Expected: status: "completed", isCompleted: true
+### Complete a book
+### Expected: 200, status: completed, isCompleted: true
 POST {{baseUrl}}/reading-progress
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
@@ -582,43 +797,31 @@ Content-Type: application/json
   "currentChapter": 29
 }
 
-### 10. Check completed / previous books again
-# Completed book should appear here with status: "completed"
+### Check previous books after completion
+### Expected: the book appears with status: completed.
 GET {{baseUrl}}/users/{{pollCreatorUserId}}/completed-books
 Authorization: Bearer {{pollCreatorToken}}
 
 
-### 1. Login - get token
-POST {{baseUrl}}/auth/login
-Content-Type: application/json
+### ==================================================
+### BOOK RATING TESTS
+### ==================================================
 
-{
-  "email": "linoy@example.com",
-  "password": "{{testPassword}}"
-}
-
-
-### 2. Get my reading progress list
-### Use this to copy a progress _id into @progressId above
-GET {{baseUrl}}/reading-progress
-Authorization: Bearer {{pollCreatorToken}}
-
-
-### 3. Update reading progress to completed
-### Change club/book/currentChapter according to your DB
+### Complete the rating test book first
+### Expected: 200 and status: completed
 POST {{baseUrl}}/reading-progress
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
 {
-  "club": "PUT_CLUB_ID_HERE",
-  "book": "PUT_BOOK_ID_HERE",
+  "club": "{{dnfClubId}}",
+  "book": "{{dnfBookId}}",
   "currentChapter": 30
 }
 
-
-### 4. Rate completed book - valid rating
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Rate completed book - valid rating
+### Expected: 200
+PATCH {{baseUrl}}/reading-progress/{{completedProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
@@ -626,9 +829,9 @@ Content-Type: application/json
   "rating": 5
 }
 
-
-### 5. Update existing rating
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Update existing rating
+### Expected: 200
+PATCH {{baseUrl}}/reading-progress/{{completedProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
@@ -636,9 +839,9 @@ Content-Type: application/json
   "rating": 3
 }
 
-
-### 6. Invalid rating - too high
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Invalid rating - too high
+### Expected: 400
+PATCH {{baseUrl}}/reading-progress/{{completedProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
@@ -646,9 +849,9 @@ Content-Type: application/json
   "rating": 6
 }
 
-
-### 7. Invalid rating - too low
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Invalid rating - too low
+### Expected: 400
+PATCH {{baseUrl}}/reading-progress/{{completedProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
@@ -656,9 +859,9 @@ Content-Type: application/json
   "rating": 0
 }
 
-
-### 8. Invalid rating - not an integer
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Invalid rating - not an integer
+### Expected: 400
+PATCH {{baseUrl}}/reading-progress/{{completedProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
@@ -666,19 +869,17 @@ Content-Type: application/json
   "rating": 4.5
 }
 
-
-### 9. Invalid rating - missing rating
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Invalid rating - missing rating
+### Expected: 400
+PATCH {{baseUrl}}/reading-progress/{{completedProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
-{
-}
+{}
 
-
-### 10. Try to rate a book that is not completed
-### For this test, @progressId should be a progress record with status reading/dnf
-PATCH {{baseUrl}}/reading-progress/{{dnfProgressId}}/rating
+### Try to rate a book that is not completed
+### Expected: 400
+PATCH {{baseUrl}}/reading-progress/{{readingProgressId}}/rating
 Authorization: Bearer {{pollCreatorToken}}
 Content-Type: application/json
 
@@ -686,10 +887,77 @@ Content-Type: application/json
   "rating": 4
 }
 
-
-### 11. Get specific progress after rating
-GET {{baseUrl}}/reading-progress/{{dnfProgressId}}
+### Get specific progress after rating
+### Expected: 200
+GET {{baseUrl}}/reading-progress/{{completedProgressId}}
 Authorization: Bearer {{pollCreatorToken}}
+
+
+### ==================================================
+### CLUB ARCHIVE TESTS
+### ==================================================
+
+### Check club before archiving
+### Expected: 200
+GET {{baseUrl}}/clubs/{{archiveClubId}}
+
+### Try to archive club as a regular member
+### Expected: 403
+DELETE {{baseUrl}}/clubs/{{archiveClubId}}
+Authorization: Bearer {{archiveClubMemberToken}}
+
+### Archive club as its creator
+### Expected: 200
+DELETE {{baseUrl}}/clubs/{{archiveClubId}}
+Authorization: Bearer {{archiveClubCreatorToken}}
+
+### Archived club must not appear in the public list
+### Expected: 200; verify archiveClubId is absent.
+GET {{baseUrl}}/clubs
+
+### Direct access to archived club
+### Expected: 404
+GET {{baseUrl}}/clubs/{{archiveClubId}}
+
+### Try to join archived club
+### Expected: 404 or the archived-resource status used by the API.
+POST {{baseUrl}}/clubs/{{archiveClubId}}/join
+Authorization: Bearer {{secondaryToken}}
+
+### Try to create a poll in archived club
+### Expected: archived-club error
+POST {{baseUrl}}/clubs/{{archiveClubId}}/polls
+Authorization: Bearer {{archiveClubCreatorToken}}
+Content-Type: application/json
+
+{
+  "question": "This poll must not be created",
+  "closesAt": "2026-12-31T20:00:00.000Z",
+  "options": [
+    {
+      "title": "Book One",
+      "author": "Author One",
+      "coverImage": "",
+      "description": "Test option"
+    },
+    {
+      "title": "Book Two",
+      "author": "Author Two",
+      "coverImage": "",
+      "description": "Test option"
+    }
+  ]
+}
+
+### Try to set a current book in archived club
+### Expected: archived-club error
+PATCH {{baseUrl}}/clubs/{{archiveClubId}}/current-book
+Authorization: Bearer {{archiveClubCreatorToken}}
+Content-Type: application/json
+
+{
+  "book": "{{fantasyBookId}}"
+}
 
 
 ### ==================================================
@@ -697,34 +965,20 @@ Authorization: Bearer {{pollCreatorToken}}
 ### ==================================================
 
 ### IMPORTANT:
-### Use a dedicated test user for these requests.
-### Do not run the delete request with your main development account.
+### Use a dedicated test user. Do not run these requests with a main account.
 
 @deletedUserEmail = softdelete-test@example.com
 @deletedUserUsername = Soft Delete Test
 @deletedUserPassword = YOUR_TEST_PASSWORD
-
-### After registration/login, copy these values from the responses:
 @deletedUserToken = YOUR_DELETED_USER_ACCESS_TOKEN
 @deletedUserId = YOUR_DELETED_USER_ID
-
-### Use another active user's token for checking search/profile/comments:
 @activeUserToken = YOUR_ACTIVE_USER_ACCESS_TOKEN
-
-### Optional existing resources:
 @deletedUserCommentId = COMMENT_CREATED_BY_DELETED_USER
 @deletedUserClubId = CLUB_CREATED_BY_DELETED_USER
 @otherUserClubId = CLUB_CREATED_BY_ANOTHER_USER
 
-
-### --------------------------------------------------
-### 1. Register a dedicated user for soft-delete testing
+### Register dedicated soft-delete user
 ### Expected: 201
-### Copy:
-### - response.data.id -> deletedUserId
-### - response.accessToken -> deletedUserToken
-### --------------------------------------------------
-
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
@@ -736,13 +990,8 @@ Content-Type: application/json
   "favoriteBooks": ["The Hobbit"]
 }
 
-
-### --------------------------------------------------
-### 2. Login before deletion
+### Login before deletion
 ### Expected: 200
-### The response should contain a valid accessToken.
-### --------------------------------------------------
-
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
@@ -751,22 +1000,13 @@ Content-Type: application/json
   "password": "{{deletedUserPassword}}"
 }
 
-
-### --------------------------------------------------
-### 3. Confirm the account is currently active
+### Confirm account is active
 ### Expected: 200
-### --------------------------------------------------
-
 GET {{baseUrl}}/auth/me
 Authorization: Bearer {{deletedUserToken}}
 
-
-### --------------------------------------------------
-### 4. Optional: create a club owned by the user
-### Save the returned club id in deletedUserClubId.
+### Create a club owned by the user
 ### Expected: 201
-### --------------------------------------------------
-
 POST {{baseUrl}}/clubs
 Authorization: Bearer {{deletedUserToken}}
 Content-Type: application/json
@@ -777,25 +1017,12 @@ Content-Type: application/json
   "genres": ["Fantasy"]
 }
 
-
-### --------------------------------------------------
-### 5. Optional: join a club created by another user
-### The user should be removed from this club's members
-### after deleting the account.
+### Join a club created by another user
 ### Expected before deletion: 200
-### --------------------------------------------------
-
 POST {{baseUrl}}/clubs/{{otherUserClubId}}/join
 Authorization: Bearer {{deletedUserToken}}
 
-
-### --------------------------------------------------
-### 6. Optional: create a comment before deleting account
-### Replace the club and book ids as needed.
-### Save the returned comment id in deletedUserCommentId.
-### Expected: 201
-### --------------------------------------------------
-
+### Optional: create a comment before deleting account
 # POST {{baseUrl}}/comments
 # Authorization: Bearer {{deletedUserToken}}
 # Content-Type: application/json
@@ -809,53 +1036,22 @@ Authorization: Bearer {{deletedUserToken}}
 #   "isSpoilerFreeReview": false
 # }
 
-
-### --------------------------------------------------
-### 7. Delete the logged-in user's account
+### Delete the logged-in user's account
 ### Expected: 200
-### Expected body:
-### {
-###   "success": true,
-###   "message": "Account deleted successfully"
-### }
-### --------------------------------------------------
-
 DELETE {{baseUrl}}/users/me
 Authorization: Bearer {{deletedUserToken}}
 
-
-### ==================================================
-### AUTH BLOCKING TESTS
-### Run these only after request 7.
-### ==================================================
-
-### --------------------------------------------------
-### 8. Old access token must stop working
+### Old access token must stop working
 ### Expected: 401
-### --------------------------------------------------
-
 GET {{baseUrl}}/auth/me
 Authorization: Bearer {{deletedUserToken}}
 
-
-### --------------------------------------------------
-### 9. Old refresh token must stop working
+### Old refresh token must stop working
 ### Expected: 401
-### Note:
-### Run this in the same REST Client session so the cookie
-### created during login is still available.
-### --------------------------------------------------
-
 POST {{baseUrl}}/auth/refresh-token
 
-
-### --------------------------------------------------
-### 10. Login with the old email/password must fail
+### Login with old credentials must fail
 ### Expected: 401
-### Prefer a generic message such as:
-### "Invalid email or password"
-### --------------------------------------------------
-
 POST {{baseUrl}}/auth/login
 Content-Type: application/json
 
@@ -864,12 +1060,8 @@ Content-Type: application/json
   "password": "{{deletedUserPassword}}"
 }
 
-
-### --------------------------------------------------
-### 11. Register again with the deleted email must fail
+### Register again with the deleted email must fail
 ### Expected: 403
-### --------------------------------------------------
-
 POST {{baseUrl}}/auth/register
 Content-Type: application/json
 
@@ -881,352 +1073,140 @@ Content-Type: application/json
   "favoriteBooks": []
 }
 
+### Google login check
+### Test through the frontend with the same deleted Google account.
+### Expected: login fails and no new user is created.
 
-### --------------------------------------------------
-### 12. Google login check
-### This cannot be tested with a placeholder credential.
-### To test it, log in through the frontend using the same
-### Google account that was soft-deleted.
-### Expected: login should fail and no new user should be created.
-### --------------------------------------------------
-
-
-### ==================================================
-### PROFILE AND SEARCH VISIBILITY TESTS
-### Use a different active user's token.
-### ==================================================
-
-### --------------------------------------------------
-### 13. Deleted user must not appear in username search
-### Expected: 200
-### Expected data: []
-### --------------------------------------------------
-
+### Deleted user must not appear in search
+### Expected: 200 with data: []
 GET {{baseUrl}}/users/search?username=Soft%20Delete%20Test
 Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 14. Deleted user's profile must not be accessible
+### Deleted user's profile must not be accessible
 ### Expected: 404
-### --------------------------------------------------
-
 GET {{baseUrl}}/users/{{deletedUserId}}
 Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 15. Deleted user's created clubs endpoint
+### Deleted user's created clubs endpoint
 ### Expected: 404
-### --------------------------------------------------
-
 GET {{baseUrl}}/users/{{deletedUserId}}/created-clubs
 Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 16. Deleted user's club memberships endpoint
+### Deleted user's club memberships endpoint
 ### Expected: 404
-### --------------------------------------------------
-
 GET {{baseUrl}}/users/{{deletedUserId}}/clubs
 Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 17. Deleted user's currently-reading endpoint
+### Deleted user's currently-reading endpoint
 ### Expected: 404
-### --------------------------------------------------
-
 GET {{baseUrl}}/users/{{deletedUserId}}/currently-reading
 Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 18. Deleted user's completed-books endpoint
+### Deleted user's completed-books endpoint
 ### Expected: 404
-### --------------------------------------------------
-
 GET {{baseUrl}}/users/{{deletedUserId}}/completed-books
 Authorization: Bearer {{activeUserToken}}
 
-
-### ==================================================
-### CLUB ARCHIVE AND MEMBERSHIP TESTS
-### ==================================================
-
-### --------------------------------------------------
-### 19. Club created by deleted user must not appear
-### in the public clubs list.
-### Expected: 200
-### The archived club should not be inside data.
-### --------------------------------------------------
-
+### Club created by deleted user must not appear publicly
+### Expected: 200; archived club absent from data.
 GET {{baseUrl}}/clubs
 
-
-### --------------------------------------------------
-### 20. Direct access to archived club must fail
-### Expected: 404 or the archived-club status used by your API.
-### --------------------------------------------------
-
+### Direct access to archived club must fail
+### Expected: 404
 GET {{baseUrl}}/clubs/{{deletedUserClubId}}
 
-
-### --------------------------------------------------
-### 21. Deleted user must be removed from another club
-### Run using an active member/creator token.
-### Expected:
-### members should not include deletedUserId.
-### --------------------------------------------------
-
+### Deleted user must be removed from another club
+### Expected: members does not include deletedUserId.
 GET {{baseUrl}}/clubs/{{otherUserClubId}}
 Authorization: Bearer {{activeUserToken}}
 
-
-### ==================================================
-### COMMENT AUTHOR ANONYMIZATION TESTS
-### ==================================================
-
-### --------------------------------------------------
-### 22. Read a comment created by the deleted user
-### Expected:
-### - comment text remains
-### - user.username = "Deleted user"
-### - user.profileImage = ""
-### - user.isDeleted = true
-### --------------------------------------------------
-
+### Read a comment created by the deleted user
+### Expected: author is anonymized as Deleted user.
 GET {{baseUrl}}/comments/{{deletedUserCommentId}}
 Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 23. Read the full discussion list containing that comment
-### Replace ids as needed.
-### Expected:
-### the deleted user's comments remain, but the author is anonymized.
-### --------------------------------------------------
-
+### Optional: read full discussion list containing the deleted user's comment
 # GET {{baseUrl}}/comments?club=YOUR_CLUB_ID&book=YOUR_BOOK_ID
 # Authorization: Bearer {{activeUserToken}}
 
-
-### --------------------------------------------------
-### 24. Public spoiler-free comment check
-### Use only if the deleted user created a spoiler-free review.
-### Expected:
-### author is also returned as "Deleted user".
-### --------------------------------------------------
-
+### Optional: public spoiler-free comment check
 # GET {{baseUrl}}/comments/public?club=YOUR_CLUB_ID&book=YOUR_BOOK_ID
 
-### Delete poll before winner announcement
-### Allowed for both open and closed polls.
-### Deletes the poll, all votes, and managed option cover images.
-DELETE {{baseUrl}}/clubs/{{pollClubId}}/polls/{{pollId}}
-Authorization: Bearer {{pollCreatorToken}}
 
 ### ==================================================
-### CURRENT BOOK PERMANENT DELETION TESTS
+### CURRENT BOOK REMOVAL AND DEPENDENT DATA CLEANUP TESTS
 ### ==================================================
 
 ### IMPORTANT:
-### These requests permanently delete:
-### - the current Book document
-### - all comments and replies for the book
-### - all ReadingProgress documents for the book
-### - the managed Cloudinary cover, if one exists
-###
-### Use a dedicated test club and test book.
-### Run the requests in order.
+### These requests permanently remove a dedicated test current book and its
+### dependent comments, replies, reading progress, and managed cover image.
+### Run them only with dedicated test data and in order.
 
-
-### --------------------------------------------------
-### 1. Check the club before deletion
-### Expected: 200
-### Expected:
-### data.currentBook._id should equal currentBookDeleteBookId.
-### --------------------------------------------------
-
+### Check the club before removal
+### Expected: 200 and currentBook._id equals currentBookDeleteBookId.
 GET {{baseUrl}}/clubs/{{currentBookDeleteClubId}}
 
-
-### --------------------------------------------------
-### 2. Check the book before deletion
+### Check the book before removal
 ### Expected: 200
-### --------------------------------------------------
-
 GET {{baseUrl}}/books/{{currentBookDeleteBookId}}
 
-
-### --------------------------------------------------
-### 3. Check the creator's reading progress before deletion
-### Expected: 200
-### Expected:
-### data should contain progress for currentBookDeleteBookId.
-### --------------------------------------------------
-
+### Check creator progress before removal
+### Expected: 200 and matching progress exists.
 GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
 
-
-### --------------------------------------------------
-### 4. Optional: check another member's progress
-### Expected: 200
-### Expected:
-### data should contain that member's progress for the book.
-### Skip this request if there is no second test member.
-### --------------------------------------------------
-
+### Optional: check another member's progress
+### Expected: 200 and matching progress exists.
 GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
 Authorization: Bearer {{currentBookDeleteMemberToken}}
 
-
-### --------------------------------------------------
-### 5. Check comments and replies before deletion
-### Expected: 200
-### Expected:
-### data should contain the test comments and replies.
-### --------------------------------------------------
-
+### Check comments and replies before removal
+### Expected: 200 and test data exists.
 GET {{baseUrl}}/comments?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
 
-
-### --------------------------------------------------
-### 6. Try deleting as a regular member
+### Try removing as a regular member
 ### Expected: 403
-### Expected message:
-### "Only the club creator can remove the current book"
-###
-### Skip this request if there is no second test member.
-### Confirm afterward that the book still exists.
-### --------------------------------------------------
-
 DELETE {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/current-book
 Authorization: Bearer {{currentBookDeleteMemberToken}}
 
-
-### --------------------------------------------------
-### 7. Confirm failed unauthorized deletion changed nothing
+### Confirm unauthorized removal changed nothing
 ### Expected: 200
-### The book should still exist.
-### --------------------------------------------------
-
 GET {{baseUrl}}/books/{{currentBookDeleteBookId}}
 
-
-### --------------------------------------------------
-### 8. Delete the current book as the club creator
+### Remove current book as the club creator
 ### Expected: 200
-###
-### Expected response:
-### {
-###   "success": true,
-###   "message": "Current book removed successfully",
-###   "data": {
-###     "club": {
-###       "currentBook": null
-###     },
-###     "deletedBookId": "...",
-###     "deletedComments": 0 or more,
-###     "deletedReadingProgress": 1 or more,
-###     "updatedPolls": 0 or more
-###   }
-### }
-###
-### Save the response for comparison with the checks below.
-### --------------------------------------------------
-
 DELETE {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/current-book
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
 
-
-### ==================================================
-### CHECKS AFTER DELETION
-### Run only after request 8 succeeds.
-### ==================================================
-
-
-### --------------------------------------------------
-### 9. Check the club after deletion
-### Expected: 200
-### Expected:
-### data.currentBook should be null.
-### The deleted book must not appear inside previousBooks.
-### --------------------------------------------------
-
+### Check club after removal
+### Expected: 200, currentBook is null, removed book absent from previousBooks.
 GET {{baseUrl}}/clubs/{{currentBookDeleteClubId}}
 
-
-### --------------------------------------------------
-### 10. Check the deleted book directly
+### Check removed book directly
 ### Expected: 404
-### Expected message:
-### "Book not found"
-### --------------------------------------------------
-
 GET {{baseUrl}}/books/{{currentBookDeleteBookId}}
 
-
-### --------------------------------------------------
-### 11. Check the creator's progress after deletion
-### Expected: 200
-### Expected:
-### data should be an empty array.
-### --------------------------------------------------
-
+### Check creator progress after removal
+### Expected: 200 with data: []
 GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
 
-
-### --------------------------------------------------
-### 12. Optional: check another member's progress
-### Expected: 200
-### Expected:
-### data should be an empty array.
-### --------------------------------------------------
-
+### Optional: check another member's progress after removal
+### Expected: 200 with data: []
 GET {{baseUrl}}/reading-progress?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
 Authorization: Bearer {{currentBookDeleteMemberToken}}
 
-
-### --------------------------------------------------
-### 13. Check comments and replies after deletion
-### Expected:
-### - 200 with data: []
-### OR
-### - 404 if the comments controller first requires the Book to exist
-###
-### There must not be any returned comments or replies.
-### --------------------------------------------------
-
+### Check comments and replies after removal
+### Expected: empty data or the explicit not-found behavior used by the API.
 GET {{baseUrl}}/comments?club={{currentBookDeleteClubId}}&book={{currentBookDeleteBookId}}
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
 
-
-### --------------------------------------------------
-### 14. Try deleting again
+### Try removing again
 ### Expected: 400
-### Expected message:
-### "This club does not have a current book"
-### --------------------------------------------------
-
 DELETE {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/current-book
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
 
-
-### --------------------------------------------------
-### 15. Optional: inspect the related poll through the API
-###
-### Run this only if your current-poll endpoint returns the closed/applied poll.
-### Expected:
-### - winnerBook should be null
-### - appliedAt should remain populated
-### - winnerOption should remain populated
-### - votes and poll history should remain
-### --------------------------------------------------
-
+### Optional: inspect related poll state
 GET {{baseUrl}}/clubs/{{currentBookDeleteClubId}}/polls/current
 Authorization: Bearer {{currentBookDeleteCreatorToken}}
