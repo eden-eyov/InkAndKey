@@ -175,11 +175,11 @@ http://localhost:5173
 
 **Frontend**
 
-Coming soon
+https://ink-and-key.vercel.app/
 
 **Backend**
 
-Coming soon
+https://ink-and-key-api.onrender.com
 
 ---
 
