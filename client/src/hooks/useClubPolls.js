@@ -87,12 +87,15 @@ function useClubPolls({
     pollOptionCoverUploadLoading
   ).some(Boolean);
 
-  const cleanupUploadedBookCover = async (publicId) => {
-    if (!publicId) return;
+  const cleanupUploadedBookCover = async (publicId, deleteToken) => {
+    if (!publicId || !deleteToken) return;
 
     try {
       await api.delete('/uploads/image', {
-        data: { publicId },
+        data: {
+          publicId,
+          deleteToken,
+        },
       });
     } catch (err) {
       console.log('POLL COVER CLEANUP ERROR:', err.response?.data || err);
@@ -107,16 +110,27 @@ function useClubPolls({
   const cleanupPollOptionUploads = async (
     options = newPollDataRef.current.options
   ) => {
-    const publicIds = [
-      ...new Set(
-        options
-          .map((option) => option.coverImagePublicId)
-          .filter(Boolean)
-      ),
+    const uploadedImages = options
+      .filter(
+        (option) =>
+          option.coverImagePublicId &&
+          option.coverImageDeleteToken
+      )
+      .map((option) => ({
+        publicId: option.coverImagePublicId,
+        deleteToken: option.coverImageDeleteToken,
+      }));
+
+    const uniqueUploads = [
+      ...new Map(
+        uploadedImages.map((upload) => [upload.publicId, upload])
+      ).values(),
     ];
 
     await Promise.all(
-      publicIds.map((publicId) => cleanupUploadedBookCover(publicId))
+      uniqueUploads.map(({ publicId, deleteToken }) =>
+        cleanupUploadedBookCover(publicId, deleteToken)
+      )
     );
   };
 
@@ -656,7 +670,10 @@ function useClubPolls({
       value !== currentOption.coverImage;
 
     if (shouldClearUploadedCover) {
-      void cleanupUploadedBookCover(currentOption.coverImagePublicId);
+      void cleanupUploadedBookCover(
+        currentOption.coverImagePublicId,
+        currentOption.coverImageDeleteToken
+      );
     }
 
     if (field === 'coverImage') {
@@ -679,7 +696,12 @@ function useClubPolls({
           ? {
             ...option,
             [field]: value,
-            ...(shouldClearUploadedCover ? { coverImagePublicId: '' } : {}),
+            ...(shouldClearUploadedCover
+              ? {
+                coverImagePublicId: '',
+                coverImageDeleteToken: '',
+              }
+              : {}),
           }
           : option
       ),
@@ -690,9 +712,13 @@ function useClubPolls({
     const selectedQuery = buildBookSuggestionQuery(book);
     const optionClientId = newPollData.options[index]?._clientId || index;
     const previousPublicId = newPollData.options[index]?.coverImagePublicId;
+    const previousDeleteToken = newPollData.options[index]?.coverImageDeleteToken;
 
-    if (previousPublicId) {
-      void cleanupUploadedBookCover(previousPublicId);
+    if (previousPublicId && previousDeleteToken) {
+      void cleanupUploadedBookCover(
+        previousPublicId,
+        previousDeleteToken
+      );
     }
 
     setNewPollData((prev) => ({
@@ -705,6 +731,7 @@ function useClubPolls({
             author: book.author || '',
             coverImage: book.coverImage || '',
             coverImagePublicId: '',
+            coverImageDeleteToken: '',
             description: book.description || '',
           }
           : option
@@ -764,8 +791,14 @@ function useClubPolls({
     const optionToRemove = newPollData.options[index];
     const optionClientId = optionToRemove?._clientId;
 
-    if (optionToRemove?.coverImagePublicId) {
-      void cleanupUploadedBookCover(optionToRemove.coverImagePublicId);
+    if (
+      optionToRemove?.coverImagePublicId &&
+      optionToRemove?.coverImageDeleteToken
+    ) {
+      void cleanupUploadedBookCover(
+        optionToRemove.coverImagePublicId,
+        optionToRemove.coverImageDeleteToken
+      );
     }
 
     setNewPollData((prev) => {
@@ -811,6 +844,7 @@ function useClubPolls({
     const uploadSession = createPollFormSessionRef.current;
     const previousCoverImage = optionAtUploadStart.coverImage || '';
     const previousPublicId = optionAtUploadStart.coverImagePublicId || '';
+    const previousDeleteToken = optionAtUploadStart.coverImageDeleteToken || '';
 
     const formData = new FormData();
     formData.append('image', file);
@@ -841,11 +875,15 @@ function useClubPolls({
         uploadSession === createPollFormSessionRef.current &&
         latestOption &&
         (latestOption.coverImage || '') === previousCoverImage &&
-        (latestOption.coverImagePublicId || '') === previousPublicId;
+        (latestOption.coverImagePublicId || '') === previousPublicId &&
+        (latestOption.coverImageDeleteToken || '') === previousDeleteToken;
 
       if (!uploadCanStillApply) {
-        if (uploadedImage.publicId) {
-          await cleanupUploadedBookCover(uploadedImage.publicId);
+        if (uploadedImage.publicId && uploadedImage.deleteToken) {
+          await cleanupUploadedBookCover(
+            uploadedImage.publicId,
+            uploadedImage.deleteToken
+          );
         }
 
         return;
@@ -859,13 +897,20 @@ function useClubPolls({
               ...option,
               coverImage: uploadedImage.url || '',
               coverImagePublicId: uploadedImage.publicId || '',
+              coverImageDeleteToken: uploadedImage.deleteToken || '',
             }
             : option
         ),
       }));
 
-      if (previousPublicId && previousPublicId !== uploadedImage.publicId) {
-        void cleanupUploadedBookCover(previousPublicId);
+      if (
+        previousPublicId && previousDeleteToken &&
+        previousPublicId !== uploadedImage.publicId
+      ) {
+        void cleanupUploadedBookCover(
+          previousPublicId,
+          previousDeleteToken
+        );
       }
     } catch (err) {
       console.log('POLL OPTION COVER UPLOAD ERROR:', err.response?.data || err);

@@ -46,6 +46,7 @@ export const createEmptyPollOption = () => ({
   author: '',
   coverImage: '',
   coverImagePublicId: '',
+  coverImageDeleteToken: '',
   description: '',
 });
 
