@@ -9,6 +9,7 @@ function CreatePollModal({
   pollBookSearchResults,
   pollBookSearchLoading,
   pollBookSearchError,
+  pollBookSelectionMessages,
   pollOptionCoverUploadLoading,
   pollOptionCoverUploadError,
 

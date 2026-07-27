@@ -4,6 +4,21 @@ const {
   safelyDeleteManagedBookCover,
 } = require('../utils/cloudinaryImages');
 
+const GOOGLE_BOOKS_RETRY_DELAY_MS = 500;
+
+const wait = (milliseconds) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+const fetchGoogleBooksWithRetry = async (url) => {
+  let response = await fetch(url);
+
+  if (response.status === 503) {
+    await wait(GOOGLE_BOOKS_RETRY_DELAY_MS);
+    response = await fetch(url);
+  }
+
+  return response;
+};
 
 const searchGoogleBooks = async (req, res, next) => {
   try {
@@ -27,7 +42,7 @@ const searchGoogleBooks = async (req, res, next) => {
 
     const googleBooksUrl = `https://www.googleapis.com/books/v1/volumes?q=${encodedQuery}&maxResults=10&key=${process.env.GOOGLE_BOOKS_API_KEY}`;
 
-    const googleResponse = await fetch(googleBooksUrl);
+    const googleResponse = await fetchGoogleBooksWithRetry(googleBooksUrl);
 
     if (!googleResponse.ok) {
       return res.status(502).json({

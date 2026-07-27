@@ -214,6 +214,7 @@ function useSetCurrentBook({
     if (name === 'title' || name === 'author') {
       setNewBookSuggestionsActive(true);
       setSuppressedNewBookSearchQuery('');
+      setGoogleBooksError('');
       setBookSelectionMessage('');
     }
 

@@ -299,7 +299,13 @@ function useClubPolls({
   }, [pollMessage]);
 
   const fetchClubPolls = async (showLoading = true) => {
-    if (!user) return;
+    if (!user || !club || !canVoteInPoll) {
+      setPoll(null);
+      setSelectedPollOptionId('');
+      setPollError('');
+      setPollLoading(false);
+      return;
+    }
 
     try {
       if (showLoading) {
@@ -632,7 +638,13 @@ function useClubPolls({
 
     if (field === 'title' || field === 'author') {
       setActivePollBookOptionIndex(index);
+
       setSuppressedPollBookSearchQueries((prev) => ({
+        ...prev,
+        [index]: '',
+      }));
+
+      setPollBookSearchError((prev) => ({
         ...prev,
         [index]: '',
       }));
