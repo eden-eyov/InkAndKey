@@ -4,10 +4,10 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { fetchUserClubs } from '../store/clubsSlice';
-import PollCard from '../components/PollCard';
-import ProgressTracker from '../components/ProgressTracker';
-import ThreadCard from '../components/ThreadCard';
-import AddThreadForm from '../components/AddThreadForm';
+import DashboardReadingTab from '../components/DashboardReadingTab';
+import DashboardClubsTab from '../components/DashboardClubsTab';
+import DashboardPollsSection from '../components/DashboardPollsSection';
+import useDashboardPolls from '../hooks/useDashboardPolls';
 import { mapCommentsToDiscussion } from '../utils/clubPageUtils';
 
 function Dashboard() {
@@ -15,6 +15,25 @@ function Dashboard() {
   const dispatch = useDispatch();
 
   const currentUserId = user?._id || user?.id;
+  const {
+    activePolls,
+    activePollIndex,
+    activePoll,
+    activePollsLoading,
+    activePollsError,
+    activePollClubName,
+    activePollClubLink,
+    selectedOptionId,
+    pollActionLoading,
+    pollError,
+    pollMessage,
+    fetchActivePolls,
+    handleSelectPollOption,
+    handleVoteInDashboardPoll,
+    handlePreviousPoll,
+    handleNextPoll,
+    handleSelectPoll,
+  } = useDashboardPolls(user);
 
   const [activeTab, setActiveTab] = useState('reading');
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,16 +60,6 @@ function Dashboard() {
   const [newDiscussionProgressId, setNewDiscussionProgressId] =
     useState('');
 
-  const [activePolls, setActivePolls] = useState([]);
-  const [activePollIndex, setActivePollIndex] = useState(0);
-  const [activePollsLoading, setActivePollsLoading] = useState(false);
-  const [activePollsError, setActivePollsError] = useState('');
-
-  const [selectedPollOptions, setSelectedPollOptions] = useState({});
-  const [pollActionLoadingId, setPollActionLoadingId] = useState('');
-  const [pollMessages, setPollMessages] = useState({});
-  const [pollErrors, setPollErrors] = useState({});
-
   const {
     list: clubs,
     loading: clubsLoading,
@@ -69,34 +78,6 @@ function Dashboard() {
     };
   }, [progressActionMessage]);
 
-  useEffect(() => {
-    const messagePollIds = Object.entries(pollMessages)
-      .filter(([, message]) => Boolean(message))
-      .map(([pollId]) => pollId);
-
-    if (messagePollIds.length === 0) return undefined;
-
-    const timeoutIds = messagePollIds.map((pollId) =>
-      window.setTimeout(() => {
-        setPollMessages((previousMessages) => {
-          if (!previousMessages[pollId]) {
-            return previousMessages;
-          }
-
-          return {
-            ...previousMessages,
-            [pollId]: '',
-          };
-        });
-      }, 3000)
-    );
-
-    return () => {
-      timeoutIds.forEach((timeoutId) => {
-        window.clearTimeout(timeoutId);
-      });
-    };
-  }, [pollMessages]);
 
   useEffect(() => {
     dispatch(fetchUserClubs());
@@ -134,158 +115,6 @@ function Dashboard() {
     fetchCurrentReads();
   }, [fetchCurrentReads]);
 
-  const fetchActivePolls = useCallback(
-    async (showLoading = true) => {
-      if (!user) return;
-
-      try {
-        if (showLoading) {
-          setActivePollsLoading(true);
-        }
-
-        setActivePollsError('');
-
-        const { data } = await api.get('/polls/my-active-polls');
-        const polls = Array.isArray(data.data) ? data.data : [];
-
-        setActivePolls(polls);
-
-        setActivePollIndex((currentIndex) => {
-          if (polls.length === 0) return 0;
-
-          return Math.min(currentIndex, polls.length - 1);
-        });
-
-        setSelectedPollOptions((previousOptions) => {
-          const nextOptions = { ...previousOptions };
-
-          polls.forEach((poll) => {
-            if (poll.userVoteOptionId) {
-              nextOptions[poll._id] = poll.userVoteOptionId;
-            }
-          });
-
-          return nextOptions;
-        });
-      } catch (err) {
-        console.log(
-          'FETCH ACTIVE POLLS ERROR:',
-          err.response?.data || err
-        );
-
-        setActivePolls([]);
-        setActivePollIndex(0);
-
-        setActivePollsError(
-          err.response?.data?.message ||
-          'Could not load active polls right now.'
-        );
-      } finally {
-        if (showLoading) {
-          setActivePollsLoading(false);
-        }
-      }
-    },
-    [user]
-  );
-
-  useEffect(() => {
-    fetchActivePolls();
-  }, [fetchActivePolls]);
-
-  const getPollClubId = (poll) =>
-    poll.clubId || poll.club?._id || poll.club;
-
-  const getPollClubName = (poll) =>
-    poll.clubName || poll.club?.name || 'Your club';
-
-  const handleSelectPollOption = (pollId, optionId) => {
-    setSelectedPollOptions((previousOptions) => ({
-      ...previousOptions,
-      [pollId]: optionId,
-    }));
-  };
-
-  const handleVoteInDashboardPoll = async (poll) => {
-    const clubId = getPollClubId(poll);
-    const selectedOptionId = selectedPollOptions[poll._id];
-
-    if (!clubId || !selectedOptionId) return;
-
-    try {
-      setPollActionLoadingId(poll._id);
-
-      setPollErrors((previousErrors) => ({
-        ...previousErrors,
-        [poll._id]: '',
-      }));
-
-      setPollMessages((previousMessages) => ({
-        ...previousMessages,
-        [poll._id]: '',
-      }));
-
-      const { data } = await api.post(
-        `/clubs/${clubId}/polls/${poll._id}/vote`,
-        {
-          optionId: selectedOptionId,
-        }
-      );
-
-      const updatedPoll = {
-        ...poll,
-        ...data.data,
-        clubId,
-        clubName: getPollClubName(poll),
-        club: poll.club,
-      };
-
-      setActivePolls((previousPolls) =>
-        previousPolls.map((item) =>
-          item._id === poll._id ? updatedPoll : item
-        )
-      );
-
-      setPollMessages((previousMessages) => ({
-        ...previousMessages,
-        [poll._id]: 'Your vote was submitted.',
-      }));
-    } catch (err) {
-      console.log(
-        'VOTE IN DASHBOARD POLL ERROR:',
-        err.response?.data || err
-      );
-
-      setPollErrors((previousErrors) => ({
-        ...previousErrors,
-        [poll._id]:
-          err.response?.data?.message ||
-          'Failed to submit your vote. Please try again.',
-      }));
-    } finally {
-      setPollActionLoadingId('');
-    }
-  };
-
-  const handlePreviousPoll = () => {
-    if (activePolls.length <= 1) return;
-
-    setActivePollIndex((currentIndex) =>
-      currentIndex === 0
-        ? activePolls.length - 1
-        : currentIndex - 1
-    );
-  };
-
-  const handleNextPoll = () => {
-    if (activePolls.length <= 1) return;
-
-    setActivePollIndex((currentIndex) =>
-      currentIndex === activePolls.length - 1
-        ? 0
-        : currentIndex + 1
-    );
-  };
 
   const handleToggleRead = (progressId) => {
     setExpandedRead((currentValue) => {
@@ -747,8 +576,6 @@ function Dashboard() {
     });
   }, [currentlyReading, normalizedSearchQuery]);
 
-  const activePoll = activePolls[activePollIndex] || null;
-
   const dashboardLoading = clubsLoading || currentReadsLoading;
   const dashboardError = clubsError || currentReadsError;
 
@@ -881,514 +708,42 @@ function Dashboard() {
 
             <div className="rounded-b-2xl rounded-tr-2xl border border-t-0 border-stone-200 bg-white p-5 md:p-7 shadow-sm">
               {activeTab === 'reading' ? (
-                <section>
-                  <div className="mb-6">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                      Continue reading
-                    </span>
-
-                    <h2 className="font-serif text-3xl mt-2 mb-1">
-                      Your current books
-                    </h2>
-
-                    <p className="text-sm text-stone-500">
-                      Update your progress and return to spoiler-safe
-                      conversations.
-                    </p>
-
-                    {progressActionError && (
-                      <p className="text-sm text-red-500 mt-3">
-                        {progressActionError}
-                      </p>
-                    )}
-
-                    {progressActionMessage && (
-                      <p className="text-sm text-accent mt-3">
-                        {progressActionMessage}
-                      </p>
-                    )}
-                  </div>
-
-                  {filteredCurrentReads.length === 0 ? (
-                    <div className="rounded-2xl border border-stone-200/60 bg-cream p-8 text-center">
-                      <p className="text-sm text-stone-500">
-                        {normalizedSearchQuery
-                          ? 'No current books match your search.'
-                          : 'You do not have any current reads yet.'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredCurrentReads.map((progress) => {
-                        const bookTitle =
-                          progress.book?.title || 'Untitled book';
-
-                        const bookAuthor = progress.book?.author || '';
-                        const bookCover = progress.book?.coverImage || '';
-                        const isArchivedClub = Boolean(progress.club?.isArchived);
-                        const totalChapters =
-                          Number(progress.book?.totalChapters) || 0;
-                        const currentChapter =
-                          Number(progress.currentChapter) || 0;
-                        const canMarkAsDnf =
-                          currentChapter > 0 &&
-                          !progress.isCompleted &&
-                          progress.status !== 'completed';
-                        const progressPercent =
-                          totalChapters > 0
-                            ? Math.min(
-                              Math.round(
-                                (currentChapter / totalChapters) * 100
-                              ),
-                              100
-                            )
-                            : 0;
-
-                        const isExpanded =
-                          expandedRead.id === progress._id;
-
-                        const showProgress =
-                          isExpanded &&
-                          expandedRead.section === 'progress';
-
-                        const showDiscussions =
-                          isExpanded &&
-                          expandedRead.section === 'discussions';
-
-                        const dashboardClub = (Array.isArray(clubs) ? clubs : []).find(
-                          (club) =>
-                            club._id?.toString() === progress.club?._id?.toString()
-                        );
-
-                        const clubCurrentBookId =
-                          dashboardClub?.currentBook?._id ||
-                          dashboardClub?.currentBook;
-
-                        const isStillCurrentClubBook =
-                          Boolean(clubCurrentBookId) &&
-                          clubCurrentBookId.toString() ===
-                          progress.book?._id?.toString();
-
-                        return (
-                          <article
-                            key={progress._id}
-                            className="rounded-2xl border border-stone-200/60 bg-white shadow-sm overflow-hidden transition hover:border-accent"
-                          >
-                            <div className="p-5">
-                              <div className="flex flex-col md:flex-row gap-5">
-                                <div className="w-24 h-36 rounded-xl overflow-hidden bg-cream border border-stone-100 flex-shrink-0">
-                                  {bookCover ? (
-                                    <img
-                                      src={bookCover}
-                                      alt={`${bookTitle} cover`}
-                                      className="w-full h-full object-cover"
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full bg-ink flex items-center justify-center p-3 text-center">
-                                      <span className="font-serif text-sm italic text-cream leading-tight">
-                                        {bookTitle}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                                    {isArchivedClub
-                                      ? 'Club no longer available'
-                                      : `Reading with ${progress.club?.name || 'a book club'}`}
-                                  </span>
-
-                                  <h3 className="font-serif text-2xl mt-2 mb-1">
-                                    {bookTitle}
-                                  </h3>
-
-                                  {bookAuthor && (
-                                    <p className="text-sm text-stone-500">
-                                      by {bookAuthor}
-                                    </p>
-                                  )}
-
-                                  <div className="mt-5">
-                                    <div className="flex justify-between gap-4 text-xs text-stone-500 mb-2">
-                                      <span>
-                                        Chapter {currentChapter} of{' '}
-                                        {totalChapters}
-                                      </span>
-
-                                      <span>{progressPercent}%</span>
-                                    </div>
-
-                                    <div className="w-full h-2 rounded-full overflow-hidden bg-stone-100">
-                                      <div
-                                        className="h-full rounded-full bg-accent transition-all duration-500"
-                                        style={{
-                                          width: `${progressPercent}%`,
-                                        }}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="flex flex-wrap items-center gap-3 mt-5">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleToggleRead(progress._id)}
-                                      className={`px-5 py-2.5 rounded-full text-sm font-medium transition ${isExpanded
-                                        ? 'bg-accent text-white'
-                                        : 'bg-ink text-white hover:opacity-90'
-                                        }`}
-                                    >
-                                      {isExpanded ? 'Close' : 'Open'}
-                                    </button>
-
-                                    {isArchivedClub ? (
-                                      <span className="text-sm text-stone-400 ml-auto">
-                                        This club is no longer available
-                                      </span>
-                                    ) : (
-                                      progress.club?._id && (
-                                        <Link
-                                          to={`/clubs/${progress.club._id}`}
-                                          className="text-sm font-medium text-accent hover:underline ml-auto"
-                                        >
-                                          View club
-                                        </Link>
-                                      )
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            {isExpanded && (
-                              <div className="border-t border-stone-100 bg-cream/50">
-                                <div className="flex items-center gap-6 border-b border-stone-200 px-5 pt-4">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleChangeReadSection(progress, 'progress')
-                                    }
-                                    className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'progress'
-                                      ? 'border-accent text-accent'
-                                      : 'border-transparent text-stone-500 hover:text-ink'
-                                      }`}
-                                  >
-                                    Progress
-                                  </button>
-
-                                  {!isArchivedClub && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        handleChangeReadSection(progress, 'discussions')
-                                      }
-                                      className={`pb-3 text-sm font-medium border-b-2 transition ${expandedRead.section === 'discussions'
-                                        ? 'border-accent text-accent'
-                                        : 'border-transparent text-stone-500 hover:text-ink'
-                                        }`}
-                                    >
-                                      Discussions
-                                    </button>
-                                  )}
-                                </div>
-
-                                <div className="p-5">
-                                  {expandedRead.section === 'progress' && (
-                                    <div>
-                                      <ProgressTracker
-                                        currentChapter={currentChapter}
-                                        totalChapters={totalChapters}
-                                        onUpdateProgress={(nextChapter) =>
-                                          handleUpdateProgress(progress, nextChapter)
-                                        }
-                                      />
-
-                                      {canMarkAsDnf && (
-                                        <div className="mt-6 pt-5 border-t border-stone-200">
-                                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                                            <div>
-                                              <h5 className="text-sm font-medium text-ink">
-                                                Not planning to finish this book?
-                                              </h5>
-
-                                              <p className="text-xs text-stone-500 mt-1">
-                                                It will be moved out of your current reads and kept in
-                                                your reading history as DNF.
-                                              </p>
-                                            </div>
-
-                                            <button
-                                              type="button"
-                                              onClick={() => handleMarkAsDnf(progress)}
-                                              disabled={dnfActionLoadingId === progress._id}
-                                              className="inline-flex items-center justify-center rounded-full border border-red-200 px-5 py-2.5 text-sm font-medium text-red-600 transition hover:border-red-400 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60"
-                                            >
-                                              {dnfActionLoadingId === progress._id
-                                                ? 'Marking as DNF...'
-                                                : 'Mark as DNF'}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {expandedRead.section === 'discussions' &&
-                                    !isArchivedClub && (
-                                      <div>
-                                        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
-                                          <div>
-                                            <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                                              Recent discussions
-                                            </span>
-
-                                            <h4 className="font-serif text-2xl mt-2">
-                                              Conversations about {bookTitle}
-                                            </h4>
-                                            {newDiscussionProgressId === progress._id && (
-                                              <AddThreadForm
-                                                totalChapters={totalChapters}
-                                                onCancel={() => setNewDiscussionProgressId('')}
-                                                onSubmitThread={(discussionData) =>
-                                                  handleCreateDashboardDiscussion(
-                                                    progress,
-                                                    discussionData
-                                                  )
-                                                }
-                                              />
-                                            )}
-                                          </div>
-
-                                          {progress.club?._id && (
-                                            <div className="flex flex-wrap items-center gap-4">
-                                              <button type="button"
-                                                onClick={() =>
-                                                  setNewDiscussionProgressId((currentId) =>
-                                                    currentId === progress._id ? '' : progress._id
-                                                  )
-                                                }
-                                                className="text-sm font-medium text-ink hover:text-accent transition">{newDiscussionProgressId === progress._id
-                                                  ? 'Cancel'
-                                                  : 'New discussion'}
-                                              </button>
-
-                                              {isStillCurrentClubBook && progress.club?._id && (
-                                                <Link
-                                                  to={`/clubs/${progress.club._id}`}
-                                                  className="text-sm font-medium text-accent hover:underline"
-                                                >
-                                                  View all discussions
-                                                </Link>
-                                              )}
-
-                                              {!isStillCurrentClubBook && (
-                                                <span className="text-xs text-stone-400">
-                                                  This is a previous club read.
-                                                </span>
-                                              )}
-                                            </div>
-
-
-                                          )}
-
-                                        </div>
-
-                                        {discussionsLoadingId === progress._id ? (
-                                          <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
-                                            <p className="text-sm italic text-stone-500">
-                                              Loading discussions...
-                                            </p>
-                                          </div>
-                                        ) : discussionsErrors[progress._id] ? (
-                                          <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
-                                            <p className="text-sm text-red-600">
-                                              {discussionsErrors[progress._id]}
-                                            </p>
-                                          </div>
-                                        ) : (
-                                          (() => {
-                                            const discussions =
-                                              discussionsByProgressId[progress._id] || [];
-
-                                            const recentDiscussions = [...discussions]
-                                              .reverse()
-                                              .slice(0, 3);
-
-                                            if (recentDiscussions.length === 0) {
-                                              return (
-                                                <div className="rounded-2xl border border-stone-200/60 bg-white p-6 text-center">
-                                                  <p className="text-sm text-stone-500">
-                                                    No discussions yet.
-                                                  </p>
-                                                </div>
-                                              );
-                                            }
-
-                                            return (
-                                              <div className="space-y-4">
-                                                {recentDiscussions.map((thread) => (
-                                                  <ThreadCard
-                                                    key={thread._id}
-                                                    thread={thread}
-                                                    totalChapters={totalChapters}
-                                                    currentUserId={currentUserId}
-                                                    canLike
-                                                    onSubmitReply={(
-                                                      selectedThread,
-                                                      replyText,
-                                                      chapterNumber
-                                                    ) =>
-                                                      handleCreateDiscussionReply(
-                                                        progress,
-                                                        selectedThread,
-                                                        replyText,
-                                                        chapterNumber
-                                                      )
-                                                    }
-                                                    onToggleLike={(commentId) =>
-                                                      handleToggleDiscussionLike(
-                                                        progress,
-                                                        commentId
-                                                      )
-                                                    }
-                                                    onDeleteComment={(commentId) =>
-                                                      handleDeleteDiscussionComment(
-                                                        progress,
-                                                        commentId
-                                                      )
-                                                    }
-                                                    onUpdateComment={(commentId, updateData) =>
-                                                      handleUpdateDiscussionComment(
-                                                        progress,
-                                                        commentId,
-                                                        updateData
-                                                      )
-                                                    }
-                                                  />
-                                                ))}
-                                              </div>
-                                            );
-                                          })()
-                                        )}
-                                      </div>
-                                    )}
-                                </div>
-                              </div>
-                            )}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
+                <DashboardReadingTab
+                  filteredCurrentReads={filteredCurrentReads}
+                  normalizedSearchQuery={normalizedSearchQuery}
+                  progressActionError={progressActionError}
+                  progressActionMessage={progressActionMessage}
+                  expandedRead={expandedRead}
+                  clubs={clubs}
+                  newDiscussionProgressId={newDiscussionProgressId}
+                  discussionsLoadingId={discussionsLoadingId}
+                  discussionsErrors={discussionsErrors}
+                  discussionsByProgressId={discussionsByProgressId}
+                  dnfActionLoadingId={dnfActionLoadingId}
+                  currentUserId={currentUserId}
+                  onToggleRead={handleToggleRead}
+                  onChangeReadSection={handleChangeReadSection}
+                  onUpdateProgress={handleUpdateProgress}
+                  onMarkAsDnf={handleMarkAsDnf}
+                  onToggleNewDiscussion={(progressId) =>
+                    setNewDiscussionProgressId((currentId) =>
+                      currentId === progressId ? '' : progressId
+                    )
+                  }
+                  onCancelNewDiscussion={() =>
+                    setNewDiscussionProgressId('')
+                  }
+                  onCreateDiscussion={handleCreateDashboardDiscussion}
+                  onCreateReply={handleCreateDiscussionReply}
+                  onToggleDiscussionLike={handleToggleDiscussionLike}
+                  onDeleteDiscussionComment={handleDeleteDiscussionComment}
+                  onUpdateDiscussionComment={handleUpdateDiscussionComment}
+                />
               ) : (
-                <section>
-                  <div className="mb-6">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                      Your communities
-                    </span>
-
-                    <h2 className="font-serif text-3xl mt-2 mb-1">
-                      My clubs
-                    </h2>
-
-                    <p className="text-sm text-stone-500">
-                      View your active book clubs and their current reads.
-                    </p>
-                  </div>
-
-                  {filteredClubs.length === 0 ? (
-                    <div className="rounded-2xl border border-stone-200/60 bg-cream p-8 text-center">
-                      <p className="text-sm text-stone-500">
-                        {normalizedSearchQuery
-                          ? 'No clubs match your search.'
-                          : 'You are not a member of any clubs yet.'}
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredClubs.map((club) => {
-                        const totalChapters =
-                          Number(
-                            club.totalChapters ||
-                            club.currentBook?.totalChapters
-                          ) || 0;
-
-                        const userCurrentChapter =
-                          Number(club.userCurrentChapter) || 0;
-
-                        const progressPercent =
-                          totalChapters > 0
-                            ? Math.min(
-                              Math.round(
-                                (userCurrentChapter / totalChapters) *
-                                100
-                              ),
-                              100
-                            )
-                            : 0;
-
-                        return (
-                          <article
-                            key={club._id}
-                            className="rounded-2xl border border-stone-200/60 bg-white p-5 shadow-sm transition hover:border-accent"
-                          >
-                            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
-                              <div className="min-w-0 flex-1">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                                  Currently reading
-                                </span>
-
-                                <h3 className="font-serif text-2xl mt-2 mb-1">
-                                  {club.name}
-                                </h3>
-
-                                <p className="text-sm text-stone-500 mb-3">
-                                  {club.currentBookTitle ||
-                                    club.currentBook?.title ||
-                                    'No current book'}
-                                </p>
-
-                                {club.description && (
-                                  <p className="text-sm text-stone-500 leading-relaxed line-clamp-2">
-                                    {club.description}
-                                  </p>
-                                )}
-                              </div>
-
-                              <div className="w-full lg:w-72">
-                                <div className="flex justify-between text-xs text-stone-500 mb-2">
-                                  <span>
-                                    Chapter {userCurrentChapter} of{' '}
-                                    {totalChapters}
-                                  </span>
-
-                                  <span>{progressPercent}%</span>
-                                </div>
-
-                                <div className="w-full h-2 rounded-full overflow-hidden bg-stone-100">
-                                  <div
-                                    className="h-full rounded-full bg-accent"
-                                    style={{
-                                      width: `${progressPercent}%`,
-                                    }}
-                                  />
-                                </div>
-
-                                <Link
-                                  to={`/clubs/${club._id}`}
-                                  className="inline-flex mt-4 text-sm font-medium text-accent hover:underline"
-                                >
-                                  Open club
-                                </Link>
-                              </div>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  )}
-                </section>
+                <DashboardClubsTab
+                  filteredClubs={filteredClubs}
+                  normalizedSearchQuery={normalizedSearchQuery}
+                />
               )}
             </div>
           </div>
@@ -1507,112 +862,33 @@ function Dashboard() {
             </section>
 
             {/* Poll */}
-            <section className="rounded-2xl border border-stone-200/60 bg-white p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-4 mb-5">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-accent">
-                    Active poll
-                  </span>
+            <DashboardPollsSection
+              activePolls={activePolls}
+              activePollIndex={activePollIndex}
+              activePoll={activePoll}
+              activePollsLoading={activePollsLoading}
+              activePollsError={activePollsError}
+              activePollClubName={activePollClubName}
+              activePollClubLink={activePollClubLink}
+              selectedOptionId={selectedOptionId}
+              pollActionLoading={pollActionLoading}
+              pollError={pollError}
+              pollMessage={pollMessage}
+              onSelectOption={(optionId) => {
+                if (!activePoll) return;
 
-                  <h2 className="font-serif text-2xl mt-1">
-                    Your clubs are voting
-                  </h2>
-                </div>
+                handleSelectPollOption(activePoll._id, optionId);
+              }}
+              onVote={() => {
+                if (!activePoll) return;
 
-                {activePolls.length > 0 && (
-                  <span className="text-xs text-stone-400 whitespace-nowrap">
-                    {activePollIndex + 1} / {activePolls.length}
-                  </span>
-                )}
-              </div>
-
-              {activePollsLoading ? (
-                <div className="rounded-xl bg-cream p-6 text-center">
-                  <p className="text-sm italic text-stone-500">
-                    Loading active polls...
-                  </p>
-                </div>
-              ) : activePollsError ? (
-                <div className="rounded-xl bg-cream p-6 text-center">
-                  <p className="text-sm text-stone-500">
-                    {activePollsError}
-                  </p>
-                </div>
-              ) : !activePoll ? (
-                <div className="rounded-xl bg-cream p-6 text-center">
-                  <p className="text-sm text-stone-500">
-                    No active polls right now.
-                  </p>
-                </div>
-              ) : (
-                <PollCard
-                  poll={activePoll}
-                  className="space-y-5"
-                  clubName={getPollClubName(activePoll)}
-                  clubLink={
-                    getPollClubId(activePoll)
-                      ? `/clubs/${getPollClubId(activePoll)}`
-                      : ''
-                  }
-                  canVote
-                  selectedOptionId={
-                    selectedPollOptions[activePoll._id] || ''
-                  }
-                  onSelectOption={(optionId) =>
-                    handleSelectPollOption(
-                      activePoll._id,
-                      optionId
-                    )
-                  }
-                  onVote={() =>
-                    handleVoteInDashboardPoll(activePoll)
-                  }
-                  voteLoading={
-                    pollActionLoadingId === activePoll._id
-                  }
-                  error={pollErrors[activePoll._id]}
-                  message={pollMessages[activePoll._id]}
-                  onRefresh={() => fetchActivePolls(false)}
-                />
-              )}
-
-              {activePolls.length > 1 && (
-                <div className="flex items-center justify-between mt-5 pt-5 border-t border-stone-100">
-                  <button
-                    type="button"
-                    onClick={handlePreviousPoll}
-                    className="w-10 h-10 rounded-full border border-stone-200 bg-cream text-lg transition hover:border-accent hover:text-accent"
-                    aria-label="Show previous poll"
-                  >
-                    ←
-                  </button>
-
-                  <div className="flex gap-2">
-                    {activePolls.map((poll, index) => (
-                      <button
-                        key={poll._id}
-                        type="button"
-                        onClick={() => setActivePollIndex(index)}
-                        className={`w-2.5 h-2.5 rounded-full transition ${index === activePollIndex
-                          ? 'bg-accent'
-                          : 'bg-stone-200 hover:bg-stone-300'
-                          }`}
-                        aria-label={`Show poll ${index + 1}`}
-                      />
-                    ))}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleNextPoll}
-                    className="w-10 h-10 rounded-full border border-stone-200 bg-cream text-lg transition hover:border-accent hover:text-accent"
-                    aria-label="Show next poll"
-                  >
-                    →
-                  </button>
-                </div>
-              )}
-            </section>
+                handleVoteInDashboardPoll(activePoll);
+              }}
+              onRefresh={() => fetchActivePolls(false)}
+              onPreviousPoll={handlePreviousPoll}
+              onNextPoll={handleNextPoll}
+              onSelectPoll={handleSelectPoll}
+            />
           </aside>
         </section>
       </div>
