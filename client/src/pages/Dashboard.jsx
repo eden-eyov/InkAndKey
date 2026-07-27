@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +8,8 @@ import DashboardReadingTab from '../components/DashboardReadingTab';
 import DashboardClubsTab from '../components/DashboardClubsTab';
 import DashboardPollsSection from '../components/DashboardPollsSection';
 import useDashboardPolls from '../hooks/useDashboardPolls';
-import { mapCommentsToDiscussion } from '../utils/clubPageUtils';
+import useDashboardSearch from '../hooks/useDashboardSearch';
+import useDashboardDiscussions from '../hooks/useDashboardDiscussions';
 
 function Dashboard() {
   const { user } = useAuth();
@@ -35,11 +36,22 @@ function Dashboard() {
     handleSelectPoll,
   } = useDashboardPolls(user);
 
+  const {
+    discussionsByProgressId,
+    discussionsLoadingId,
+    discussionsErrors,
+    newDiscussionProgressId,
+    fetchDiscussionsForProgress,
+    handleCreateDashboardDiscussion,
+    handleCreateDiscussionReply,
+    handleToggleDiscussionLike,
+    handleDeleteDiscussionComment,
+    handleUpdateDiscussionComment,
+    handleToggleNewDiscussion,
+    handleCancelNewDiscussion,
+  } = useDashboardDiscussions();
+
   const [activeTab, setActiveTab] = useState('reading');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [userSearchResults, setUserSearchResults] = useState([]);
-  const [userSearchLoading, setUserSearchLoading] = useState(false);
-  const [userSearchError, setUserSearchError] = useState('');
 
   const [currentlyReading, setCurrentlyReading] = useState([]);
   const [currentReadsLoading, setCurrentReadsLoading] = useState(false);
@@ -54,17 +66,26 @@ function Dashboard() {
     section: null,
   });
 
-  const [discussionsByProgressId, setDiscussionsByProgressId] = useState({});
-  const [discussionsLoadingId, setDiscussionsLoadingId] = useState('');
-  const [discussionsErrors, setDiscussionsErrors] = useState({});
-  const [newDiscussionProgressId, setNewDiscussionProgressId] =
-    useState('');
 
   const {
     list: clubs,
     loading: clubsLoading,
     error: clubsError,
   } = useSelector((state) => state.clubs);
+
+  const {
+    searchQuery,
+    setSearchQuery,
+    normalizedSearchQuery,
+    userSearchResults,
+    userSearchLoading,
+    userSearchError,
+    filteredClubs,
+    filteredCurrentReads,
+  } = useDashboardSearch({
+    clubs,
+    currentlyReading,
+  });
 
   useEffect(() => {
     if (!progressActionMessage) return undefined;
@@ -132,243 +153,6 @@ function Dashboard() {
         section: 'progress',
       };
     });
-  };
-
-  const fetchDiscussionsForProgress = async (
-    progress,
-    {
-      forceRefresh = false,
-      showLoading = true,
-    } = {}
-  ) => {
-    const progressId = progress?._id;
-    const clubId = progress?.club?._id;
-    const bookId = progress?.book?._id;
-
-    if (progress?.club?.isArchived) {
-      return;
-    }
-
-    if (!progressId || !clubId || !bookId) return;
-
-    if (!forceRefresh && discussionsByProgressId[progressId]) {
-      return;
-    }
-
-    try {
-      if (showLoading) {
-        setDiscussionsLoadingId(progressId);
-      }
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progressId]: '',
-      }));
-
-      const { data } = await api.get('/comments', {
-        params: {
-          club: clubId,
-          book: bookId,
-        },
-      });
-
-      setDiscussionsByProgressId((previousDiscussions) => ({
-        ...previousDiscussions,
-        [progressId]: mapCommentsToDiscussion(data.data || []),
-      }));
-    } catch (err) {
-      console.log(
-        'DASHBOARD DISCUSSIONS ERROR:',
-        err.response?.data || err
-      );
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progressId]:
-          err.response?.data?.message ||
-          'Could not load discussions for this book.',
-      }));
-    } finally {
-      if (showLoading) {
-        setDiscussionsLoadingId('');
-      }
-    }
-  };
-
-  const handleCreateDashboardDiscussion = async (
-    progress,
-    discussionData
-  ) => {
-    const clubId = progress?.club?._id;
-    const bookId = progress?.book?._id;
-
-    if (!clubId || !bookId) return;
-
-    try {
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]: '',
-      }));
-
-      await api.post('/comments', {
-        club: clubId,
-        book: bookId,
-        title: discussionData.title,
-        text: discussionData.body,
-        chapterNumber: discussionData.chapterNumber,
-        isSpoilerFreeReview: discussionData.spoilerFree,
-        parentComment: null,
-      });
-
-      setNewDiscussionProgressId('');
-
-      await fetchDiscussionsForProgress(progress, {
-        forceRefresh: true,
-        showLoading: false,
-      });
-    } catch (err) {
-      console.log(
-        'CREATE DASHBOARD DISCUSSION ERROR:',
-        err.response?.data || err
-      );
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]:
-          err.response?.data?.message ||
-          'Failed to publish the discussion.',
-      }));
-    }
-  };
-
-  const handleCreateDiscussionReply = async (
-    progress,
-    thread,
-    replyText,
-    chapterNumber
-  ) => {
-    const clubId = progress?.club?._id;
-    const bookId = progress?.book?._id;
-
-    if (!clubId || !bookId) return;
-
-    try {
-      await api.post('/comments', {
-        club: clubId,
-        book: bookId,
-        text: replyText,
-        chapterNumber,
-        parentComment: thread._id,
-      });
-
-      await fetchDiscussionsForProgress(progress, {
-        forceRefresh: true,
-        showLoading: false,
-      });
-    } catch (err) {
-      console.log(
-        'DASHBOARD DISCUSSION REPLY ERROR:',
-        err.response?.data || err
-      );
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]:
-          err.response?.data?.message ||
-          'Failed to publish your reply.',
-      }));
-
-      throw err;
-    }
-  };
-
-  const handleToggleDiscussionLike = async (progress, commentId) => {
-    if (!progress?.book?._id || !progress?.club?._id) return;
-
-    try {
-      await api.post(`/comments/${commentId}/like`);
-
-      await fetchDiscussionsForProgress(progress, {
-        forceRefresh: true,
-        showLoading: false,
-      });
-    } catch (err) {
-      console.log(
-        'DASHBOARD DISCUSSION LIKE ERROR:',
-        err.response?.data || err
-      );
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]:
-          err.response?.data?.message ||
-          'Failed to update the like.',
-      }));
-    }
-  };
-
-  const handleDeleteDiscussionComment = async (
-    progress,
-    commentId
-  ) => {
-    try {
-      await api.delete(`/comments/${commentId}`);
-
-      await fetchDiscussionsForProgress(progress, {
-        forceRefresh: true,
-        showLoading: false,
-      });
-    } catch (err) {
-      console.log(
-        'DELETE DASHBOARD COMMENT ERROR:',
-        err.response?.data || err
-      );
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]:
-          err.response?.data?.message ||
-          'Failed to delete comment.',
-      }));
-    }
-  };
-
-  const handleUpdateDiscussionComment = async (
-    progress,
-    commentId,
-    updateData
-  ) => {
-    try {
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]: '',
-      }));
-
-      await api.patch(`/comments/${commentId}`, {
-        text: updateData.text,
-        chapterNumber: updateData.chapterNumber,
-        isSpoilerFreeReview: updateData.isSpoilerFreeReview,
-      });
-
-      await fetchDiscussionsForProgress(progress, {
-        forceRefresh: true,
-        showLoading: false,
-      });
-    } catch (err) {
-      console.log(
-        'UPDATE DASHBOARD COMMENT ERROR:',
-        err.response?.data || err
-      );
-
-      setDiscussionsErrors((previousErrors) => ({
-        ...previousErrors,
-        [progress._id]:
-          err.response?.data?.message ||
-          'Failed to update discussion.',
-      }));
-
-      throw err;
-    }
   };
 
   const handleChangeReadSection = async (progress, section) => {
@@ -474,107 +258,6 @@ function Dashboard() {
     }
   };
 
-  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
-
-  useEffect(() => {
-    const trimmedQuery = searchQuery.trim();
-
-    if (trimmedQuery.length < 2) {
-      setUserSearchResults([]);
-      setUserSearchError('');
-      setUserSearchLoading(false);
-      return undefined;
-    }
-
-    const controller = new AbortController();
-
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        setUserSearchLoading(true);
-        setUserSearchError('');
-
-        const response = await api.get('/users/search', {
-          params: {
-            username: trimmedQuery,
-          },
-          signal: controller.signal,
-        });
-
-        setUserSearchResults(
-          Array.isArray(response.data.data) ? response.data.data : []
-        );
-      } catch (err) {
-        if (
-          err.name === 'CanceledError' ||
-          err.code === 'ERR_CANCELED'
-        ) {
-          return;
-        }
-
-        console.log(
-          'DASHBOARD USER SEARCH ERROR:',
-          err.response?.data || err
-        );
-
-        setUserSearchResults([]);
-        setUserSearchError(
-          err.response?.data?.message ||
-          'Could not search for readers.'
-        );
-      } finally {
-        if (!controller.signal.aborted) {
-          setUserSearchLoading(false);
-        }
-      }
-    }, 350);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-      controller.abort();
-    };
-  }, [searchQuery]);
-
-  const filteredClubs = useMemo(() => {
-    const clubList = Array.isArray(clubs) ? clubs : [];
-
-    if (!normalizedSearchQuery) {
-      return clubList;
-    }
-
-    return clubList.filter((club) => {
-      const searchableText = [
-        club.name,
-        club.description,
-        club.currentBookTitle,
-        club.currentBook?.title,
-        club.currentBook?.author,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return searchableText.includes(normalizedSearchQuery);
-    });
-  }, [clubs, normalizedSearchQuery]);
-
-  const filteredCurrentReads = useMemo(() => {
-    if (!normalizedSearchQuery) {
-      return currentlyReading;
-    }
-
-    return currentlyReading.filter((progress) => {
-      const searchableText = [
-        progress.book?.title,
-        progress.book?.author,
-        progress.club?.name,
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-
-      return searchableText.includes(normalizedSearchQuery);
-    });
-  }, [currentlyReading, normalizedSearchQuery]);
 
   const dashboardLoading = clubsLoading || currentReadsLoading;
   const dashboardError = clubsError || currentReadsError;
@@ -725,14 +408,8 @@ function Dashboard() {
                   onChangeReadSection={handleChangeReadSection}
                   onUpdateProgress={handleUpdateProgress}
                   onMarkAsDnf={handleMarkAsDnf}
-                  onToggleNewDiscussion={(progressId) =>
-                    setNewDiscussionProgressId((currentId) =>
-                      currentId === progressId ? '' : progressId
-                    )
-                  }
-                  onCancelNewDiscussion={() =>
-                    setNewDiscussionProgressId('')
-                  }
+                  onToggleNewDiscussion={handleToggleNewDiscussion}
+                  onCancelNewDiscussion={handleCancelNewDiscussion}
                   onCreateDiscussion={handleCreateDashboardDiscussion}
                   onCreateReply={handleCreateDiscussionReply}
                   onToggleDiscussionLike={handleToggleDiscussionLike}
