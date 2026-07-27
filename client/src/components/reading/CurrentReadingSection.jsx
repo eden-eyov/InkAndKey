@@ -1,4 +1,4 @@
-import CurrentBookInfo from './CurrentBookInfo';
+import CurrentBookInfo from '../books/CurrentBookInfo';
 import ProgressTracker from './ProgressTracker';
 import SetCurrentBookModal from './SetCurrentBookModal';
 

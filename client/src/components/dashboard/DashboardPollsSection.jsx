@@ -1,4 +1,4 @@
-import PollCard from './PollCard';
+import PollCard from '../polls/PollCard';
 
 function DashboardPollsSection({
   activePolls,

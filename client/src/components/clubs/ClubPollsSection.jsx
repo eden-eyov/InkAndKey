@@ -1,5 +1,5 @@
-import PollCard from './PollCard';
-import CreatePollModal from './CreatePollModal';
+import PollCard from '../polls/PollCard';
+import CreatePollModal from '../polls/CreatePollModal';
 
 function ClubPollsSection({
   poll,

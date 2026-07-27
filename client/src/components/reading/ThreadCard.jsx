@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import LockedContent from './LockedContent';
+import LockedContent from '../routing/LockedContent';
 
 function AuthorLink({ userId, name, isDeleted = false }) {
   const displayName = isDeleted ? 'Deleted user' : name || 'Reader';

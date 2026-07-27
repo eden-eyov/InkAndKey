@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useAuth } from '../context/AuthContext';
 import { fetchAllClubs } from '../store/clubsSlice';
 
-import ClubCard from '../components/ClubCard';
+import ClubCard from '../components/clubs/ClubCard';
 
 function DiscoverClubs() {
   const dispatch = useDispatch();

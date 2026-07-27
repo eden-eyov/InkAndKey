@@ -1,7 +1,7 @@
 import { Suspense, lazy } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import Navbar from './components/Navbar';
-import PrivateRoute from './components/PrivateRoute';
+import Navbar from './components/layout/Navbar';
+import PrivateRoute from './components/routing/PrivateRoute';
 
 // Lazy-loaded pages for performance optimization
 const HomePage = lazy(() => import('./pages/HomePage'));

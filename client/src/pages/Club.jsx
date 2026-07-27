@@ -7,12 +7,12 @@ import { fetchAllClubs, fetchUserClubs } from '../store/clubsSlice';
 import useSetCurrentBook from '../hooks/useSetCurrentBook';
 import useClubPolls from '../hooks/useClubPolls';
 
-import CurrentReadingSection from '../components/CurrentReadingSection';
-import DiscussionsSection from '../components/DiscussionsSection';
-import BookRatingModal from '../components/BookRatingModal';
-import PreviousBooksSection from '../components/PreviousBooksSection';
-import ClubHeaderCard from '../components/ClubHeaderCard';
-import ClubPollsSection from '../components/ClubPollsSection';
+import CurrentReadingSection from '../components/reading/CurrentReadingSection';
+import DiscussionsSection from '../components/reading/DiscussionsSection';
+import BookRatingModal from '../components/reading/BookRatingModal';
+import PreviousBooksSection from '../components/books/PreviousBooksSection';
+import ClubHeaderCard from '../components/clubs/ClubHeaderCard';
+import ClubPollsSection from '../components/clubs/ClubPollsSection';
 
 import {
   DESCRIPTION_PREVIEW_LENGTH,

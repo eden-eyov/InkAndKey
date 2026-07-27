@@ -1,4 +1,4 @@
-import GENRES from '../utils/genres';
+import GENRES from '../../utils/genres';
 
 function SetCurrentBookModal({
     isOpen,

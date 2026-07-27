@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
-import ProgressTracker from './ProgressTracker';
-import ThreadCard from './ThreadCard';
-import AddThreadForm from './AddThreadForm';
+import ProgressTracker from '../reading/ProgressTracker';
+import ThreadCard from '../reading/ThreadCard';
+import AddThreadForm from '../reading/AddThreadForm';
 
 function DashboardReadingTab({
   filteredCurrentReads,
