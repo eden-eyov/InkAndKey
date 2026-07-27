@@ -74,6 +74,132 @@ The application follows a client-server architecture where a React frontend comm
 
 ---
 
+# 🗄 MongoDB Schema and Relationships
+
+The application uses MongoDB with Mongoose. The data model is organized into separate collections connected through document references.
+
+## Collections
+
+### User
+
+Stores user account and profile information.
+
+Relationships:
+- Creates book clubs
+- Joins multiple clubs
+- Has reading progress records
+- Writes comments and replies
+- Creates polls
+- Votes in polls
+
+### Club
+
+Represents a book club.
+
+Relationships:
+- Created by one user
+- Contains multiple members
+- Has one current book
+- Stores previous books
+- Is associated with comments, polls, and reading progress records
+
+### Book
+
+Stores information about a book, including metadata retrieved from the Google Books API.
+
+Relationships:
+- Belongs to one club
+- Can be the current or a previous book of a club
+- Is associated with comments
+- Is associated with reading progress records
+- Can become the winning book of a poll
+
+### ReadingProgress
+
+Represents a user's progress for a specific book inside a specific club.
+
+Relationships:
+- References one user
+- References one club
+- References one book
+
+Stores:
+- Current chapter
+- Reading status
+- Completion status
+- Personal rating
+
+### Comment
+
+Represents a discussion thread or a reply.
+
+Relationships:
+- Belongs to one club
+- Belongs to one book
+- Written by one user
+- May reference another comment as its parent (threaded replies)
+
+Stores:
+- Chapter number
+- Spoiler-free review flag
+- Likes
+- Soft-delete information
+
+### Poll
+
+Represents a club poll used to select the next book.
+
+Relationships:
+- Belongs to one club
+- Created by one user
+- Contains multiple embedded poll options
+- May reference the winning Book after the poll is completed
+
+### PollVote
+
+Represents a user's vote in a poll.
+
+Relationships:
+- References one poll
+- References one club
+- References one user
+- References the selected poll option
+
+A unique index ensures that each user can vote only once per poll.
+
+## Collection Relationships
+
+```text
+User
+ ├── creates ─────────────► Club
+ ├── joins ───────────────► Club
+ ├── writes ──────────────► Comment
+ ├── creates ─────────────► Poll
+ ├── tracks progress ─────► ReadingProgress
+ └── votes ───────────────► PollVote
+
+Club
+ ├── currentBook ─────────► Book
+ ├── previousBooks ───────► Book
+ ├── contains ────────────► Comment
+ ├── contains ────────────► Poll
+ └── has ─────────────────► ReadingProgress
+
+Book
+ ├── belongs to ──────────► Club
+ ├── discussed in ────────► Comment
+ ├── tracked by ──────────► ReadingProgress
+ └── may become winner of ► Poll
+
+Comment
+ └── parentComment ───────► Comment (self-reference)
+
+Poll
+ └── receives ────────────► PollVote
+```
+
+---
+
 # 📁 Project Structure
 
 ```text
