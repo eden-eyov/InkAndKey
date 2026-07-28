@@ -880,6 +880,12 @@ function Club() {
     onClubListsRefresh: refreshClubLists,
   });
 
+  useEffect(() => {
+    if (!user || !club) return;
+
+    void clubPolls.fetchClubPolls(false);
+  }, [user, club?.members]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-cream flex justify-center items-center">
